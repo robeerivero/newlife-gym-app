@@ -1,0 +1,13 @@
+# Ignorar .env del backend
+backend/.env
+
+# Flutter y Node typical ignores
+**/build/
+**/node_modules/
+.dart_tool/
+.packages
+.idea/
+.vscode/
+.flutter-plugins
+.flutter-plugins-dependencies
+.DS_Store
