@@ -1,18 +1,17 @@
+// backend/controllers/authController.js
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Usuario = require('../models/Usuario');
 
-// Generar tokens
-const generarToken = (id, rol, expiresIn = '1d') => {
+const generarToken = (id, rol, expiresIn) => {
   return jwt.sign({ id, rol }, process.env.JWT_SECRET, { expiresIn });
 };
 
-// Inicio de sesión con refresh token
-exports.loginConRecordarSesion = async (req, res) => {
-  const { correo, contrasena } = req.body;
+exports.login = async (req, res) => {
+  const { correo, contrasena, recordar } = req.body;
 
   try {
-    const usuario = await Usuario.findOne({ correo });
+    const usuario = await Usuario.findOne({ correo }).select('+contrasena');
     if (!usuario) {
       return res.status(400).json({ mensaje: 'Credenciales inválidas' });
     }
@@ -21,16 +20,24 @@ exports.loginConRecordarSesion = async (req, res) => {
     if (!contrasenaValida) {
       return res.status(400).json({ mensaje: 'Credenciales inválidas' });
     }
-    
-    // Generar access token y refresh token
-    const accessToken = generarToken(usuario._id, usuario.rol, '15m'); // 15 minutos
-    const refreshToken = generarToken(usuario._id, usuario.rol, '7d'); // 7 días
-    
+
+    // Configurar tiempos de expiración
+    const accessTokenExpira = recordar ? '12h' : '1h';
+    const refreshTokenExpira = '30d';
+
+    const accessToken = generarToken(usuario._id, usuario.rol, accessTokenExpira);
+    const refreshToken = generarToken(usuario._id, usuario.rol, refreshTokenExpira);
+
     res.status(200).json({
       mensaje: 'Inicio de sesión exitoso',
       accessToken,
       refreshToken,
-      usuario: { id: usuario._id, nombre: usuario.nombre, correo: usuario.correo, rol: usuario.rol },
+      usuario: {
+        id: usuario._id,
+        nombre: usuario.nombre,
+        correo: usuario.correo,
+        rol: usuario.rol
+      }
     });
   } catch (error) {
     console.error('Error al iniciar sesión:', error);
@@ -38,22 +45,41 @@ exports.loginConRecordarSesion = async (req, res) => {
   }
 };
 
-// Renovar el token de acceso
 exports.renovarToken = async (req, res) => {
   const { refreshToken } = req.body;
 
   try {
-    if (!refreshToken) {
-      return res.status(400).json({ mensaje: 'Token de refresco requerido' });
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const usuario = await Usuario.findById(decoded.id);
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const newAccessToken = generarToken(usuario._id, usuario.rol, '12h');
+    const newRefreshToken = generarToken(usuario._id, usuario.rol, '30d');
 
-    const accessToken = generarToken(decoded.id, decoded.rol, '15m'); // Renovar por 15 minutos
-
-    res.status(200).json({ accessToken });
+    res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    });
   } catch (error) {
-    console.error('Error al renovar el token:', error);
-    res.status(401).json({ mensaje: 'Token de refresco inválido o expirado' });
+    console.error('Error al renovar token:', error);
+    res.status(401).json({ mensaje: 'Token de refresco inválido' });
+  }
+};
+
+exports.verificarToken = async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.user.id).select('-contrasena');
+    const nuevoAccessToken = generarToken(usuario._id, usuario.rol, '12h');
+
+    res.status(200).json({
+      usuario,
+      accessToken: nuevoAccessToken
+    });
+  } catch (error) {
+    console.error('Error verificando token:', error);
+    res.status(500).json({ mensaje: 'Error al verificar sesión' });
   }
 };
