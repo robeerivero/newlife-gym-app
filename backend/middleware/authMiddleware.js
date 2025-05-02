@@ -2,6 +2,9 @@
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 
+/**
+ * Middleware para verificar el token JWT y proteger rutas privadas.
+ */
 exports.proteger = async (req, res, next) => {
   let token;
   
@@ -33,13 +36,31 @@ exports.proteger = async (req, res, next) => {
   }
 };
 
-exports.verificarRol = (...roles) => {
+/**
+ * Middleware para verificar el rol del usuario.
+ * @param {String} role - El rol requerido (por ejemplo, 'admin').
+ */
+exports.verificarRol = (role) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.rol)) {
-      return res.status(403).json({
-        mensaje: `Rol ${req.user.rol} no tiene acceso a este recurso`
-      });
+    // Verificar si req.user existe
+    if (!req.user) {
+      console.log('Usuario no autenticado. req.user no definido.');
+      return res.status(401).json({ mensaje: 'No autenticado' });
     }
-    next();
+
+    // Verificar el rol del usuario
+    if (req.user.rol === role) {
+      next();
+    } else {
+      console.log(`Rol no autorizado: ${req.user.rol}`);
+      return res.status(403).json({ mensaje: 'Acceso denegado, no tienes permisos suficientes' });
+    }
   };
 };
+
+/**
+ * Middleware específico para verificar si el usuario es administrador.
+ */
+exports.esAdministrador = exports.verificarRol('admin');
+
+
