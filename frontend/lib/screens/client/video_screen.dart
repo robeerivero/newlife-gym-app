@@ -5,61 +5,64 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'dart:convert';
 import '../../config.dart';
 
+// Pantalla principal de videos
 class VideoScreen extends StatefulWidget {
   const VideoScreen({super.key});
 
   @override
-  State<VideoScreen> createState() => _VideoScreenState();
+  State<VideoScreen> createState() => _EstadoVideoScreen();
 }
 
-class _VideoScreenState extends State<VideoScreen> {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  bool _isLoading = true;
-  String _errorMessage = '';
+class _EstadoVideoScreen extends State<VideoScreen> {
+  final FlutterSecureStorage _almacenamiento = const FlutterSecureStorage();
+  bool _cargando = true;
+  String _mensajeError = '';
   List<dynamic> _videos = [];
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _controladorBusqueda = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchVideos();
+    _obtenerVideos();
   }
 
-  Future<void> _fetchVideos() async {
-    setState(() => _isLoading = true);
+  // Obtiene los videos desde la API
+  Future<void> _obtenerVideos() async {
+    setState(() => _cargando = true);
 
     try {
-      final token = await _storage.read(key: 'jwt_token');
+      final token = await _almacenamiento.read(key: 'jwt_token');
       
-      final response = await http.get(
+      final respuesta = await http.get(
         Uri.parse('${AppConstants.baseUrl}/api/videos'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      if (response.statusCode == 200) {
-        setState(() => _videos = json.decode(response.body));
+      if (respuesta.statusCode == 200) {
+        setState(() => _videos = json.decode(respuesta.body));
       } else {
-        setState(() => _errorMessage = 'Error cargando videos');
+        setState(() => _mensajeError = 'Error cargando videos');
       }
     } catch (e) {
-      setState(() => _errorMessage = 'Error de conexión');
+      setState(() => _mensajeError = 'Error de conexión');
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => _cargando = false);
     }
   }
 
-  void _showVideoPlayer(String videoUrl) {
-    final videoId = YoutubePlayer.convertUrlToId(videoUrl);
+  // Muestra el reproductor de video
+  void _mostrarReproductor(String urlVideo) {
+    final idVideo = YoutubePlayer.convertUrlToId(urlVideo);
     
-    if (videoId == null) {
+    if (idVideo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enlace no válido')),
       );
       return;
     }
 
-    final currentVideo = _videos.firstWhere(
-      (v) => v['url'] == videoUrl,
+    final videoActual = _videos.firstWhere(
+      (v) => v['url'] == urlVideo,
       orElse: () => {'titulo': 'Video sin título'},
     );
 
@@ -67,14 +70,15 @@ class _VideoScreenState extends State<VideoScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => Scaffold(
+          backgroundColor: const Color(0xFFE3F2FD),
           body: OrientationBuilder(
-            builder: (context, orientation) {
-              return _VideoPlayerContent(
-                videoId: videoId,
-                videoTitle: currentVideo['titulo'],
-                orientation: orientation,
-                allVideos: _videos,
-                onVideoSelected: (newUrl) => _showVideoPlayer(newUrl),
+            builder: (context, orientacion) {
+              return ContenidoReproductor(
+                idVideo: idVideo,
+                tituloVideo: videoActual['titulo'],
+                orientacion: orientacion,
+                todosVideos: _videos,
+                alSeleccionarVideo: (nuevaUrl) => _mostrarReproductor(nuevaUrl),
               );
             },
           ),
@@ -86,70 +90,76 @@ class _VideoScreenState extends State<VideoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFE3F2FD),
       appBar: AppBar(
         title: const Text('Video Tutoriales'),
+        backgroundColor: const Color(0xFF1E88E5),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Icons.search, color: Colors.white),
             onPressed: () => showSearch(
               context: context,
-              delegate: VideoSearch(videos: _videos),
+              delegate: BuscadorVideos(
+                videos: _videos,
+                alSeleccionar: _mostrarReproductor,
+              ),
             ),
           ),
         ],
       ),
       body: OrientationBuilder(
-        builder: (context, orientation) {
-          return _buildContent(orientation);
+        builder: (context, orientacion) {
+          return _construirContenido(orientacion);
         },
       ),
     );
   }
 
-  Widget _buildContent(Orientation orientation) {
-    if (_isLoading) {
+  // Construye el contenido según la orientación
+  Widget _construirContenido(Orientation orientacion) {
+    if (_cargando) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_errorMessage.isNotEmpty) {
-      return Center(child: Text(_errorMessage));
+    if (_mensajeError.isNotEmpty) {
+      return Center(child: Text(_mensajeError));
     }
 
-    if (orientation == Orientation.portrait) {
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildVideoGrid(2),
-            _buildRecommendedSection(),
-          ],
-        ),
-      );
-    } else {
-      return _buildVideoGrid(4);
-    }
+    return orientacion == Orientation.portrait
+        ? SingleChildScrollView(
+            child: Column(
+              children: [
+                _construirCuadricula(2),
+                _construirSeccionRecomendados(),
+              ],
+            ),
+          )
+        : _construirCuadricula(4);
   }
 
-  Widget _buildVideoGrid(int crossAxisCount) {
+  // Cuadrícula de videos
+  Widget _construirCuadricula(int columnas) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(8),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
+        crossAxisCount: columnas,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
         childAspectRatio: 0.8,
       ),
       itemCount: _videos.length,
-      itemBuilder: (context, index) {
-        final video = _videos[index];
-        return _buildVideoCard(video);
+      itemBuilder: (context, indice) {
+        final video = _videos[indice];
+        return _construirTarjetaVideo(video);
       },
     );
   }
 
-  Widget _buildRecommendedSection() {
-    final recommendedVideos = _videos.take(5).toList();
+  // Sección de videos recomendados
+  Widget _construirSeccionRecomendados() {
+    final recomendados = _videos.take(5).toList();
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,13 +178,13 @@ class _VideoScreenState extends State<VideoScreen> {
           height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: recommendedVideos.length,
-            itemBuilder: (context, index) {
-              final video = recommendedVideos[index];
+            itemCount: recomendados.length,
+            itemBuilder: (context, indice) {
+              final video = recomendados[indice];
               return Container(
                 width: 160,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
-                child: _buildVideoCard(video),
+                child: _construirTarjetaVideo(video),
               );
             },
           ),
@@ -183,9 +193,10 @@ class _VideoScreenState extends State<VideoScreen> {
     );
   }
 
-  Widget _buildVideoCard(dynamic video) {
+  // Tarjeta individual de video
+  Widget _construirTarjetaVideo(dynamic video) {
     return GestureDetector(
-      onTap: () => _showVideoPlayer(video['url']),
+      onTap: () => _mostrarReproductor(video['url']),
       child: Card(
         elevation: 4,
         shape: RoundedRectangleBorder(
@@ -206,6 +217,10 @@ class _VideoScreenState extends State<VideoScreen> {
                       'https://via.placeholder.com/150',
                       fit: BoxFit.cover,
                       width: double.infinity,
+                      cacheWidth: 300,
+                      loadingBuilder: (context, child, progreso) => progreso == null 
+                          ? child 
+                          : const CircularProgressIndicator(),
                     ),
                   ),
                   const Icon(Icons.play_circle_filled,
@@ -232,39 +247,40 @@ class _VideoScreenState extends State<VideoScreen> {
   }
 }
 
-class _VideoPlayerContent extends StatefulWidget {
-  final String videoId;
-  final String videoTitle;
-  final Orientation orientation;
-  final List<dynamic> allVideos;
-  final Function(String) onVideoSelected;
+// Contenido del reproductor de video
+class ContenidoReproductor extends StatefulWidget {
+  final String idVideo;
+  final String tituloVideo;
+  final Orientation orientacion;
+  final List<dynamic> todosVideos;
+  final Function(String) alSeleccionarVideo;
 
-  const _VideoPlayerContent({
-    required this.videoId,
-    required this.videoTitle,
-    required this.orientation,
-    required this.allVideos,
-    required this.onVideoSelected,
+  const ContenidoReproductor({
+    required this.idVideo,
+    required this.tituloVideo,
+    required this.orientacion,
+    required this.todosVideos,
+    required this.alSeleccionarVideo,
   });
 
   @override
-  State<_VideoPlayerContent> createState() => __VideoPlayerContentState();
+  State<ContenidoReproductor> createState() => _EstadoContenidoReproductor();
 }
 
-class __VideoPlayerContentState extends State<_VideoPlayerContent> {
-  late YoutubePlayerController _controller;
-  Duration _currentPosition = Duration.zero;
-  bool _isControllerReady = false;
+class _EstadoContenidoReproductor extends State<ContenidoReproductor> {
+  late YoutubePlayerController _controlador;
+  Duration _posicionActual = Duration.zero;
+  bool _controladorListo = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
+    _inicializarControlador();
   }
 
-  void _initializeController() {
-    _controller = YoutubePlayerController(
-      initialVideoId: widget.videoId,
+  void _inicializarControlador() {
+    _controlador = YoutubePlayerController(
+      initialVideoId: widget.idVideo,
       flags: const YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
@@ -272,8 +288,8 @@ class __VideoPlayerContentState extends State<_VideoPlayerContent> {
         forceHD: true,
       ),
     )..addListener(() {
-        if (_isControllerReady) {
-          _currentPosition = _controller.value.position;
+        if (_controladorListo) {
+          _posicionActual = _controlador.value.position;
         }
       });
   }
@@ -281,77 +297,80 @@ class __VideoPlayerContentState extends State<_VideoPlayerContent> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: widget.orientation == Orientation.portrait
+      backgroundColor: const Color(0xFFE3F2FD),
+      appBar: widget.orientacion == Orientation.portrait
           ? AppBar(
+              backgroundColor: const Color(0xFF1E88E5),
+              iconTheme: const IconThemeData(color: Colors.white),
               title: Text(
-                widget.videoTitle,
+                widget.tituloVideo,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             )
           : null,
-      body: _buildMainContent(),
+      body: _construirContenidoPrincipal(),
     );
   }
 
-  Widget _buildMainContent() {
-    if (widget.orientation == Orientation.portrait) {
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildVideoPlayer(16 / 9),
-            _buildRecommendedVideos(),
-          ],
-        ),
-      );
-    } else {
-      return _buildVideoPlayer(MediaQuery.of(context).size.aspectRatio);
-    }
+  Widget _construirContenidoPrincipal() {
+    return widget.orientacion == Orientation.portrait
+        ? SingleChildScrollView(
+            child: Column(
+              children: [
+                _construirReproductor(16 / 9),
+                _construirVideosRecomendados(),
+              ],
+            ),
+          )
+        : _construirReproductor(MediaQuery.of(context).size.aspectRatio);
   }
 
-  Widget _buildVideoPlayer(double aspectRatio) {
+  Widget _construirReproductor(double relacionAspecto) {
     return AspectRatio(
-      aspectRatio: aspectRatio,
+      aspectRatio: relacionAspecto,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onDoubleTapDown: (details) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final tapPosition = details.globalPosition.dx;
+        onDoubleTapDown: (detalles) {
+          final anchoPantalla = MediaQuery.of(context).size.width;
+          final posicionToque = detalles.globalPosition.dx;
           
-          if (tapPosition < screenWidth / 2) {
-            _seekBackward();
-          } else {
-            _seekForward();
-          }
+          posicionToque < anchoPantalla / 2
+              ? _retroceder()
+              : _avanzar();
         },
         child: YoutubePlayer(
-          controller: _controller,
+          controller: _controlador,
           onReady: () {
-            if (_currentPosition.inSeconds > 0) {
-              _controller.seekTo(_currentPosition);
+            if (_posicionActual.inSeconds > 0) {
+              _controlador.seekTo(_posicionActual);
             }
-            setState(() => _isControllerReady = true);
+            setState(() => _controladorListo = true);
           },
         ),
       ),
     );
   }
 
-  void _seekForward() {
-    final newPosition = _controller.value.position + const Duration(seconds: 10);
-    _controller.seekTo(newPosition);
+  void _avanzar() {
+    final nuevaPosicion = _controlador.value.position + const Duration(seconds: 10);
+    _controlador.seekTo(nuevaPosicion);
   }
 
-  void _seekBackward() {
-    final newPosition = _controller.value.position - const Duration(seconds: 10);
-    _controller.seekTo(newPosition > Duration.zero 
-        ? newPosition 
+  void _retroceder() {
+    final nuevaPosicion = _controlador.value.position - const Duration(seconds: 10);
+    _controlador.seekTo(nuevaPosicion > Duration.zero 
+        ? nuevaPosicion 
         : Duration.zero);
   }
 
-  Widget _buildRecommendedVideos() {
-    final recommendedVideos = widget.allVideos
-        .where((v) => v['url'] != _controller.metadata.videoId)
+  Widget _construirVideosRecomendados() {
+    final recomendados = widget.todosVideos
+        .where((v) => v['url'] != _controlador.metadata.videoId)
         .take(5)
         .toList();
 
@@ -372,9 +391,9 @@ class __VideoPlayerContentState extends State<_VideoPlayerContent> {
           height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: recommendedVideos.length,
-            itemBuilder: (context, index) {
-              final video = recommendedVideos[index];
+            itemCount: recomendados.length,
+            itemBuilder: (context, indice) {
+              final video = recomendados[indice];
               return Container(
                 width: 250,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -383,7 +402,7 @@ class __VideoPlayerContentState extends State<_VideoPlayerContent> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: InkWell(
-                    onTap: () => widget.onVideoSelected(video['url']),
+                    onTap: () => widget.alSeleccionarVideo(video['url']),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -423,15 +442,17 @@ class __VideoPlayerContentState extends State<_VideoPlayerContent> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controlador.dispose();
     super.dispose();
   }
 }
 
-class VideoSearch extends SearchDelegate {
+// Buscador de videos
+class BuscadorVideos extends SearchDelegate {
   final List<dynamic> videos;
+  final Function(String) alSeleccionar;
 
-  VideoSearch({required this.videos});
+  BuscadorVideos({required this.videos, required this.alSeleccionar});
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -448,51 +469,32 @@ class VideoSearch extends SearchDelegate {
       );
 
   @override
-  Widget buildResults(BuildContext context) => _buildSearchResults();
+  Widget buildResults(BuildContext context) => _construirResultados();
 
   @override
-  Widget buildSuggestions(BuildContext context) => _buildSearchResults();
+  Widget buildSuggestions(BuildContext context) => _construirResultados();
 
-  Widget _buildSearchResults() {
-    final results = videos.where((video) =>
-        (video['titulo']?.toLowerCase().contains(query.toLowerCase()) ?? false))
-        .toList();
+  Widget _construirResultados() {
+    final resultados = videos.where((video) => 
+      (video['titulo']?.toString().toLowerCase().contains(query.toLowerCase()) ?? false)
+    ).toList();
 
     return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final video = results[index];
+      itemCount: resultados.length,
+      itemBuilder: (context, indice) {
+        final video = resultados[indice];
         return ListTile(
-          leading: Image.network(
-            video['thumbnail'] ?? 'https://via.placeholder.com/150',
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
+          leading: CircleAvatar(
+            backgroundImage: NetworkImage(video['thumbnail'] ?? 'https://via.placeholder.com/150'),
           ),
           title: Text(video['titulo'] ?? 'Sin título'),
+          subtitle: const Text('Haz clic para reproducir'),
           onTap: () {
-            final videoId = YoutubePlayer.convertUrlToId(video['url']);
-            if (videoId != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(),
-                    body: YoutubePlayer(
-                      controller: YoutubePlayerController(
-                        initialVideoId: videoId,
-                        flags: const YoutubePlayerFlags(autoPlay: true),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
+            close(context, null); // Cerrar buscador primero
+            alSeleccionar(video['url']); // Luego navegar
           },
         );
       },
     );
   }
 }
-
-

@@ -151,26 +151,7 @@ class ClassScreenState extends State<ClassScreen> {
                 _errorMessage!,
                 style: const TextStyle(color: Colors.red, fontSize: 16),
               ),
-            ),
-          if (cancelaciones > 0)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ReserveClassScreen(),
-                    ),
-                  ).then((_) => {fetchNextClasses(),_fetchProfile()});
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Reservar una clase'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                ),
-              ),
-            ),
+            ),          
           Expanded(
             child: nextClasses.isEmpty
                 ? const Center(
@@ -196,7 +177,7 @@ class ClassScreenState extends State<ClassScreen> {
                             children: [
                               // Título en mayúsculas
                               Text(
-                                (classItem['nombre'] ?? 'Sin nombre').toUpperCase(),
+                                '${(classItem['dia']).toUpperCase()} - ${(classItem['horaInicio']).toUpperCase()}',
                                 style: const TextStyle(
                                   fontSize: 20, 
                                   fontWeight: FontWeight.bold,
@@ -207,9 +188,10 @@ class ClassScreenState extends State<ClassScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Fecha: ${formatDate(classItem['fecha'])}'),
-                                  Text('Día: ${classItem['dia']}'),
-                                  Text('Hora: ${classItem['horaInicio']}'),
+                                  Text('Fecha: ${formatDate(classItem['fecha'])}',
+                                    style: const TextStyle(fontSize: 14),),
+                                  Text('Tipo: ${(classItem['nombre'] ?? 'Sin nombre').toUpperCase()}',
+                                    style: const TextStyle(fontSize: 14),),
                                 ],
                               ),
                               const SizedBox(height: 16), // Espaciado entre detalles y los indicadores
@@ -272,6 +254,25 @@ class ClassScreenState extends State<ClassScreen> {
                     },
                   ),
           ),
+          if (cancelaciones > 0)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ReserveClassScreen(),
+                    ),
+                  ).then((_) => {fetchNextClasses(),_fetchProfile()});
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Reservar una clase'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+              ),
+            ),
         ],
       ),
     );

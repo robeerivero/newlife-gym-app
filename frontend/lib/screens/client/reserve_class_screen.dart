@@ -19,6 +19,7 @@ class _ReserveClassScreenState extends State<ReserveClassScreen> {
   String errorMessage = '';
   DateTime _selectedDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
+  int _cancelaciones = -1;
 
   @override
   void initState() {
@@ -53,6 +54,19 @@ class _ReserveClassScreenState extends State<ReserveClassScreen> {
         final data = json.decode(response.body);
         setState(() {
           userClassTypes = List<String>.from(data['tiposDeClases'] ?? []);
+          _cancelaciones = data['cancelaciones'] ?? 0;
+          if (_cancelaciones == 0) {
+            if (mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No puedes reservar debido a cancelaciones pendientes'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+            return;
+          }
           fetchClassesForDate(_selectedDate);
         });
       } else {
@@ -147,6 +161,13 @@ class _ReserveClassScreenState extends State<ReserveClassScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Clase reservada con éxito.')),
         );
+        _cancelaciones--;
+        if (_cancelaciones == 0) {
+          if (mounted) {
+            Navigator.pop(context);
+          }
+          return;
+        }
         fetchClassesForDate(_selectedDate);
       } else {
         setState(() {

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; // Importar localizaciones
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/client_screen.dart';
 import 'screens/online_client_screen.dart';
+import 'screens/splash_screen.dart'; // Añade esta importación
 
 void main() {
   runApp(
     ScreenUtilInit(
-      designSize: Size(360, 690), // Tamaño base del diseño
+      designSize: Size(360, 690),
       minTextAdapt: true,
-      builder: (context, child) =>  MyApp(),
+      builder: (context, child) => MyApp(),
     ),
   );
 }
@@ -25,15 +26,16 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: LoginScreen(),
+      home: SplashScreen(), // Cambia a SplashScreen
       routes: {
+        '/login': (context) => LoginScreen(), // Añade esta ruta
         '/admin': (context) => AdminScreen(),
         '/client': (context) => ClientScreen(),
         '/online': (context) => OnlineClientScreen(),
       },
       supportedLocales: const [
-        Locale('es', ''), // Español
-        Locale('en', ''), // Inglés
+        Locale('es', ''),
+        Locale('en', ''),
       ],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -43,4 +45,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

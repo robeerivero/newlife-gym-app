@@ -13,7 +13,7 @@ class DietScreen extends StatefulWidget {
 
 class _DietScreenState extends State<DietScreen> {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  DateTime? _selectedFecha;
+  DateTime _selectedFecha= DateTime.now();
   List<dynamic> _platos = [];
   bool _isLoading = false;
   String _errorMessage = '';
@@ -82,13 +82,13 @@ class _DietScreenState extends State<DietScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchPlatosPorFecha(_selectedFecha); 
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD),
-      appBar: AppBar(
-        title: const Text('Mis Dietas', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1E88E5),
-      ),
       body: Column(
         children: [
           if (_errorMessage.isNotEmpty)
@@ -101,9 +101,7 @@ class _DietScreenState extends State<DietScreen> {
             ),
           ListTile(
             title: Text(
-              _selectedFecha == null
-                  ? 'Selecciona una fecha'
-                  : 'Fecha seleccionada: ${formatDate(_selectedFecha!)}',
+              'Fecha seleccionada: ${formatDate(_selectedFecha)}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             trailing: IconButton(

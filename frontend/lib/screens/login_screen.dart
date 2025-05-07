@@ -17,11 +17,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _storage = FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
 
   bool _isLoading = false;
   String? _errorMessage;
   bool _showForm = false;
+  bool _rememberMe = false;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -46,42 +47,34 @@ class _LoginScreenState extends State<LoginScreen> {
         final token = data['accessToken'];
 
         if (token != null && token.isNotEmpty) {
-          await _storage.write(key: 'jwt_token', value: token);
+          // Guardar token con opción de recordar
+          await _storage.write(
+            key: 'jwt_token',
+            value: token,
+            aOptions: _rememberMe 
+                ? const AndroidOptions(encryptedSharedPreferences: true)
+                : const AndroidOptions(),
+          );
+
           final role = data['usuario']['rol'];
           if (role == 'admin') {
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/admin');
-            }
+            if (mounted) Navigator.pushReplacementNamed(context, '/admin');
           } else if (role == 'online') {
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/online');
-            }
-          }else {
-            if (mounted) {
-              Navigator.pushReplacementNamed(context, '/client');
-            }
+            if (mounted) Navigator.pushReplacementNamed(context, '/online');
+          } else {
+            if (mounted) Navigator.pushReplacementNamed(context, '/client');
           }
         } else {
-          setState(() {
-            _errorMessage = 'Token vacío recibido';
-          });
+          setState(() => _errorMessage = 'Token vacío recibido');
         }
       } else {
         final data = json.decode(response.body);
-        setState(() {
-          _errorMessage = data['mensaje'] ?? 'Error desconocido';
-        });
+        setState(() => _errorMessage = data['mensaje'] ?? 'Error desconocido');
       }
     } catch (error) {
-      setState(() {
-        _errorMessage = 'Error al conectar con el servidor';
-      });
+      setState(() => _errorMessage = 'Error al conectar con el servidor');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -89,27 +82,25 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: ScreenUtilInit(
-        designSize: const Size(360, 690), // Tamaño base para escalar
+        designSize: const Size(360, 690),
         builder: (context, child) {
           return Column(
             children: [
-              // Imagen de cabecera
               SizedBox(
-                height: 200.h, // Altura fija
+                height: 200.h,
                 width: double.infinity,
                 child: Image.asset(
                   'assets/images/fondo_login.jpg',
                   fit: BoxFit.cover,
                 ),
               ),
-              // Fondo celeste y contenido principal
               Expanded(
                 child: Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFF90CAF9), // Celeste más claro
-                        Color(0xFF42A5F5), // Celeste más oscuro
+                        Color(0xFF90CAF9),
+                        Color(0xFF42A5F5),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -120,7 +111,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
                       child: Column(
                         children: [
-                          // Logo centrado
                           Image.asset(
                             'assets/images/NewLifeLogo.png',
                             height: 300.h,

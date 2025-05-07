@@ -22,8 +22,8 @@ exports.login = async (req, res) => {
     }
 
     // Configurar tiempos de expiración
-    const accessTokenExpira = recordar ? '12h' : '1h';
-    const refreshTokenExpira = '30d';
+    const accessTokenExpira = recordar ? '365d' : '180d';
+    const refreshTokenExpira = '730d';
 
     const accessToken = generarToken(usuario._id, usuario.rol, accessTokenExpira);
     const refreshToken = generarToken(usuario._id, usuario.rol, refreshTokenExpira);
@@ -72,14 +72,13 @@ exports.renovarToken = async (req, res) => {
 exports.verificarToken = async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.user.id).select('-contrasena');
-    const nuevoAccessToken = generarToken(usuario._id, usuario.rol, '12h');
-
+    const nuevoAccessToken = generarToken(usuario._id, usuario.rol, '7d');
+    
     res.status(200).json({
       usuario,
       accessToken: nuevoAccessToken
     });
   } catch (error) {
-    console.error('Error verificando token:', error);
     res.status(500).json({ mensaje: 'Error al verificar sesión' });
   }
 };

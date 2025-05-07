@@ -16,7 +16,7 @@ exports.proteger = async (req, res, next) => {
       
       // Verificar expiración inminente (últimos 15 minutos)
       const ahora = Math.floor(Date.now() / 1000);
-      if (decoded.exp - ahora < 900) {
+      if (decoded.exp - ahora < 7200) {
         req.tokenExpirando = true;
       }
 
