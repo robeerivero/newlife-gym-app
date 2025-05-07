@@ -2,38 +2,36 @@ const Salud = require('../models/Salud');
 const Plato = require('../models/Plato');
 const Dieta = require('../models/Dieta');
 
-// 📌 1. Registrar o actualizar los pasos diarios
 exports.actualizarPasos = async (req, res) => {
     try {
         const usuarioId = req.user.id;
-        const { pasos } = req.body;
+        const { pasos, kcalQuemadas, kcalConsumidas, fecha } = req.body;
 
-        if (!pasos || pasos < 0) {
+        if (pasos == null || pasos < 0) {
             return res.status(400).json({ mensaje: 'Número de pasos inválido' });
         }
 
-        const hoy = new Date().toISOString().split('T')[0];
+        const fechaDia = fecha || new Date().toISOString().split('T')[0];
 
-        let salud = await Salud.findOne({ usuario: usuarioId, fecha: hoy });
+        let salud = await Salud.findOne({ usuario: usuarioId, fecha: fechaDia });
 
         if (!salud) {
-            salud = new Salud({ usuario: usuarioId, fecha: hoy });
+            salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
         }
 
-        // Calcular kcal quemadas (ejemplo: 0.04 kcal por paso)
-        const kcalQuemadas = pasos * 0.04;
-
         salud.pasos = pasos;
-        salud.kcalQuemadas = kcalQuemadas;
+        salud.kcalQuemadas = kcalQuemadas || (pasos * 0.04); // Si no llega quemadas, calcula
+        salud.kcalConsumidas = kcalConsumidas ?? salud.kcalConsumidas; // Si no llega, deja el mismo valor
 
         await salud.save();
 
-        res.json({ mensaje: 'Pasos actualizados', pasos, kcalQuemadas });
+        res.json({ mensaje: 'Pasos y calorías actualizados', salud });
     } catch (error) {
         console.error(error);
         res.status(500).json({ mensaje: 'Error al actualizar pasos' });
     }
 };
+
 
 // 📌 2. Registrar kcal consumidas basadas en la dieta del usuario
 exports.actualizarKcalConsumidas = async (req, res) => {

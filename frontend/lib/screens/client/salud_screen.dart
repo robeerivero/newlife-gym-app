@@ -127,7 +127,7 @@ class _SaludScreenState extends State<SaludScreen> {
     if (token == null) return;
 
     try {
-      await http.post(
+      await http.put(
         Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
         headers: {
           'Content-Type': 'application/json',
