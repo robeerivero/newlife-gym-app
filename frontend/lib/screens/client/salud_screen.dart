@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:health/health.dart';
@@ -56,9 +55,7 @@ class _SaludScreenState extends State<SaludScreen> {
     if (!requested) {
       print('Permiso para datos de salud denegado.');
     }
-    
   }
-
 
   Future<void> _initializePedometer() async {
     try {
@@ -92,7 +89,7 @@ class _SaludScreenState extends State<SaludScreen> {
             _kcalQuemadas = kcalTotal;
           });
 
-          await _actualizarPasosBackend(pasosHoy, kcalPasos, kcalDeporte);
+          await _actualizarPasosBackend(pasosHoy, kcalTotal);
         },
         onError: (error) {
           setState(() => _errorMessage = 'Error al obtener los pasos: $error');
@@ -111,12 +108,11 @@ class _SaludScreenState extends State<SaludScreen> {
   Future<double> _obtenerKcalDeporte() async {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day);
-    final end = now;
     try {
       final data = await _health.getHealthDataFromTypes(
         types: [HealthDataType.ACTIVE_ENERGY_BURNED],
         startTime: start,
-        endTime: end,
+        endTime: now,
       );
       double total = data.fold(0.0, (sum, e) => sum + (e.value as num).toDouble());
       return total;
@@ -126,10 +122,7 @@ class _SaludScreenState extends State<SaludScreen> {
     }
   }
 
-
-
-  Future<void> _actualizarPasosBackend(
-      int pasos, double kcalPasos, double kcalDeporte) async {
+  Future<void> _actualizarPasosBackend(int pasos, double kcalQuemadas) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return;
 
@@ -142,8 +135,9 @@ class _SaludScreenState extends State<SaludScreen> {
         },
         body: json.encode({
           'pasos': pasos,
-          'kcalPasos': kcalPasos,
-          'kcalDeporte': kcalDeporte,
+          'kcalQuemadas': kcalQuemadas,
+          'kcalConsumidas': _kcalConsumidas,
+          'fecha': DateTime.now().toIso8601String().split('T')[0],
         }),
       );
     } catch (e) {
@@ -155,10 +149,7 @@ class _SaludScreenState extends State<SaludScreen> {
 
   Future<void> _obtenerKcalConsumidas() async {
     final token = await _storage.read(key: 'jwt_token');
-    if (token == null) {
-      setState(() => _errorMessage = 'No se encontró el token. Por favor, inicia sesión nuevamente.');
-      return;
-    }
+    if (token == null) return;
 
     try {
       final response = await http.get(
@@ -171,46 +162,9 @@ class _SaludScreenState extends State<SaludScreen> {
         setState(() {
           _kcalConsumidas = (data['kcalConsumidas'] ?? 0).toDouble();
         });
-      } else {
-        print('Error al obtener kcal consumidas');
       }
     } catch (e) {
       print('Error de conexión: $e');
-    }
-  }
-
-  Future<void> _guardarDatosSalud() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return;
-
-    final hoy = DateTime.now().toIso8601String().split('T')[0];
-
-    try {
-      await http.post(
-        Uri.parse('${AppConstants.baseUrl}/api/salud/guardar-datos'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'fecha': hoy,
-          'pasos': _pasos,
-          'kcalQuemadas': _kcalQuemadas,
-          'kcalConsumidas': _kcalConsumidas,
-        }),
-      );
-    } catch (e) {
-      print('Error al guardar datos: $e');
-    }
-  }
-
-  Future<void> _verificarCambioDeDia() async {
-    final hoy = DateTime.now().toIso8601String().split('T')[0];
-    final storedDate = await _storage.read(key: 'steps_date');
-
-    if (storedDate != hoy) {
-      await _guardarDatosSalud();
-      await _storage.write(key: 'steps_date', value: hoy);
     }
   }
 
@@ -230,105 +184,123 @@ class _SaludScreenState extends State<SaludScreen> {
           final ultimo = data.last;
           setState(() {
             _pasos = ultimo['pasos'] ?? 0;
-            _kcalQuemadas = (ultimo['kcalQuemadas'] ?? 0.0).toDouble() +
-                (ultimo['kcalDeporte'] ?? 0.0).toDouble();
+            _kcalQuemadas = (ultimo['kcalQuemadas'] ?? 0.0).toDouble();
             _kcalConsumidas = (ultimo['kcalConsumidas'] ?? 0.0).toDouble();
-            _historial = data
-                .map((e) => {
-                      'fecha': e['fecha'],
-                      'pasos': e['pasos'],
-                      'kcalPasos': e['kcalPasos'],
-                      'kcalDeporte': e['kcalDeporte'],
-                      'kcalConsumidas': e['kcalConsumidas'],
-                    })
-                .toList();
+            _historial = data.map((e) => {
+              'fecha': e['fecha'],
+              'pasos': e['pasos'],
+              'kcalQuemadas': (e['kcalQuemadas'] ?? 0.0).toDouble(),
+              'kcalConsumidas': (e['kcalConsumidas'] ?? 0.0).toDouble(),
+            }).toList();
           });
         }
-      } else {
-        print('Error al obtener historial de salud');
       }
     } catch (e) {
       print('Error de conexión: $e');
     }
   }
 
+  Future<void> _verificarCambioDeDia() async {
+    final hoy = DateTime.now().toIso8601String().split('T')[0];
+    final storedDate = await _storage.read(key: 'steps_date');
 
-  Widget _crearListaHistorial() {
-  return Column(
-    children: _historial.map((dia) {
-      final fechaStr = dia['fecha'];
-      final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
-      final fechaFormateada = DateFormat.yMMMMEEEEd('es_ES').format(fecha).toUpperCase();
+    if (storedDate != hoy) {
+      await _storage.write(key: 'steps_date', value: hoy);
+    }
+  }
 
-      final pasos = dia['pasos'] ?? 0;
-      final kcalPasos = (dia['kcalPasos'] ?? 0).toDouble();
-      final kcalDeporte = (dia['kcalDeporte'] ?? 0).toDouble();
-      final kcalQuemadas = kcalPasos + kcalDeporte;
-      final kcalConsumidas = (dia['kcalConsumidas'] ?? 0).toDouble();
-      final diferencia = kcalQuemadas - kcalConsumidas;
-
-      return SizedBox(
-        width: double.infinity,
-        child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          color: Colors.white,
-          elevation: 4,
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE3F2FD),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text(
-                  fechaFormateada,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildInfoRow('👣 Pasos', pasos.toString()),
-                _buildInfoRow('🔥 Quemadas', '${kcalQuemadas.toStringAsFixed(0)} kcal'),
-                _buildInfoRow('🍽 Consumidas', '${kcalConsumidas.toStringAsFixed(0)} kcal'),
-                _buildInfoRow(
-                  '➖ Diferencia',
-                  '${diferencia.toStringAsFixed(0)} kcal',
-                  color: diferencia >= 0 ? Colors.green : Colors.red,
-                  isBold: true,
-                ),
+                _buildMetricCard("Pasos", _pasos.toString(), Icons.directions_walk),
+                _buildMetricCard("Quemadas", "${_kcalQuemadas.toStringAsFixed(0)} kcal", Icons.local_fire_department),
+                _buildMetricCard("Consumidas", "${_kcalConsumidas.toStringAsFixed(0)} kcal", Icons.restaurant),
               ],
             ),
-          ),
+            const SizedBox(height: 20),
+            const Text('Historial de los Últimos 7 Días', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _historial.isNotEmpty ? _crearListaHistorial() : const Text('No hay datos aún.', textAlign: TextAlign.center),
+          ],
         ),
-      );
-    }).toList(),
-  );
-}
+      ),
+    );
+  }
 
-Widget _buildInfoRow(String label, String value, {Color? color, bool isBold = false}) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2.0),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 16)),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: color ?? Colors.black,
+  Widget _crearListaHistorial() {
+    return Column(
+      children: _historial.map((dia) {
+        final fechaStr = dia['fecha'];
+        final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
+        final fechaFormateada = DateFormat.yMMMMEEEEd('es_ES').format(fecha).toUpperCase();
+
+        final pasos = dia['pasos'] ?? 0;
+        final kcalQuemadas = dia['kcalQuemadas'] ?? 0.0;
+        final kcalConsumidas = dia['kcalConsumidas'] ?? 0.0;
+        final diferencia = kcalQuemadas - kcalConsumidas;
+
+        return SizedBox(
+          width: double.infinity,
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: Colors.white,
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fechaFormateada,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildInfoRow('👣 Pasos', pasos.toString()),
+                  _buildInfoRow('🔥 Quemadas', '${kcalQuemadas.toStringAsFixed(0)} kcal'),
+                  _buildInfoRow('🍽 Consumidas', '${kcalConsumidas.toStringAsFixed(0)} kcal'),
+                  _buildInfoRow(
+                    '➖ Diferencia',
+                    '${diferencia.toStringAsFixed(0)} kcal',
+                    color: diferencia >= 0 ? Colors.green : Colors.red,
+                    isBold: true,
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        );
+      }).toList(),
+    );
+  }
 
-
-
-
+  Widget _buildInfoRow(String label, String value, {Color? color, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 16)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: color ?? Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildMetricCard(String title, String value, IconData icon) {
     return Card(
@@ -342,36 +314,6 @@ Widget _buildInfoRow(String label, String value, {Color? color, bool isBold = fa
             const SizedBox(height: 8),
             Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Text(title, style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            if (_errorMessage != null)
-              Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMetricCard("Pasos", _pasos.toString(), Icons.directions_walk),
-                _buildMetricCard("Quemadas", "${_kcalQuemadas.toStringAsFixed(0)} kcal", Icons.local_fire_department),
-                _buildMetricCard("Consumidas", "${_kcalConsumidas.toStringAsFixed(0)} kcal", Icons.restaurant),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text('Historial de los Últimos 7 Días', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            _historial.isNotEmpty
-                ? _crearListaHistorial()
-                : const Text('No hay datos aún.', textAlign: TextAlign.center),
           ],
         ),
       ),
