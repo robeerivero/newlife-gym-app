@@ -3,8 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:convert';
 
-
-
 class ChatBotScreen extends StatefulWidget {
   final String section;
 
@@ -17,6 +15,7 @@ class ChatBotScreen extends StatefulWidget {
 class _ChatBotScreenState extends State<ChatBotScreen> {
   final TextEditingController _questionController = TextEditingController();
   final List<Map<String, dynamic>> _chatHistory = [];
+
   final Map<String, dynamic> _knowledgeBase = {
     'horarios': {
       'funcional': {
@@ -50,10 +49,9 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
           '• Seguimiento de progreso',
     },
     'reservas': {
-        'response': 'Para poder reservar ponte en contacto con nosotros:\n'
-            '• Por WhatsApp: 647449493',
+      'response': 'Para poder reservar ponte en contacto con nosotros:\n'
+          '• Por WhatsApp: 647449493',
     },
-
     'general': {
       'response': '¿En qué más puedo ayudarte?\n'
           'Puedes preguntar sobre:\n'
@@ -76,7 +74,6 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       'isBot': true,
       'timestamp': DateTime.now(),
     });
-    
     _chatHistory.add(_buildSectionInfo());
   }
 
@@ -101,7 +98,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
             '• Registro de actividad\n'
             '• Seguimiento nutricional';
     }
-    
+
     return {
       'text': info,
       'isBot': true,
@@ -113,7 +110,6 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     final userQuestion = _questionController.text.trim();
     if (userQuestion.isEmpty) return;
 
-    // Agregar pregunta del usuario al historial
     setState(() {
       _chatHistory.add({
         'text': userQuestion,
@@ -122,10 +118,8 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       });
     });
 
-    // Procesar la pregunta
     final response = _processQuestion(userQuestion);
 
-    // Agregar respuesta al historial
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() {
         _chatHistory.add({
@@ -141,31 +135,35 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
   String _processQuestion(String question) {
     final lowerQuestion = question.toLowerCase();
-    
-    // Detectar horarios
+
     if (lowerQuestion.contains('horario')) {
       return _knowledgeBase['horarios'][widget.section.toLowerCase()]['response'];
     }
 
-    // Detectar servicios adicionales
     if (lowerQuestion.contains(RegExp(r'servicios|dieta|video|online'))) {
       return _knowledgeBase['servicios']['response'];
     }
-    //Detectar reservas
+
     if (lowerQuestion.contains(RegExp(r'reserva|reservar|reservación'))) {
       return _knowledgeBase['reservas']['response'];
     }
 
-    // Respuesta por defecto
     return _knowledgeBase['general']['response'];
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Asistente de ${widget.section}'),
-        backgroundColor: const Color(0xFF42A5F5), // Color azul para el AppBar
+        title: Text(
+          'Asistente de ${widget.section}',
+          style: TextStyle(
+            fontSize: isDesktop ? 18 : 18.sp,
+          ),
+        ),
+        backgroundColor: const Color(0xFF42A5F5),
       ),
       body: Column(
         children: [
@@ -178,17 +176,18 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                 return _buildChatBubble(
                   message['text'],
                   isBot: message['isBot'],
+                  isDesktop: isDesktop,
                 );
               },
             ),
           ),
-          _buildInputField(),
+          _buildInputField(isDesktop),
         ],
       ),
     );
   }
 
- Widget _buildChatBubble(String text, {required bool isBot}) {
+  Widget _buildChatBubble(String text, {required bool isBot, required bool isDesktop}) {
     return Align(
       alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
@@ -207,14 +206,14 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
           text,
           style: TextStyle(
             color: isBot ? Colors.black : Colors.white,
-            fontSize: 16.sp,
+            fontSize: isDesktop ? 16 : 16.sp,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildInputField() {
+  Widget _buildInputField(bool isDesktop) {
     return Padding(
       padding: EdgeInsets.all(16.w),
       child: Row(
@@ -224,6 +223,9 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
               controller: _questionController,
               decoration: InputDecoration(
                 hintText: 'Escribe tu pregunta...',
+                hintStyle: TextStyle(
+                  fontSize: isDesktop ? 14 : 14.sp,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
@@ -232,12 +234,13 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
                   vertical: 14.h,
                 ),
               ),
+              style: TextStyle(fontSize: isDesktop ? 14 : 14.sp),
               onSubmitted: (_) => _handleUserQuestion(),
             ),
           ),
           SizedBox(width: 10.w),
           IconButton(
-            icon: Icon(Icons.send, color: const Color(0xFF42A5F5)), // Color azul para el ícono
+            icon: Icon(Icons.send, color: const Color(0xFF42A5F5)),
             onPressed: _handleUserQuestion,
           ),
         ],

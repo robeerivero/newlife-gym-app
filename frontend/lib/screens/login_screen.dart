@@ -47,11 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
         final token = data['accessToken'];
 
         if (token != null && token.isNotEmpty) {
-          // Guardar token con opción de recordar
           await _storage.write(
             key: 'jwt_token',
             value: token,
-            aOptions: _rememberMe 
+            aOptions: _rememberMe
                 ? const AndroidOptions(encryptedSharedPreferences: true)
                 : const AndroidOptions(),
           );
@@ -78,6 +77,25 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _buildHeaderImage() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth > 600) {
+          return const SizedBox.shrink(); // Ocultar en pantallas grandes
+        } else {
+          return SizedBox(
+            height: 200.h,
+            width: double.infinity,
+            child: Image.asset(
+              'assets/images/fondo_login.jpg',
+              fit: BoxFit.cover,
+            ),
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,14 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (context, child) {
           return Column(
             children: [
-              SizedBox(
-                height: 200.h,
-                width: double.infinity,
-                child: Image.asset(
-                  'assets/images/fondo_login.jpg',
-                  fit: BoxFit.cover,
-                ),
-              ),
+              _buildHeaderImage(),
               Expanded(
                 child: Container(
                   decoration: const BoxDecoration(
@@ -118,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             fit: BoxFit.contain,
                           ),
                           SizedBox(height: 10.h),
-                          // Iconos interactivos
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [

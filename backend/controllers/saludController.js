@@ -1,116 +1,110 @@
+// saludController.js (actualizado)
 const Salud = require('../models/Salud');
 const Plato = require('../models/Plato');
 const Dieta = require('../models/Dieta');
 
 exports.actualizarPasos = async (req, res) => {
-    try {
-        const usuarioId = req.user.id;
-        const { pasos, kcalQuemadas, kcalConsumidas, fecha } = req.body;
+  try {
+    const usuarioId = req.user.id;
+    const { pasos, kcalQuemadas, kcalConsumidas, fecha } = req.body;
 
-        if (pasos == null || pasos < 0) {
-            return res.status(400).json({ mensaje: 'Número de pasos inválido' });
-        }
-
-        const fechaDia = fecha || new Date().toISOString().split('T')[0];
-
-        let salud = await Salud.findOne({ usuario: usuarioId, fecha: fechaDia });
-
-        if (!salud) {
-            salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
-        }
-
-        salud.pasos = pasos;
-        salud.kcalQuemadas = kcalQuemadas || (pasos * 0.04); // Si no llega quemadas, calcula
-        salud.kcalConsumidas = kcalConsumidas ?? salud.kcalConsumidas; // Si no llega, deja el mismo valor
-
-        await salud.save();
-
-        res.json({ mensaje: 'Pasos y calorías actualizados', salud });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ mensaje: 'Error al actualizar pasos' });
+    if (pasos == null || pasos < 0) {
+      return res.status(400).json({ mensaje: 'Número de pasos inválido' });
     }
+
+    const fechaDia = new Date(fecha || new Date().toISOString().split('T')[0]);
+    fechaDia.setHours(0, 0, 0, 0);
+
+    let salud = await Salud.findOne({ usuario: usuarioId, fecha: fechaDia });
+    if (!salud) {
+      salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
+    }
+
+    salud.pasos = pasos;
+    if (kcalQuemadas !== undefined) salud.kcalQuemadas = kcalQuemadas;
+    if (kcalConsumidas !== undefined) salud.kcalConsumidas = kcalConsumidas;
+
+    await salud.save();
+    res.json({ mensaje: 'Pasos y calorías actualizados', salud });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al actualizar pasos' });
+  }
 };
 
-
-// 📌 2. Registrar kcal consumidas basadas en la dieta del usuario
 exports.actualizarKcalConsumidas = async (req, res) => {
-    try {
-        const usuarioId = req.user.id;
-        const hoy = new Date().toISOString().split('T')[0];
+  try {
+    const usuarioId = req.user.id;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
 
-        // Obtener la dieta de hoy
-        const dieta = await Dieta.findOne({ usuario: usuarioId, fecha: hoy }).populate('platos');
+    const dieta = await Dieta.findOne({ usuario: usuarioId, fecha: hoy }).populate('platos');
+    if (!dieta) return res.status(404).json({ mensaje: 'No hay dieta registrada para hoy.' });
 
-        if (!dieta) {
-            return res.status(404).json({ mensaje: 'No hay dieta registrada para hoy.' });
-        }
+    const kcalConsumidas = dieta.platos.reduce((total, plato) => total + plato.kcal, 0);
+    let salud = await Salud.findOne({ usuario: usuarioId, fecha: hoy });
+    if (!salud) salud = new Salud({ usuario: usuarioId, fecha: hoy });
 
-        // Sumar las kcal de los platos
-        const kcalConsumidas = dieta.platos.reduce((total, plato) => total + plato.kcal, 0);
+    salud.kcalConsumidas = kcalConsumidas;
+    await salud.save();
 
-        let salud = await Salud.findOne({ usuario: usuarioId, fecha: hoy });
-
-        if (!salud) {
-            salud = new Salud({ usuario: usuarioId, fecha: hoy });
-        }
-
-        salud.kcalConsumidas = kcalConsumidas;
-
-        await salud.save();
-
-        res.json({ mensaje: 'Kcal consumidas actualizadas', kcalConsumidas });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ mensaje: 'Error al actualizar kcal consumidas' });
-    }
+    res.json({ mensaje: 'Kcal consumidas actualizadas', kcalConsumidas });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al actualizar kcal consumidas' });
+  }
 };
 
-// 📌 3. Obtener historial de salud (últimos 7 días)
 exports.obtenerHistorialSalud = async (req, res) => {
-    try {
-        const usuarioId = req.user.id;
-        const sieteDiasAtras = new Date();
-        sieteDiasAtras.setDate(sieteDiasAtras.getDate() - 7);
+  try {
+    const usuarioId = req.user.id;
+    const sieteDiasAtras = new Date();
+    sieteDiasAtras.setDate(sieteDiasAtras.getDate() - 7);
+    sieteDiasAtras.setHours(0, 0, 0, 0);
 
-        const historial = await Salud.find({ usuario: usuarioId, fecha: { $gte: sieteDiasAtras } })
-            .sort({ fecha: 1 });
+    const historial = await Salud.find({ usuario: usuarioId, fecha: { $gte: sieteDiasAtras } }).sort({ fecha: 1 });
 
-        res.json(historial);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ mensaje: 'Error al obtener historial de salud' });
+    // calcular racha
+    let racha = 0;
+    let fechaEsperada = new Date();
+    fechaEsperada.setHours(0, 0, 0, 0);
+    fechaEsperada.setDate(fechaEsperada.getDate() - 1);
+
+    for (let i = historial.length - 1; i >= 0; i--) {
+      const fechaBD = new Date(historial[i].fecha);
+      fechaBD.setHours(0, 0, 0, 0);
+      if (fechaBD.getTime() === fechaEsperada.getTime()) {
+        racha++;
+        fechaEsperada.setDate(fechaEsperada.getDate() - 1);
+      } else {
+        break;
+      }
     }
+
+    res.json({ historial, racha });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener historial de salud' });
+  }
 };
 
-exports.guardarDatosSalud = async (req, res) => {
-    try {
-      const usuarioId = req.user.id; // Cambiar de req.usuario a req.user
-      const { fecha, pasos, kcalQuemadas, kcalConsumidas } = req.body;
-  
-      // Validar que los datos necesarios estén presentes
-      if (!fecha || pasos === undefined || kcalQuemadas === undefined || kcalConsumidas === undefined) {
-        return res.status(400).json({ mensaje: 'Faltan datos requeridos.' });
-      }
-  
-      // Buscar o crear un registro de salud para el usuario y la fecha
-      let salud = await Salud.findOne({ usuario: usuarioId, fecha });
-  
-      if (!salud) {
-        salud = new Salud({ usuario: usuarioId, fecha });
-      }
-  
-      // Actualizar los datos
-      salud.pasos = pasos;
-      salud.kcalQuemadas = kcalQuemadas;
-      salud.kcalConsumidas = kcalConsumidas;
-  
-      // Guardar los datos
-      await salud.save();
-  
-      res.json({ mensaje: 'Datos de salud guardados exitosamente', salud });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ mensaje: 'Error al guardar los datos de salud' });
-    }
-  };
+exports.obtenerLogros = async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+    const registros = await Salud.find({ usuario: usuarioId }).sort({ fecha: -1 });
+
+    const hoy = registros[0] || {};
+    const pasosHoy = hoy.pasos || 0;
+    const kcalHoy = hoy.kcalQuemadas || 0;
+    const logros = [];
+
+    if (pasosHoy >= 10000) logros.push('🏅 10.000 pasos alcanzados');
+    if (kcalHoy >= 500) logros.push('🔥 500 kcal quemadas');
+    if (registros.length >= 7) logros.push('📅 Semana completa registrada');
+
+    res.json({ logros });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener logros' });
+  }
+};
