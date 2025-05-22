@@ -108,3 +108,29 @@ exports.obtenerLogros = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al obtener logros' });
   }
 };
+exports.guardarDatosSalud = async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+    const { fecha, pasos, kcalQuemadas, kcalConsumidas } = req.body;
+
+    if (!fecha || pasos == null || kcalQuemadas == null || kcalConsumidas == null) {
+      return res.status(400).json({ mensaje: 'Faltan datos requeridos.' });
+    }
+
+    const fechaDia = new Date(fecha);
+    fechaDia.setHours(0, 0, 0, 0);
+
+    let salud = await Salud.findOne({ usuario: usuarioId, fecha: fechaDia });
+    if (!salud) salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
+
+    salud.pasos = pasos;
+    salud.kcalQuemadas = kcalQuemadas;
+    salud.kcalConsumidas = kcalConsumidas;
+
+    await salud.save();
+    res.json({ mensaje: 'Datos de salud guardados exitosamente', salud });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al guardar los datos de salud' });
+  }
+};
