@@ -1,16 +1,14 @@
-// Archivo: lib/services/salud_service.dart
-
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../config.dart';
 import 'package:pedometer/pedometer.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
+import '../config.dart';
 
 class SaludService {
   final _storage = const FlutterSecureStorage();
@@ -18,9 +16,10 @@ class SaludService {
 
   Future<void> solicitarPermisos() async {
     await Permission.activityRecognition.request();
-    await _health.requestAuthorization([
-      HealthDataType.ACTIVE_ENERGY_BURNED
-    ], permissions: [HealthDataAccess.READ]);
+    await _health.requestAuthorization(
+      [HealthDataType.ACTIVE_ENERGY_BURNED],
+      permissions: [HealthDataAccess.READ],
+    );
   }
 
   Future<Map<String, dynamic>> obtenerHistorialConRacha() async {
@@ -43,7 +42,7 @@ class SaludService {
           'kcalQuemadas': (e['kcalQuemadas'] ?? 0.0).toDouble(),
           'kcalConsumidas': (e['kcalConsumidas'] ?? 0.0).toDouble(),
         }).toList(),
-        'racha': racha
+        'racha': racha,
       };
     }
     return {"historial": [], "racha": 0};
@@ -109,6 +108,21 @@ class SaludService {
     }
   }
 
+  Future<double> obtenerKcalConsumidas() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return 0.0;
+
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/salud/kcal-consumidas'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return (data['kcalConsumidas'] ?? 0.0).toDouble();
+    }
+    return 0.0;
+  }
 
   Future<void> actualizarBackend(int pasos, double kcalQuemadas, double kcalConsumidas) async {
     final token = await _storage.read(key: 'jwt_token');
@@ -129,58 +143,6 @@ class SaludService {
     );
   }
 
-  Future<void> registrarActividadManual(BuildContext context) async {
-    final pasosController = TextEditingController();
-    final kcalController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Añadir actividad manual'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            
-            TextField(
-              controller: kcalController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Kcal quemadas'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              final pasos = int.tryParse(pasosController.text) ?? 0;
-              final kcal = double.tryParse(kcalController.text) ?? 0.0;
-              final token = await _storage.read(key: 'jwt_token');
-              if (token == null) return;
-
-              await http.put(
-                Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer $token',
-                },
-                body: json.encode({
-                  'pasos': pasos,
-                  'kcalQuemadas': kcal,
-                  'fecha': DateTime.now().toIso8601String().split('T')[0],
-                }),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('Guardar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          )
-        ],
-      ),
-    );
-  }
-
   static tz.TZDateTime hoyA23Horas() {
     tzdata.initializeTimeZones();
     final location = tz.getLocation('Europe/Madrid');
@@ -188,12 +150,76 @@ class SaludService {
     return tz.TZDateTime(location, now.year, now.month, now.day, 23, 0);
   }
 
-  Widget botonActividadManual(BuildContext context) {
+  Widget botonKcalClase(BuildContext context) {
+    final kcalController = TextEditingController();
+
     return ElevatedButton.icon(
-      onPressed: () => registrarActividadManual(context),
-      icon: const Icon(Icons.add),
-      label: const Text("Añadir actividad manual"),
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+      icon: const Icon(Icons.fitness_center),
+      label: const Text("Añadir kcal de clase"),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Registrar kcal quemadas en clase'),
+            content: TextField(
+              controller: kcalController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Kcal'),
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Cancelar'),
+                onPressed: () => Navigator.pop(context),
+              ),
+              TextButton(
+                child: const Text('Guardar'),
+                onPressed: () async {
+                  final kcal = double.tryParse(kcalController.text) ?? 0.0;
+                  final token = await _storage.read(key: 'jwt_token');
+                  if (token == null) return;
+
+                  // Obtener kcal quemadas actuales
+                  double existingKcal = 0.0;
+                  final today = DateTime.now().toIso8601String().split('T')[0];
+                  final response = await http.get(
+                    Uri.parse('${AppConstants.baseUrl}/api/salud/historial'),
+                    headers: {'Authorization': 'Bearer $token'},
+                  );
+
+                  if (response.statusCode == 200) {
+                    final data = json.decode(response.body);
+                    final todayEntry = (data['historial'] as List).firstWhere(
+                      (e) => e['fecha'].startsWith(today),
+                      orElse: () => null,
+                    );
+                    if (todayEntry != null && todayEntry['kcalQuemadas'] != null) {
+                      existingKcal = (todayEntry['kcalQuemadas'] as num).toDouble();
+                    }
+                  }
+
+                  await http.put(
+                    Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': 'Bearer $token',
+                    },
+                    body: json.encode({
+                      'kcalQuemadas': existingKcal + kcal,
+                      'fecha': today,
+                    }),
+                  );
+
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,5 +1,3 @@
-// Archivo: lib/screens/salud_screen.dart (parcial, mejorado)
-
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:health/health.dart';
@@ -7,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/salud_service.dart';
-import '../../widgets/anillo_progreso.dart';
 
 class SaludScreen extends StatefulWidget {
   const SaludScreen({super.key});
@@ -35,16 +32,20 @@ class _SaludScreenState extends State<SaludScreen> {
 
   Future<void> inicializarDatosSalud() async {
     await SaludService().solicitarPermisos();
+
     final pasosHoy = await SaludService().obtenerPasosHoy();
     final kcalDeporte = await SaludService().obtenerKcalDeporte();
+    final kcalComida = await SaludService().obtenerKcalConsumidas();
+
     final kcalTotal = pasosHoy * 0.04 + kcalDeporte;
 
     setState(() {
       pasos = pasosHoy;
       kcalQuemadas = kcalTotal;
+      kcalConsumidas = kcalComida;
     });
 
-    await SaludService().actualizarBackend(pasosHoy, kcalTotal, kcalConsumidas);
+    await SaludService().actualizarBackend(pasosHoy, kcalTotal, kcalComida);
 
     final datosHistorial = await SaludService().obtenerHistorialConRacha();
     final logrosRemotos = await SaludService().obtenerLogros();
@@ -73,48 +74,102 @@ class _SaludScreenState extends State<SaludScreen> {
       'Envío de datos de salud',
       'Tus datos del día han sido sincronizados.',
       SaludService.hoyA23Horas(),
-      const NotificationDetails(android: AndroidNotificationDetails('canal1', 'Envios diarios')),
+      const NotificationDetails(
+        android: AndroidNotificationDetails('canal1', 'Envios diarios'),
+      ),
       androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 
+  Widget _buildResumenSalud() {
+    return Column(
+      children: [
+        _buildResumenItem(Icons.directions_walk, "Pasos", pasos.toString(), Colors.blue),
+        _buildResumenItem(Icons.local_fire_department, "Kcal quemadas", kcalQuemadas.toStringAsFixed(0), Colors.redAccent),
+        _buildResumenItem(Icons.restaurant, "Kcal consumidas", kcalConsumidas.toStringAsFixed(0), Colors.green),
+      ],
+    );
+  }
+
+  Widget _buildResumenItem(IconData icono, String titulo, String valor, Color color) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: ListTile(
+        leading: Icon(icono, size: 40, color: color),
+        title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text(valor, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          AnilloProgreso(valor: pasos.toDouble(), meta: 10000, etiqueta: 'Pasos'),
-          AnilloProgreso(valor: kcalQuemadas, meta: 500, etiqueta: 'kcal quemadas'),
-          AnilloProgreso(valor: kcalConsumidas, meta: 2000, etiqueta: 'kcal consumidas'),
-          const SizedBox(height: 10),
-          SaludService().botonActividadManual(context),
-          const SizedBox(height: 20),
-          Text('🔥 Racha activa: $racha días', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          const Text('Logros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ...logros.map((logro) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Text(logro, style: const TextStyle(fontSize: 16)),
-              )),
-          const SizedBox(height: 20),
-          const Text('Historial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Expanded(
-            child: ListView.builder(
-              itemCount: historial.length,
-              itemBuilder: (context, index) {
-                final dia = historial[index];
-                final fecha = DateFormat.yMMMd('es_ES').format(DateTime.parse(dia['fecha']));
-                return ListTile(
-                  title: Text(fecha),
-                  subtitle: Text('Pasos: ${dia['pasos']}, Quemadas: ${dia['kcalQuemadas']} kcal'),
-                );
-              },
+      backgroundColor: const Color(0xFFE3F2FD),
+      appBar: AppBar(
+        title: const Text("Salud"),
+        backgroundColor: Colors.blueAccent,
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildResumenSalud(),
+            const SizedBox(height: 10),
+            SaludService().botonKcalClase(context),
+            const SizedBox(height: 20),
+            Card(
+              color: Colors.orange[50],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Icon(Icons.local_fire_department, color: Colors.orange),
+                title: Text('🔥 Racha activa: $racha días'),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            const Text('Logros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (logros.isEmpty)
+              const Text('Aún no has obtenido logros. ¡Sigue avanzando!', style: TextStyle(color: Colors.grey)),
+            ...logros.map((logro) => Card(
+                  elevation: 3,
+                  child: ListTile(
+                    leading: const Icon(Icons.emoji_events, color: Colors.amber),
+                    title: Text(logro),
+                  ),
+                )),
+            const SizedBox(height: 20),
+            const Text('Historial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            if (historial.isEmpty)
+              Column(
+                children: const [
+                  Icon(Icons.history, size: 48, color: Colors.grey),
+                  Text('Sin historial por ahora.', style: TextStyle(color: Colors.grey)),
+                ],
+              )
+            else
+              Column(
+                children: historial.map((dia) {
+                  final fecha = DateFormat.yMMMd('es_ES').format(DateTime.parse(dia['fecha']));
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      title: Text(fecha),
+                      subtitle: Text('👣 ${dia['pasos']} pasos\n🔥 ${dia['kcalQuemadas']} kcal'),
+                      isThreeLine: true,
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
       ),
     );
   }
