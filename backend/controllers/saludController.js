@@ -26,12 +26,19 @@ exports.actualizarPasos = async (req, res) => {
     }
 
     if (typeof pasos === 'number' && pasos >= 0) {
-      salud.pasos = pasos;
-      // Solo calcular kcal por pasos si NO se pasa kcalQuemadas explícitamente
-      if (kcalQuemadas === undefined && !sumarKcal) {
+    salud.pasos = pasos;
+
+    // Si NO se ha pasado kcalQuemadas explícitamente, recalculamos a partir de pasos
+    if (kcalQuemadas === undefined) {
+      if (!sumarKcal) {
         salud.kcalQuemadas = pasos * 0.04;
+      } else {
+        // Evita sobrescribir accidentalmente si sumarKcal=true pero falta kcalQuemadas
+        salud.kcalQuemadas = (salud.kcalQuemadas || 0);
       }
     }
+}
+
 
     if (typeof kcalQuemadas === 'number' && kcalQuemadas >= 0) {
       if (sumarKcal) {
