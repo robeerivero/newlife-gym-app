@@ -6,7 +6,7 @@ const Dieta = require('../models/Dieta');
 exports.actualizarPasos = async (req, res) => {
   try {
     const usuarioId = req.user.id;
-    const { pasos, kcalQuemadas, kcalConsumidas, fecha } = req.body;
+    const { pasos, kcalQuemadas, kcalConsumidas, fecha, sumarKcal } = req.body;
 
     if (
       pasos === undefined &&
@@ -25,21 +25,22 @@ exports.actualizarPasos = async (req, res) => {
       salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
     }
 
-    // Actualizar pasos y opcionalmente kcal quemadas por pasos
     if (typeof pasos === 'number' && pasos >= 0) {
       salud.pasos = pasos;
-      // Solo si NO viene kcalQuemadas explícitamente, calcula por pasos
-      if (kcalQuemadas === undefined) {
+      // Solo calcular kcal por pasos si NO se pasa kcalQuemadas explícitamente
+      if (kcalQuemadas === undefined && !sumarKcal) {
         salud.kcalQuemadas = pasos * 0.04;
       }
     }
 
-    // Si viene kcalQuemadas manual (ej. desde clase), la suma
     if (typeof kcalQuemadas === 'number' && kcalQuemadas >= 0) {
-      salud.kcalQuemadas = (salud.kcalQuemadas || 0) + kcalQuemadas;
+      if (sumarKcal) {
+        salud.kcalQuemadas = (salud.kcalQuemadas || 0) + kcalQuemadas;
+      } else {
+        salud.kcalQuemadas = kcalQuemadas;
+      }
     }
 
-    // Actualizar kcal consumidas si vienen
     if (typeof kcalConsumidas === 'number' && kcalConsumidas >= 0) {
       salud.kcalConsumidas = kcalConsumidas;
     }
@@ -52,6 +53,7 @@ exports.actualizarPasos = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al actualizar los datos de salud' });
   }
 };
+
 
 
 exports.actualizarKcalConsumidas = async (req, res) => {

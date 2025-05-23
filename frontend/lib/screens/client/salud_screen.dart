@@ -38,8 +38,10 @@ class _SaludScreenState extends State<SaludScreen> {
       kcalQuemadas = datosHoy['kcalQuemadas'] ?? 0.0;
       kcalConsumidas = datosHoy['kcalConsumidas'] ?? 0.0;
     });
+    final kcalYaGuardadas = datosHoy['kcalQuemadas'] ?? 0.0;
 
-    await SaludService().actualizarBackend(pasosHoy, null, kcalConsumidas);
+    await SaludService().actualizarBackend(pasosHoy, kcalYaGuardadas, kcalConsumidas);
+
 
     final datosHistorial = await SaludService().obtenerHistorialConRacha();
     final logrosRemotos = await SaludService().obtenerLogros();

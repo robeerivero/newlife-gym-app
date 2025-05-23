@@ -93,28 +93,37 @@ class SaludService {
     final storedDate = await _storage.read(key: 'steps_date');
     int initial = 0;
 
+    // Si es un nuevo día, reinicia la referencia
     if (storedDate != today) {
       await _storage.write(key: 'steps_date', value: today);
       await _storage.delete(key: stepsKey);
-    } else {
-      final saved = await _storage.read(key: stepsKey);
-      if (saved != null) initial = int.tryParse(saved) ?? 0;
     }
 
-    final stepStream = Pedometer.stepCountStream;
-    final completer = Completer<int>();
+    final saved = await _storage.read(key: stepsKey);
+    if (saved != null) {
+      initial = int.tryParse(saved) ?? 0;
+    }
 
-    stepStream.listen((event) async {
+    final completer = Completer<int>();
+    final stepStream = Pedometer.stepCountStream;
+
+    late StreamSubscription subscription;
+    subscription = stepStream.listen((event) async {
       if (initial == 0) {
         initial = event.steps;
         await _storage.write(key: stepsKey, value: initial.toString());
       }
+
       final pasosHoy = event.steps - initial;
+      subscription.cancel(); // Cancela después de la primera lectura
       completer.complete(pasosHoy);
-    }, onError: (e) => completer.complete(0));
+    }, onError: (e) {
+      completer.complete(0);
+    });
 
     return completer.future;
   }
+
 
   Future<double> obtenerKcalConsumidas() async {
     final token = await _storage.read(key: 'jwt_token');
@@ -144,6 +153,7 @@ class SaludService {
 
     if (kcalQuemadas != null) {
       payload['kcalQuemadas'] = kcalQuemadas;
+      payload['sumarKcal'] = false; // No queremos duplicar
     }
 
     await http.put(
@@ -155,6 +165,7 @@ class SaludService {
       body: json.encode(payload),
     );
   }
+
 
   Widget botonKcalClase(BuildContext context, VoidCallback onActualizado) {
     final kcalController = TextEditingController();
@@ -201,6 +212,7 @@ class SaludService {
                     body: json.encode({
                       'kcalQuemadas': kcal,
                       'fecha': today,
+                      'sumarKcal': true, // Sumar a lo existente
                     }),
                   );
 
