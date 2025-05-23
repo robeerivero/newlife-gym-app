@@ -110,11 +110,6 @@ class _SaludScreenState extends State<SaludScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD),
-      appBar: AppBar(
-        title: const Text("Salud"),
-        backgroundColor: Colors.blueAccent,
-        centerTitle: true,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

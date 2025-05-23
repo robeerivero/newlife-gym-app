@@ -8,7 +8,6 @@ exports.actualizarPasos = async (req, res) => {
     const usuarioId = req.user.id;
     const { pasos, kcalQuemadas, kcalConsumidas, fecha } = req.body;
 
-    // Validación mínima: que al menos un campo sea válido
     if (
       pasos === undefined &&
       kcalQuemadas === undefined &&
@@ -21,44 +20,54 @@ exports.actualizarPasos = async (req, res) => {
     fechaDia.setHours(0, 0, 0, 0);
 
     let salud = await Salud.findOne({ usuario: usuarioId, fecha: fechaDia });
+
     if (!salud) {
       salud = new Salud({ usuario: usuarioId, fecha: fechaDia });
     }
 
-    if (pasos !== undefined && pasos >= 0) salud.pasos = pasos;
-    if (kcalQuemadas !== undefined && kcalQuemadas >= 0) salud.kcalQuemadas = kcalQuemadas;
-    if (kcalConsumidas !== undefined && kcalConsumidas >= 0) salud.kcalConsumidas = kcalConsumidas;
+    if (typeof pasos === 'number' && pasos >= 0) {
+      salud.pasos = pasos;
+    }
+
+    if (typeof kcalQuemadas === 'number' && kcalQuemadas >= 0) {
+      // Suma si ya hay valor existente, útil si estás añadiendo por partes (como en clases)
+      salud.kcalQuemadas = (salud.kcalQuemadas || 0) + kcalQuemadas;
+    }
+
+    if (typeof kcalConsumidas === 'number' && kcalConsumidas >= 0) {
+      salud.kcalConsumidas = kcalConsumidas;
+    }
 
     await salud.save();
-    res.json({ mensaje: 'Datos de salud actualizados', salud });
+
+    res.json({ mensaje: 'Datos de salud actualizados correctamente.', salud });
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al actualizar los datos de salud' });
   }
 };
 
-
 exports.actualizarKcalConsumidas = async (req, res) => {
   try {
     const usuarioId = req.user.id;
 
-    // Definir el rango del día actual (00:00 a 23:59)
+    // Rango del día actual
     const inicioDia = new Date();
     inicioDia.setHours(0, 0, 0, 0);
 
-    const finDia = new Date();
-    finDia.setHours(23, 59, 59, 999);
+    const finDia = new Date(inicioDia);
+    finDia.setDate(inicioDia.getDate() + 1); // para usar $lt
 
     const dieta = await Dieta.findOne({
       usuario: usuarioId,
-      fecha: { $gte: inicioDia, $lte: finDia }
+      fecha: { $gte: inicioDia, $lt: finDia }
     }).populate('platos');
 
     if (!dieta) {
       return res.status(404).json({ mensaje: 'No hay dieta registrada para hoy.' });
     }
 
-    const kcalConsumidas = dieta.platos.reduce((total, plato) => total + plato.kcal, 0);
+    const kcalConsumidas = dieta.platos.reduce((total, plato) => total + (plato.kcal || 0), 0);
 
     let salud = await Salud.findOne({ usuario: usuarioId, fecha: inicioDia });
     if (!salud) salud = new Salud({ usuario: usuarioId, fecha: inicioDia });
@@ -66,10 +75,10 @@ exports.actualizarKcalConsumidas = async (req, res) => {
     salud.kcalConsumidas = kcalConsumidas;
     await salud.save();
 
-    res.json({ mensaje: 'Kcal consumidas actualizadas', kcalConsumidas });
+    res.json({ mensaje: 'Kcal consumidas sincronizadas desde la dieta.', kcalConsumidas });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ mensaje: 'Error al actualizar kcal consumidas' });
+    res.status(500).json({ mensaje: 'Error al sincronizar kcal consumidas' });
   }
 };
 
