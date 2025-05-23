@@ -26,27 +26,33 @@ exports.actualizarPasos = async (req, res) => {
     }
 
     if (typeof pasos === 'number' && pasos >= 0) {
-    salud.pasos = pasos;
+      salud.pasos = pasos;
 
-    // Si NO se ha pasado kcalQuemadas explícitamente, recalculamos a partir de pasos
-    if (kcalQuemadas === undefined) {
-      if (!sumarKcal) {
-        salud.kcalQuemadas = pasos * 0.04;
-      } else {
-        // Evita sobrescribir accidentalmente si sumarKcal=true pero falta kcalQuemadas
-        salud.kcalQuemadas = (salud.kcalQuemadas || 0);
+      if (kcalQuemadas === undefined && !sumarKcal) {
+        // ⚠️ Antes: pisa el total
+        // salud.kcalQuemadas = pasos * 0.04;
+
+        // ✅ Después: calcula automáticamente y suma al extra manual
+        const kcalPorPasos = pasos * 0.04;
+        const kcalManual = salud.kcalQuemadasManual || 0;
+        salud.kcalQuemadas = kcalPorPasos + kcalManual;
       }
     }
-}
+
 
 
     if (typeof kcalQuemadas === 'number' && kcalQuemadas >= 0) {
       if (sumarKcal) {
-        salud.kcalQuemadas = (salud.kcalQuemadas || 0) + kcalQuemadas;
+        salud.kcalQuemadasManual = (salud.kcalQuemadasManual || 0) + kcalQuemadas;
       } else {
-        salud.kcalQuemadas = kcalQuemadas;
+        salud.kcalQuemadasManual = kcalQuemadas;
       }
+
+      // Después de actualizar manual, recalcula total
+      const kcalPorPasos = salud.pasos * 0.04;
+      salud.kcalQuemadas = kcalPorPasos + salud.kcalQuemadasManual;
     }
+
 
     if (typeof kcalConsumidas === 'number' && kcalConsumidas >= 0) {
       salud.kcalConsumidas = kcalConsumidas;
