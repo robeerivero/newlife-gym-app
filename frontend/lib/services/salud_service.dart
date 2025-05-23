@@ -93,6 +93,26 @@ class SaludService {
     return completer.future;
   }
 
+  Future<double> obtenerKcalTotalesHoy() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return 0.0;
+
+    final fecha = DateTime.now().toIso8601String().split('T')[0];
+
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/salud/dia/$fecha'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return (data['kcalQuemadas'] ?? 0.0).toDouble();
+    }
+
+    return 0.0;
+  }
+
+
   Future<double> obtenerKcalDeporte() async {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day);
@@ -150,7 +170,7 @@ class SaludService {
     return tz.TZDateTime(location, now.year, now.month, now.day, 23, 0);
   }
 
-  Widget botonKcalClase(BuildContext context) {
+  Widget botonKcalClase(BuildContext context, VoidCallback onActualizado) {
     final kcalController = TextEditingController();
 
     return ElevatedButton.icon(
@@ -182,24 +202,7 @@ class SaludService {
                   final token = await _storage.read(key: 'jwt_token');
                   if (token == null) return;
 
-                  // Obtener kcal quemadas actuales
-                  double existingKcal = 0.0;
                   final today = DateTime.now().toIso8601String().split('T')[0];
-                  final response = await http.get(
-                    Uri.parse('${AppConstants.baseUrl}/api/salud/historial'),
-                    headers: {'Authorization': 'Bearer $token'},
-                  );
-
-                  if (response.statusCode == 200) {
-                    final data = json.decode(response.body);
-                    final todayEntry = (data['historial'] as List).firstWhere(
-                      (e) => e['fecha'].startsWith(today),
-                      orElse: () => null,
-                    );
-                    if (todayEntry != null && todayEntry['kcalQuemadas'] != null) {
-                      existingKcal = (todayEntry['kcalQuemadas'] as num).toDouble();
-                    }
-                  }
 
                   await http.put(
                     Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
@@ -208,12 +211,12 @@ class SaludService {
                       'Authorization': 'Bearer $token',
                     },
                     body: json.encode({
-                      'kcalQuemadas': existingKcal + kcal,
+                      'kcalQuemadas': kcal,
                       'fecha': today,
                     }),
                   );
-
                   Navigator.pop(context);
+                  onActualizado(); // 👉 recargar datos
                 },
               ),
             ],
@@ -222,4 +225,5 @@ class SaludService {
       },
     );
   }
+
 }

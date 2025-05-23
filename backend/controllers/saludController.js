@@ -162,3 +162,20 @@ exports.guardarDatosSalud = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al guardar los datos de salud' });
   }
 };
+
+exports.DatosSalud = async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+    const fecha = new Date(req.params.fecha);
+    fecha.setHours(0, 0, 0, 0);
+
+    const salud = await Salud.findOne({ usuario: usuarioId, fecha });
+    if (!salud) return res.status(200).json({});
+
+    res.json(salud);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener los datos de salud' });
+  }
+};
+

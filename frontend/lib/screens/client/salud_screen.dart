@@ -34,7 +34,7 @@ class _SaludScreenState extends State<SaludScreen> {
     await SaludService().solicitarPermisos();
 
     final pasosHoy = await SaludService().obtenerPasosHoy();
-    final kcalDeporte = await SaludService().obtenerKcalDeporte();
+    final kcalDeporte = await SaludService().obtenerKcalTotalesHoy();
     final kcalComida = await SaludService().obtenerKcalConsumidas();
 
     final kcalTotal = pasosHoy * 0.04 + kcalDeporte;
@@ -116,14 +116,16 @@ class _SaludScreenState extends State<SaludScreen> {
           children: [
             _buildResumenSalud(),
             const SizedBox(height: 10),
-            SaludService().botonKcalClase(context),
+            SaludService().botonKcalClase(context, () {
+              inicializarDatosSalud(); // Recargar estado tras guardar
+            }),
             const SizedBox(height: 20),
             Card(
               color: Colors.orange[50],
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: const Icon(Icons.local_fire_department, color: Colors.orange),
-                title: Text('🔥 Racha activa: $racha días'),
+                title: Text('🔥Racha activa: $racha días'),
               ),
             ),
             const SizedBox(height: 20),
@@ -157,7 +159,7 @@ class _SaludScreenState extends State<SaludScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
                       title: Text(fecha),
-                      subtitle: Text('👣 ${dia['pasos']} pasos\n🔥 ${dia['kcalQuemadas']} kcal'),
+                      subtitle: Text('👣 ${dia['pasos']} pasos\n🔥 ${dia['kcalQuemadas'].toStringAsFixed(0)} kcal'),
                       isThreeLine: true,
                     ),
                   );
