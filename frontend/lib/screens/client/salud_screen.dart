@@ -1,8 +1,7 @@
+// --- salud_screen.dart (actualizado) ---
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:health/health.dart';
 import 'package:intl/intl.dart';
-import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/salud_service.dart';
 
@@ -21,8 +20,6 @@ class _SaludScreenState extends State<SaludScreen> {
   List<String> logros = [];
   int racha = 0;
 
-  final Health health = Health();
-
   @override
   void initState() {
     super.initState();
@@ -34,18 +31,15 @@ class _SaludScreenState extends State<SaludScreen> {
     await SaludService().solicitarPermisos();
 
     final pasosHoy = await SaludService().obtenerPasosHoy();
-    final kcalDeporte = await SaludService().obtenerKcalTotalesHoy();
-    final kcalComida = await SaludService().obtenerKcalConsumidas();
-
-    final kcalTotal = pasosHoy * 0.04 + kcalDeporte;
+    final datosHoy = await SaludService().obtenerDatosSaludDeHoy();
 
     setState(() {
       pasos = pasosHoy;
-      kcalQuemadas = kcalTotal;
-      kcalConsumidas = kcalComida;
+      kcalQuemadas = datosHoy['kcalQuemadas'] ?? 0.0;
+      kcalConsumidas = datosHoy['kcalConsumidas'] ?? 0.0;
     });
 
-    await SaludService().actualizarBackend(pasosHoy, kcalTotal, kcalComida);
+    await SaludService().actualizarBackend(pasosHoy, null, kcalConsumidas);
 
     final datosHistorial = await SaludService().obtenerHistorialConRacha();
     final logrosRemotos = await SaludService().obtenerLogros();

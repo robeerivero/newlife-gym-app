@@ -1,3 +1,4 @@
+// --- salud_service.dart (actualizado completo con métodos faltantes) ---
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -20,6 +21,28 @@ class SaludService {
       [HealthDataType.ACTIVE_ENERGY_BURNED],
       permissions: [HealthDataAccess.READ],
     );
+  }
+
+  Future<Map<String, dynamic>> obtenerDatosSaludDeHoy() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return {};
+
+    final fecha = DateTime.now().toIso8601String().split('T')[0];
+
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/salud/dia/$fecha'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return {
+        'kcalQuemadas': (data['kcalQuemadas'] ?? 0.0).toDouble(),
+        'kcalConsumidas': (data['kcalConsumidas'] ?? 0.0).toDouble(),
+      };
+    }
+
+    return {};
   }
 
   Future<Map<String, dynamic>> obtenerHistorialConRacha() async {
@@ -93,41 +116,6 @@ class SaludService {
     return completer.future;
   }
 
-  Future<double> obtenerKcalTotalesHoy() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return 0.0;
-
-    final fecha = DateTime.now().toIso8601String().split('T')[0];
-
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/salud/dia/$fecha'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return (data['kcalQuemadas'] ?? 0.0).toDouble();
-    }
-
-    return 0.0;
-  }
-
-
-  Future<double> obtenerKcalDeporte() async {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day);
-    try {
-      final data = await _health.getHealthDataFromTypes(
-        types: [HealthDataType.ACTIVE_ENERGY_BURNED],
-        startTime: start,
-        endTime: now,
-      );
-      return data.fold<double>(0.0, (sum, e) => sum + (e.value as num).toDouble());
-    } catch (_) {
-      return 0.0;
-    }
-  }
-
   Future<double> obtenerKcalConsumidas() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return 0.0;
@@ -144,9 +132,19 @@ class SaludService {
     return 0.0;
   }
 
-  Future<void> actualizarBackend(int pasos, double kcalQuemadas, double kcalConsumidas) async {
+  Future<void> actualizarBackend(int pasos, double? kcalQuemadas, double kcalConsumidas) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return;
+
+    final Map<String, dynamic> payload = {
+      'pasos': pasos,
+      'kcalConsumidas': kcalConsumidas,
+      'fecha': DateTime.now().toIso8601String().split('T')[0],
+    };
+
+    if (kcalQuemadas != null) {
+      payload['kcalQuemadas'] = kcalQuemadas;
+    }
 
     await http.put(
       Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
@@ -154,20 +152,8 @@ class SaludService {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: json.encode({
-        'pasos': pasos,
-        'kcalQuemadas': kcalQuemadas,
-        'kcalConsumidas': kcalConsumidas,
-        'fecha': DateTime.now().toIso8601String().split('T')[0],
-      }),
+      body: json.encode(payload),
     );
-  }
-
-  static tz.TZDateTime hoyA23Horas() {
-    tzdata.initializeTimeZones();
-    final location = tz.getLocation('Europe/Madrid');
-    final now = tz.TZDateTime.now(location);
-    return tz.TZDateTime(location, now.year, now.month, now.day, 23, 0);
   }
 
   Widget botonKcalClase(BuildContext context, VoidCallback onActualizado) {
@@ -199,6 +185,8 @@ class SaludService {
                 child: const Text('Guardar'),
                 onPressed: () async {
                   final kcal = double.tryParse(kcalController.text) ?? 0.0;
+                  if (kcal <= 0) return;
+
                   final token = await _storage.read(key: 'jwt_token');
                   if (token == null) return;
 
@@ -215,8 +203,9 @@ class SaludService {
                       'fecha': today,
                     }),
                   );
+
                   Navigator.pop(context);
-                  onActualizado(); // 👉 recargar datos
+                  onActualizado();
                 },
               ),
             ],
@@ -226,4 +215,10 @@ class SaludService {
     );
   }
 
+  static tz.TZDateTime hoyA23Horas() {
+    tzdata.initializeTimeZones();
+    final location = tz.getLocation('Europe/Madrid');
+    final now = tz.TZDateTime.now(location);
+    return tz.TZDateTime(location, now.year, now.month, now.day, 23, 0);
+  }
 }
