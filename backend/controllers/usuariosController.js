@@ -142,12 +142,12 @@ exports.eliminarUsuario = async (req, res) => {
 };
 exports.actualizarAvatar = async (req, res) => {
   try {
-    const { fluttermojiJson } = req.body; // así se llamará el campo desde fluttermoji
-    if (!fluttermojiJson) return res.status(400).json({ mensaje: 'Falta JSON del avatar' });
+    const { avatar } = req.body; // <-- asegúrate de usar 'avatar' (no 'fluttermojiJson')
+    if (!avatar) return res.status(400).json({ mensaje: 'Falta el JSON del avatar' });
 
     const usuario = await Usuario.findByIdAndUpdate(
       req.user.id,
-      { avatar: fluttermojiJson },
+      { avatar }, // <--- guarda directamente el string del frontend
       { new: true }
     );
     res.json({ mensaje: 'Avatar actualizado', avatar: usuario.avatar });
