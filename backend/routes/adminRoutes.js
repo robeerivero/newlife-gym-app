@@ -32,6 +32,7 @@ const {
   obtenerClasesPorUsuario,
   obtenerUsuariosPorClase,
   asignarUsuarioAClasesPorDiaYHora,
+  obtenerUsuariosConAsistencia
 } = require('../controllers/reservasController');
 
 const router = express.Router();
@@ -51,6 +52,7 @@ router.get('/clases/:idClase', proteger, esAdministrador, obtenerClasePorId);
 router.put('/clases/:idClase', proteger, esAdministrador, modificarClase);
 router.delete('/clases/:idClase', proteger, esAdministrador, eliminarClase);
 router.delete('/clases', proteger, esAdministrador, eliminarTodasLasClases);
+router.get('/clases/usuarios/:idClase', proteger, esAdministrador, obtenerUsuariosConAsistencia);
 
 // Rutas para usuarios (solo administradores)
 router.post('/usuarios', proteger, esAdministrador, crearUsuario);

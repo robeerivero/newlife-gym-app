@@ -12,6 +12,8 @@ const esquemaUsuario = new mongoose.Schema({
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: {type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true,
   },
+  asistencias: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Clase' }],
+
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla

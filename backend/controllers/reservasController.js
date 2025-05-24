@@ -106,6 +106,29 @@ exports.obtenerUsuariosPorClase = async (req, res) => {
   }
 };
 
+exports.obtenerUsuariosConAsistencia = async (req, res) => {
+  const { idClase } = req.params;
+
+  try {
+    const clase = await Clase.findById(idClase).populate('participantes', 'nombre correo');
+
+    if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
+
+    const usuarios = await Usuario.find({ _id: { $in: clase.participantes } });
+
+    const resultado = usuarios.map(usuario => ({
+      _id: usuario._id,
+      nombre: usuario.nombre,
+      correo: usuario.correo,
+      asistio: (usuario.asistencias || []).includes(idClase),
+    }));
+
+    res.json(resultado);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener usuarios de la clase' });
+  }
+};
 
 
 exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {
@@ -337,6 +360,11 @@ exports.registrarAsistencia = async (req, res) => {
     // Evitar múltiples registros
     if (clase.asistencias.includes(usuarioId)) {
       return res.status(400).json({ mensaje: 'Ya se registró tu asistencia' });
+    }
+    usuario.asistencias = usuario.asistencias || [];
+    if (!usuario.asistencias.includes(idClase)) {
+      usuario.asistencias.push(idClase);
+      await usuario.save();
     }
 
     clase.asistencias.push(usuarioId);
