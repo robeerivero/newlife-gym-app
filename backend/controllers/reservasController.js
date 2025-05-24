@@ -85,14 +85,27 @@ exports.obtenerUsuariosPorClase = async (req, res) => {
   const { idClase } = req.params;
 
   try {
-    const clase = await Clase.findById(idClase).populate('participantes', 'nombre correo');
+    const clase = await Clase.findById(idClase)
+      .populate('participantes', 'nombre correo')
+      .populate('asistencias', 'nombre correo');
+
     if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
-    res.status(200).json(clase.participantes);
+    const usuarios = clase.participantes.map((u) => {
+      return {
+        _id: u._id,
+        nombre: u.nombre,
+        correo: u.correo,
+        asistio: clase.asistencias.map(a => a.toString()).includes(u._id.toString())
+      };
+    });
+
+    res.status(200).json(usuarios);
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener usuarios de la clase', error });
   }
 };
+
 
 
 exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {

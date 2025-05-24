@@ -48,7 +48,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
             'Content-Type': 'application/json',
         },
         body: json.encode({
-            'idClase': claseId, // <- este es el nombre que espera el backend
+            'codigoQR': scannedData, // <- este es el nombre que espera el backend
         }),
         );
 
