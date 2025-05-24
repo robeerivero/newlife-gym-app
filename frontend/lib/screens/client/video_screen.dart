@@ -18,7 +18,6 @@ class _EstadoVideoScreen extends State<VideoScreen> {
   bool _cargando = true;
   String _mensajeError = '';
   List<dynamic> _videos = [];
-  final TextEditingController _controladorBusqueda = TextEditingController();
 
   @override
   void initState() {
@@ -26,13 +25,11 @@ class _EstadoVideoScreen extends State<VideoScreen> {
     _obtenerVideos();
   }
 
-  // Obtiene los videos desde la API
   Future<void> _obtenerVideos() async {
     setState(() => _cargando = true);
 
     try {
       final token = await _almacenamiento.read(key: 'jwt_token');
-      
       final respuesta = await http.get(
         Uri.parse('${AppConstants.baseUrl}/api/videos'),
         headers: {'Authorization': 'Bearer $token'},
@@ -50,10 +47,9 @@ class _EstadoVideoScreen extends State<VideoScreen> {
     }
   }
 
-  // Muestra el reproductor de video
   void _mostrarReproductor(String urlVideo) {
     final idVideo = YoutubePlayer.convertUrlToId(urlVideo);
-    
+
     if (idVideo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enlace no válido')),
@@ -69,22 +65,114 @@ class _EstadoVideoScreen extends State<VideoScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: const Color(0xFFE3F2FD),
-          body: OrientationBuilder(
-            builder: (context, orientacion) {
-              return ContenidoReproductor(
-                idVideo: idVideo,
-                tituloVideo: videoActual['titulo'],
-                orientacion: orientacion,
-                todosVideos: _videos,
-                alSeleccionarVideo: (nuevaUrl) => _mostrarReproductor(nuevaUrl),
+        builder: (_) => ContenidoReproductorConEstado(
+          idVideo: idVideo,
+          tituloVideo: videoActual['titulo'],
+          todosVideos: _videos,
+        ),
+      ),
+    );
+  }
+
+  Widget _construirTarjetaVideo(dynamic video) {
+    return GestureDetector(
+      onTap: () => _mostrarReproductor(video['url']),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Image.network(
+                video['thumbnail'] ?? 'https://via.placeholder.com/150',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                video['titulo'] ?? 'Sin título',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _construirCuadricula(int columnas) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columnas,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: _videos.length,
+      itemBuilder: (context, indice) {
+        final video = _videos[indice];
+        return _construirTarjetaVideo(video);
+      },
+    );
+  }
+
+  Widget _construirSeccionRecomendados() {
+    final recomendados = _videos.take(5).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: Text(
+            'Recomendados para ti',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: recomendados.length,
+            itemBuilder: (context, indice) {
+              final video = recomendados[indice];
+              return Container(
+                width: 160,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                child: _construirTarjetaVideo(video),
               );
             },
           ),
         ),
-      ),
+      ],
     );
+  }
+
+  Widget _construirContenido(Orientation orientacion) {
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_mensajeError.isNotEmpty) {
+      return Center(child: Text(_mensajeError));
+    }
+
+    return orientacion == Orientation.portrait
+        ? SingleChildScrollView(
+            child: Column(
+              children: [
+                _construirCuadricula(2),
+                _construirSeccionRecomendados(),
+              ],
+            ),
+          )
+        : _construirCuadricula(4);
   }
 
   @override
@@ -114,191 +202,83 @@ class _EstadoVideoScreen extends State<VideoScreen> {
       ),
     );
   }
-
-  // Construye el contenido según la orientación
-  Widget _construirContenido(Orientation orientacion) {
-    if (_cargando) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_mensajeError.isNotEmpty) {
-      return Center(child: Text(_mensajeError));
-    }
-
-    return orientacion == Orientation.portrait
-        ? SingleChildScrollView(
-            child: Column(
-              children: [
-                _construirCuadricula(2),
-                _construirSeccionRecomendados(),
-              ],
-            ),
-          )
-        : _construirCuadricula(4);
-  }
-
-  // Cuadrícula de videos
-  Widget _construirCuadricula(int columnas) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columnas,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: _videos.length,
-      itemBuilder: (context, indice) {
-        final video = _videos[indice];
-        return _construirTarjetaVideo(video);
-      },
-    );
-  }
-
-  // Sección de videos recomendados
-  Widget _construirSeccionRecomendados() {
-    final recomendados = _videos.take(5).toList();
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Text(
-            'Recomendados para ti',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: recomendados.length,
-            itemBuilder: (context, indice) {
-              final video = recomendados[indice];
-              return Container(
-                width: 160,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                child: _construirTarjetaVideo(video),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Tarjeta individual de video
-  Widget _construirTarjetaVideo(dynamic video) {
-    return GestureDetector(
-      onTap: () => _mostrarReproductor(video['url']),
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10)),
-                    child: Image.network(
-                      video['thumbnail'] ?? 
-                      'https://via.placeholder.com/150',
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      cacheWidth: 300,
-                      loadingBuilder: (context, child, progreso) => progreso == null 
-                          ? child 
-                          : const CircularProgressIndicator(),
-                    ),
-                  ),
-                  const Icon(Icons.play_circle_filled,
-                      size: 50, color: Colors.white),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                video['titulo'] ?? 'Sin título',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// Contenido del reproductor de video
-class ContenidoReproductor extends StatefulWidget {
+// El reproductor ahora es Stateful y mantiene el controlador mientras la pantalla esté en memoria
+class ContenidoReproductorConEstado extends StatefulWidget {
   final String idVideo;
   final String tituloVideo;
-  final Orientation orientacion;
   final List<dynamic> todosVideos;
-  final Function(String) alSeleccionarVideo;
 
-  const ContenidoReproductor({
+  const ContenidoReproductorConEstado({
     required this.idVideo,
     required this.tituloVideo,
-    required this.orientacion,
     required this.todosVideos,
-    required this.alSeleccionarVideo,
   });
 
   @override
-  State<ContenidoReproductor> createState() => _EstadoContenidoReproductor();
+  State<ContenidoReproductorConEstado> createState() => _ContenidoReproductorConEstadoState();
 }
 
-class _EstadoContenidoReproductor extends State<ContenidoReproductor> {
-  late YoutubePlayerController _controlador;
-  Duration _posicionActual = Duration.zero;
-  bool _controladorListo = false;
+class _ContenidoReproductorConEstadoState extends State<ContenidoReproductorConEstado> with AutomaticKeepAliveClientMixin {
+  late YoutubePlayerController _controller;
+  late String _currentId;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _inicializarControlador();
-  }
-
-  void _inicializarControlador() {
-    _controlador = YoutubePlayerController(
-      initialVideoId: widget.idVideo,
+    _currentId = widget.idVideo;
+    _controller = YoutubePlayerController(
+      initialVideoId: _currentId,
       flags: const YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
         enableCaption: true,
         forceHD: true,
       ),
-    )..addListener(() {
-        if (_controladorListo) {
-          _posicionActual = _controlador.value.position;
-        }
-      });
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant ContenidoReproductorConEstado oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.idVideo != _currentId) {
+      _currentId = widget.idVideo;
+      _controller.load(_currentId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // Doble tap para avanzar/retroceder 10 segundos
+  void _onDoubleTap(TapDownDetails details, BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final dx = details.globalPosition.dx;
+    final pos = _controller.value.position;
+
+    if (dx < width / 2) {
+      _controller.seekTo(pos - const Duration(seconds: 10) > Duration.zero ? pos - const Duration(seconds: 10) : Duration.zero);
+    } else {
+      _controller.seekTo(pos + const Duration(seconds: 10));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
+    final orientacion = MediaQuery.of(context).orientation;
+
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD),
-      appBar: widget.orientacion == Orientation.portrait
+      appBar: orientacion == Orientation.portrait
           ? AppBar(
               backgroundColor: const Color(0xFF1E88E5),
               iconTheme: const IconThemeData(color: Colors.white),
@@ -313,137 +293,61 @@ class _EstadoContenidoReproductor extends State<ContenidoReproductor> {
               ),
             )
           : null,
-      body: _construirContenidoPrincipal(),
-    );
-  }
-
-  Widget _construirContenidoPrincipal() {
-    return widget.orientacion == Orientation.portrait
-        ? SingleChildScrollView(
-            child: Column(
-              children: [
-                _construirReproductor(16 / 9),
-                _construirVideosRecomendados(),
-              ],
+      body: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: orientacion == Orientation.portrait ? 16 / 9 : MediaQuery.of(context).size.aspectRatio,
+            child: GestureDetector(
+              onDoubleTapDown: (details) => _onDoubleTap(details, context),
+              child: YoutubePlayer(
+                controller: _controller,
+                onReady: () {},
+              ),
             ),
-          )
-        : _construirReproductor(MediaQuery.of(context).size.aspectRatio);
-  }
-
-  Widget _construirReproductor(double relacionAspecto) {
-    return AspectRatio(
-      aspectRatio: relacionAspecto,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onDoubleTapDown: (detalles) {
-          final anchoPantalla = MediaQuery.of(context).size.width;
-          final posicionToque = detalles.globalPosition.dx;
-          
-          posicionToque < anchoPantalla / 2
-              ? _retroceder()
-              : _avanzar();
-        },
-        child: YoutubePlayer(
-          controller: _controlador,
-          onReady: () {
-            if (_posicionActual.inSeconds > 0) {
-              _controlador.seekTo(_posicionActual);
-            }
-            setState(() => _controladorListo = true);
-          },
-        ),
+          ),
+          if (orientacion == Orientation.portrait)
+            ...[
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Videos Recomendados', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+              SizedBox(
+                height: 200,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: widget.todosVideos
+                      .where((v) => YoutubePlayer.convertUrlToId(v['url']) != _currentId)
+                      .take(5)
+                      .map((video) => GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _currentId = YoutubePlayer.convertUrlToId(video['url'])!;
+                                _controller.load(_currentId);
+                              });
+                            },
+                            child: Card(
+                              child: SizedBox(
+                                width: 160,
+                                child: Column(
+                                  children: [
+                                    Image.network(video['thumbnail'] ?? 'https://via.placeholder.com/150'),
+                                    Text(
+                                      video['titulo'] ?? 'Sin título',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ]
+        ],
       ),
     );
-  }
-
-  void _avanzar() {
-    final nuevaPosicion = _controlador.value.position + const Duration(seconds: 10);
-    _controlador.seekTo(nuevaPosicion);
-  }
-
-  void _retroceder() {
-    final nuevaPosicion = _controlador.value.position - const Duration(seconds: 10);
-    _controlador.seekTo(nuevaPosicion > Duration.zero 
-        ? nuevaPosicion 
-        : Duration.zero);
-  }
-
-  Widget _construirVideosRecomendados() {
-    final recomendados = widget.todosVideos
-        .where((v) => v['url'] != _controlador.metadata.videoId)
-        .take(5)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Videos Recomendados',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: recomendados.length,
-            itemBuilder: (context, indice) {
-              final video = recomendados[indice];
-              return Container(
-                width: 250,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: InkWell(
-                    onTap: () => widget.alSeleccionarVideo(video['url']),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(10)),
-                            child: Image.network(
-                              video['thumbnail'] ?? 
-                              'https://via.placeholder.com/150',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            video['titulo'] ?? 'Sin título',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _controlador.dispose();
-    super.dispose();
   }
 }
 
@@ -453,6 +357,9 @@ class BuscadorVideos extends SearchDelegate {
   final Function(String) alSeleccionar;
 
   BuscadorVideos({required this.videos, required this.alSeleccionar});
+
+  @override
+  String get searchFieldLabel => 'Buscar por título...';
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -475,14 +382,13 @@ class BuscadorVideos extends SearchDelegate {
   Widget buildSuggestions(BuildContext context) => _construirResultados();
 
   Widget _construirResultados() {
-    final resultados = videos.where((video) => 
-      (video['titulo']?.toString().toLowerCase().contains(query.toLowerCase()) ?? false)
-    ).toList();
+    final resultados = videos.where((video) =>
+        (video['titulo']?.toString().toLowerCase().contains(query.toLowerCase()) ?? false)).toList();
 
     return ListView.builder(
       itemCount: resultados.length,
-      itemBuilder: (context, indice) {
-        final video = resultados[indice];
+      itemBuilder: (context, index) {
+        final video = resultados[index];
         return ListTile(
           leading: CircleAvatar(
             backgroundImage: NetworkImage(video['thumbnail'] ?? 'https://via.placeholder.com/150'),
@@ -490,8 +396,8 @@ class BuscadorVideos extends SearchDelegate {
           title: Text(video['titulo'] ?? 'Sin título'),
           subtitle: const Text('Haz clic para reproducir'),
           onTap: () {
-            close(context, null); // Cerrar buscador primero
-            alSeleccionar(video['url']); // Luego navegar
+            close(context, null);
+            alSeleccionar(video['url']);
           },
         );
       },

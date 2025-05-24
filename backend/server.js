@@ -13,6 +13,7 @@ const ejerciciosRoutes = require('./routes/ejerciciosRoutes');
 const rutinasRoutes = require('./routes/rutinasRoutes');
 const saludRouter = require('./routes/saludRoutes');
 const videoRoutes = require('./routes/videoRoutes'); // Importar rutas de videos
+const avatarRoutes = require('./routes/avatarRoutes'); // Importar rutas de avatar
 const cors = require('cors');
 
 // Configuración de variables de entorno
@@ -40,7 +41,7 @@ app.use('/api/ejercicios', ejerciciosRoutes);
 app.use('/api/rutinas', rutinasRoutes);
 app.use('/api/salud', saludRouter);
 app.use('/api/videos', videoRoutes); // Rutas de videos
-
+app.use('/api/avatar', avatarRoutes); // Rutas de avatar
 // Manejo de errores
 app.use((err, req, res, next) => {
   console.error(err.stack);
