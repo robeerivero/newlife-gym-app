@@ -1,6 +1,6 @@
 const Clase = require('../models/Clase');
 const Usuario = require('../models/Usuario');
-
+const Reserva = require('../models/Reserva');
 exports.asignarUsuarioAClase = async (req, res) => {
   const { idClase, idUsuario } = req.body;
 
@@ -296,7 +296,6 @@ exports.reservarClase = async (req, res) => {
   }
 };
 
-// POST /api/asistencia/registrar
 exports.registrarAsistencia = async (req, res) => {
   const usuarioId = req.user.id;
   const { idClase } = req.body;

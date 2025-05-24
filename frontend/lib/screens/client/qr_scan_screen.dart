@@ -32,39 +32,41 @@ class _QRScanScreenState extends State<QRScanScreen> {
   Future<void> _registrarAsistencia(String scannedData) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) {
-      setState(() {
+        setState(() {
         _mensaje = 'Token no encontrado.';
-      });
-      return;
+        });
+        return;
     }
+
+    final claseId = scannedData.replaceFirst('CLASE:', '');
 
     try {
-      final response = await http.post(
+        final response = await http.post(
         Uri.parse('${AppConstants.baseUrl}/api/reservas/asistencia'),
         headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
         },
         body: json.encode({
-          'codigoClase': widget.codigoClase,
-          'codigoQR': scannedData,
+            'idClase': claseId, // <- este es el nombre que espera el backend
         }),
-      );
+        );
 
-      setState(() {
+        setState(() {
         if (response.statusCode == 200) {
-          _mensaje = '✅ Asistencia registrada correctamente';
+            _mensaje = '✅ Asistencia registrada correctamente';
         } else {
-          final data = json.decode(response.body);
-          _mensaje = '❌ Error: ${data['mensaje'] ?? 'Desconocido'}';
+            final data = json.decode(response.body);
+            _mensaje = '❌ Error: ${data['mensaje'] ?? 'Desconocido'}';
         }
-      });
+        });
     } catch (e) {
-      setState(() {
+        setState(() {
         _mensaje = '❌ Error de conexión';
-      });
+        });
     }
-  }
+    }
+
 
   @override
   Widget build(BuildContext context) {
