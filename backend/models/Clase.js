@@ -39,7 +39,12 @@ const esquemaClase = new mongoose.Schema({
   listaEspera: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Usuario' // Usuarios en lista de espera
+  }],
+  asistencias: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Usuario'
   }]
+
 }, { timestamps: true });
 
 const Clase = mongoose.model('Clase', esquemaClase);

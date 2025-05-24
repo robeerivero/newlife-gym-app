@@ -298,28 +298,40 @@ exports.reservarClase = async (req, res) => {
 
 exports.registrarAsistencia = async (req, res) => {
   const usuarioId = req.user.id;
-  const { idClase } = req.body;
+  const { codigoQR } = req.body;
 
-  if (!idClase) return res.status(400).json({ mensaje: 'ID de clase requerido' });
+  // Extraer el idClase del código QR
+  if (!codigoQR || !codigoQR.startsWith('CLASE:')) {
+    return res.status(400).json({ mensaje: 'Código QR inválido' });
+  }
+
+  const idClase = codigoQR.replace('CLASE:', '');
 
   try {
     const clase = await Clase.findById(idClase);
-    if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
-
-    const reserva = await Reserva.findOne({ usuario: usuarioId, clase: idClase });
-    if (!reserva) return res.status(403).json({ mensaje: 'No estás registrado en esta clase' });
-
-    if (reserva.asistio) {
-      return res.status(400).json({ mensaje: 'Ya se registró la asistencia' });
+    if (!clase) {
+      return res.status(404).json({ mensaje: 'Clase no encontrada' });
     }
 
-    reserva.asistio = true;
-    await reserva.save();
+    // Verificar si el usuario está en la clase
+    if (!clase.participantes.includes(usuarioId)) {
+      return res.status(403).json({ mensaje: 'No estás registrado en esta clase' });
+    }
 
-    res.json({ mensaje: 'Asistencia registrada con éxito' });
+    // Añadir campo dinámico en clase: asistencias
+    if (!clase.asistencias) clase.asistencias = [];
+
+    // Evitar múltiples registros
+    if (clase.asistencias.includes(usuarioId)) {
+      return res.status(400).json({ mensaje: 'Ya se registró tu asistencia' });
+    }
+
+    clase.asistencias.push(usuarioId);
+    await clase.save();
+
+    res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al registrar asistencia' });
   }
 };
-
