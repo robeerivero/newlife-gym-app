@@ -336,7 +336,6 @@ exports.registrarAsistencia = async (req, res) => {
   const usuarioId = req.user.id;
   const { codigoQR } = req.body;
 
-  // Extraer el idClase del código QR
   if (!codigoQR || !codigoQR.startsWith('CLASE:')) {
     return res.status(400).json({ mensaje: 'Código QR inválido' });
   }
@@ -349,26 +348,31 @@ exports.registrarAsistencia = async (req, res) => {
       return res.status(404).json({ mensaje: 'Clase no encontrada' });
     }
 
-    // Verificar si el usuario está en la clase
+    const usuario = await Usuario.findById(usuarioId);
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
     if (!clase.participantes.includes(usuarioId)) {
       return res.status(403).json({ mensaje: 'No estás registrado en esta clase' });
     }
 
-    // Añadir campo dinámico en clase: asistencias
     if (!clase.asistencias) clase.asistencias = [];
 
-    // Evitar múltiples registros
     if (clase.asistencias.includes(usuarioId)) {
       return res.status(400).json({ mensaje: 'Ya se registró tu asistencia' });
     }
-    usuario.asistencias = usuario.asistencias || [];
+
+    // Agrega asistencia a la clase
+    clase.asistencias.push(usuarioId);
+    await clase.save();
+
+    // (Opcional) Puedes guardar también en el usuario si deseas llevar historial de asistencias
+    if (!usuario.asistencias) usuario.asistencias = [];
     if (!usuario.asistencias.includes(idClase)) {
       usuario.asistencias.push(idClase);
       await usuario.save();
     }
-
-    clase.asistencias.push(usuarioId);
-    await clase.save();
 
     res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' });
   } catch (error) {
