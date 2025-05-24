@@ -1,13 +1,13 @@
 // backend/routes/avatarRoutes.js
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { proteger } = require('../middleware/authMiddleware');
 const avatarController = require('../controllers/avatarController');
 
 // GET el avatar del usuario logueado
-router.get('/', auth, avatarController.getAvatar);
+router.get('/', proteger, avatarController.getAvatar);
 
 // PUT actualizar el avatar del usuario logueado
-router.put('/', auth, avatarController.updateAvatar);
+router.put('/', proteger, avatarController.updateAvatar);
 
 module.exports = router;
