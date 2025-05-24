@@ -20,6 +20,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   final _storage = FlutterSecureStorage();
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -43,8 +44,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _checkAuth() async {
     final token = await _storage.read(key: 'jwt_token');
-
-    await Future.delayed(const Duration(seconds: 2)); // Para que se vea la animación
+    await Future.delayed(const Duration(seconds: 2));
 
     if (token != null) {
       try {
@@ -58,14 +58,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           await _storage.write(key: 'jwt_token', value: data['accessToken']);
           _redirectByRole(data['usuario']['rol']);
         } else {
-          _redirectToLogin();
+          _handleAuthError();
         }
       } catch (e) {
-        _redirectToLogin();
+        _handleAuthError();
       }
     } else {
       _redirectToLogin();
     }
+  }
+
+  void _handleAuthError() {
+    setState(() => _hasError = true);
+    Future.delayed(const Duration(seconds: 1), _redirectToLogin);
   }
 
   void _redirectByRole(String role) {
@@ -106,10 +111,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             height: double.infinity,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFF90CAF9),
-                  Color(0xFF42A5F5),
-                ],
+                colors: [Color(0xFF90CAF9), Color(0xFF42A5F5)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -132,13 +134,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     strokeWidth: 3,
                   ),
                   SizedBox(height: 20.h),
-                  const Text(
-                    'Iniciando sesión...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
+                  AnimatedOpacity(
+                    opacity: _hasError ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: const Text(
+                      'Iniciando sesión...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 ],

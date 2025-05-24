@@ -295,3 +295,32 @@ exports.reservarClase = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al reservar la clase', error });
   }
 };
+
+// POST /api/asistencia/registrar
+exports.registrarAsistencia = async (req, res) => {
+  const usuarioId = req.user.id;
+  const { idClase } = req.body;
+
+  if (!idClase) return res.status(400).json({ mensaje: 'ID de clase requerido' });
+
+  try {
+    const clase = await Clase.findById(idClase);
+    if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
+
+    const reserva = await Reserva.findOne({ usuario: usuarioId, clase: idClase });
+    if (!reserva) return res.status(403).json({ mensaje: 'No estás registrado en esta clase' });
+
+    if (reserva.asistio) {
+      return res.status(400).json({ mensaje: 'Ya se registró la asistencia' });
+    }
+
+    reserva.asistio = true;
+    await reserva.save();
+
+    res.json({ mensaje: 'Asistencia registrada con éxito' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al registrar asistencia' });
+  }
+};
+

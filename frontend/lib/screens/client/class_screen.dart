@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'reserve_class_screen.dart';
+import 'qr_scan_screen.dart';
 import '../../config.dart';
 
 class ClassScreen extends StatefulWidget {
@@ -142,6 +143,22 @@ class ClassScreenState extends State<ClassScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE3F2FD),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E88E5),
+        title: const Text('Mis Clases', style: TextStyle(color: Colors.white)),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app, color: Colors.white),
+            onPressed: () async {
+              await _storage.delete(key: 'jwt_token');
+              if (mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           if (_errorMessage != null)
@@ -151,7 +168,7 @@ class ClassScreenState extends State<ClassScreen> {
                 _errorMessage!,
                 style: const TextStyle(color: Colors.red, fontSize: 16),
               ),
-            ),          
+            ),
           Expanded(
             child: nextClasses.isEmpty
                 ? const Center(
@@ -164,93 +181,109 @@ class ClassScreenState extends State<ClassScreen> {
                     itemCount: nextClasses.length,
                     itemBuilder: (context, index) {
                       final classItem = nextClasses[index];
-                      return Card(
-                        elevation: 30,
-                        margin: const EdgeInsets.all(16), // Espaciado adicional
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30), // Más circular
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 5,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16), // Espaciado interno para agrandar la tarjeta
+                          padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Título en mayúsculas
-                              Text(
-                                '${(classItem['dia']).toUpperCase()} - ${(classItem['horaInicio']).toUpperCase()}',
-                                style: const TextStyle(
-                                  fontSize: 20, 
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF42A5F5),
-                                ),
-                              ),
-                              const SizedBox(height: 8), // Espaciado entre el título y el resto
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Fecha: ${formatDate(classItem['fecha'])}',
-                                    style: const TextStyle(fontSize: 14),),
-                                  Text('Tipo: ${(classItem['nombre'] ?? 'Sin nombre').toUpperCase()}',
-                                    style: const TextStyle(fontSize: 14),),
-                                ],
-                              ),
-                              const SizedBox(height: 16), // Espaciado entre detalles y los indicadores
                               Row(
                                 children: [
-                                  // Indicador para cupos disponibles
+                                  const Icon(Icons.event_available, color: Color(0xFF42A5F5)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${(classItem['dia']).toUpperCase()} - ${(classItem['horaInicio']).toUpperCase()}',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1E88E5),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text('📅 Fecha: ${formatDate(classItem['fecha'])}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                              Text('🏷️ Tipo: ${(classItem['nombre'] ?? 'Sin nombre').toUpperCase()}', style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
                                   Row(
                                     children: [
-                                      Container(
-                                        width: 20,
-                                        height: 20,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.green, // Verde para cupos disponibles
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
+                                      const Icon(Icons.group, size: 16, color: Colors.green),
+                                      const SizedBox(width: 6),
                                       Text('Cupos: ${classItem['cuposDisponibles']}'),
                                     ],
                                   ),
-                                  const SizedBox(width: 16), // Espaciado entre indicadores
-                                  // Indicador para asistentes
+                                  const SizedBox(width: 20),
                                   Row(
                                     children: [
-                                      Container(
-                                        width: 20,
-                                        height: 20,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.red, // Rojo para asistentes
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Asistentes: ${classItem['maximoParticipantes'] - classItem['cuposDisponibles']}',
-                                      ),
+                                      const Icon(Icons.people_alt, size: 16, color: Colors.red),
+                                      const SizedBox(width: 6),
+                                      Text('Asistentes: ${classItem['maximoParticipantes'] - classItem['cuposDisponibles']}'),
                                     ],
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16), // Espaciado antes del botón
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton(
-                                  onPressed: () => cancelClass(classItem['_id']),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.redAccent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () => cancelClass(classItem['_id']),
+                                    icon: const Icon(Icons.cancel),
+                                    label: const Text('Cancelar'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                     ),
                                   ),
-                                  child: const Text('Cancelar'),
-                                ),
+                                 ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => QRScanScreen(codigoClase: classItem['_id']),
+                                        ),
+                                      ).then((_) => fetchNextClasses());
+                                    },
+                                    icon: const Icon(Icons.qr_code_scanner, size: 20),
+                                    label: const Text(
+                                      'Canjear QR',
+                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.indigoAccent,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      elevation: 3,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
                       );
-
                     },
                   ),
           ),
@@ -264,12 +297,14 @@ class ClassScreenState extends State<ClassScreen> {
                     MaterialPageRoute(
                       builder: (context) => const ReserveClassScreen(),
                     ),
-                  ).then((_) => {fetchNextClasses(),_fetchProfile()});
+                  ).then((_) => {fetchNextClasses(), _fetchProfile()});
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Reservar una clase'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

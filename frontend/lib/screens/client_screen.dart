@@ -108,79 +108,39 @@ class ClientScreenState extends State<ClientScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
-        title: Text(
-          titulos[_selectedIndex], 
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            color: Color.fromARGB(255, 250, 250, 250),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: const Color(0xFF1E88E5),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.person, size: 60, color: Colors.white),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Bienvenido, ${_userName ?? 'Usuario'}',
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ],
-              ),
-            ),
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ),
-            ListTile(
-              leading: const Icon(Icons.fitness_center),
-              title: const Text('Clases'),
-              onTap: () => _onItemTapped(0),
-            ),
-            ListTile(
-              leading: const Icon(Icons.restaurant),
-              title: const Text('Dietas'),
-              onTap: () => _onItemTapped(1),
-            ),
-            ListTile(
-              leading: const Icon(Icons.video_library),
-              title: const Text('Videos'),
-              onTap: () => _onItemTapped(2),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Perfil'),
-              onTap: () => _onItemTapped(3),
-            ),
-            ListTile(
-              leading: const Icon(Icons.favorite),
-              title: const Text('Salud'),
-              onTap: () => _onItemTapped(4),
-            ),
-          ],
-        ),
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        selectedItemColor: const Color(0xFF1E88E5),
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Clases',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.restaurant),
+            label: 'Dietas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.video_library),
+            label: 'Videos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Salud',
+          ),
+        ],
+      ),
     );
   }
+
 }

@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
   bool _showForm = false;
   bool _rememberMe = false;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -81,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth > 600) {
-          return const SizedBox.shrink(); // Ocultar en pantallas grandes
+          return const SizedBox.shrink();
         } else {
           return SizedBox(
             height: 200.h,
@@ -190,66 +191,93 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                          if (_showForm) ...[
-                            SizedBox(height: 20.h),
-                            Form(
-                              key: _formKey,
-                              child: Column(
-                                children: [
-                                  TextFormField(
-                                    controller: _emailController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Correo electrónico',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10.0),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            child: _showForm
+                                ? Card(
+                                    color: Colors.white.withOpacity(0.95),
+                                    elevation: 4,
+                                    margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Form(
+                                        key: _formKey,
+                                        child: Column(
+                                          children: [
+                                            TextFormField(
+                                              controller: _emailController,
+                                              decoration: InputDecoration(
+                                                labelText: 'Correo electrónico',
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10.0),
+                                                ),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null || value.isEmpty) {
+                                                  return 'Por favor, ingresa tu correo electrónico';
+                                                } else if (!RegExp(r"^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}").hasMatch(value)) {
+                                                  return 'Formato de correo no válido';
+                                                }
+                                                return null;
+                                              },
+                                            ),
+                                            SizedBox(height: 20.h),
+                                            TextFormField(
+                                              controller: _passwordController,
+                                              obscureText: _obscurePassword,
+                                              decoration: InputDecoration(
+                                                labelText: 'Contraseña',
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10.0),
+                                                ),
+                                                suffixIcon: IconButton(
+                                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                                  onPressed: () => setState(() {
+                                                    _obscurePassword = !_obscurePassword;
+                                                  }),
+                                                ),
+                                              ),
+                                              validator: (value) {
+                                                if (value == null || value.isEmpty) {
+                                                  return 'Por favor, ingresa tu contraseña';
+                                                }
+                                                return null;
+                                              },
+                                            ),
+                                            SizedBox(height: 10.h),
+                                            if (_isLoading)
+                                              const CircularProgressIndicator()
+                                            else
+                                              ElevatedButton(
+                                                onPressed: _login,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.deepPurple,
+                                                  foregroundColor: Colors.white,
+                                                  padding: EdgeInsets.symmetric(horizontal: 100.w, vertical: 15.h),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(10.0),
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'Iniciar Sesión',
+                                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                            if (_errorMessage != null) ...[
+                                              SizedBox(height: 10.h),
+                                              Text(
+                                                _errorMessage!,
+                                                style: const TextStyle(color: Colors.red),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Por favor, ingresa tu correo electrónico';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  SizedBox(height: 20.h),
-                                  TextFormField(
-                                    controller: _passwordController,
-                                    obscureText: true,
-                                    decoration: InputDecoration(
-                                      labelText: 'Contraseña',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10.0),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Por favor, ingresa tu contraseña';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  SizedBox(height: 30.h),
-                                  if (_isLoading)
-                                    const CircularProgressIndicator()
-                                  else
-                                    ElevatedButton(
-                                      onPressed: _login,
-                                      style: ElevatedButton.styleFrom(
-                                        padding: EdgeInsets.symmetric(horizontal: 100.w, vertical: 15.h),
-                                      ),
-                                      child: const Text('Iniciar Sesión'),
-                                    ),
-                                  if (_errorMessage != null) ...[
-                                    SizedBox(height: 10.h),
-                                    Text(
-                                      _errorMessage!,
-                                      style: const TextStyle(color: Colors.red),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
                         ],
                       ),
                     ),

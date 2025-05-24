@@ -265,3 +265,24 @@ exports.obtenerClasesPorFechaYTipo = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al obtener las clases', error });
   }
 };
+
+const QRCode = require('qrcode');
+
+exports.generarQR = async (req, res) => {
+  const { idClase } = req.params;
+
+  try {
+    const payload = {
+      idClase,
+      exp: Math.floor(Date.now() / 1000) + 60 * 10 // 10 minutos de validez
+    };
+
+    const qrData = JSON.stringify(payload); // o firmarlo como JWT
+
+    const qrImage = await QRCode.toDataURL(qrData);
+    res.json({ qrImage }); // Lo devuelves como base64
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al generar QR' });
+  }
+};
+
