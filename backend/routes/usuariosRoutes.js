@@ -7,7 +7,8 @@ const {
   obtenerUsuarioPorId,
   crearUsuario,
   eliminarUsuario,
-  cambiarContrasena
+  cambiarContrasena,
+  actualizarAvatar
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -23,4 +24,5 @@ router.get('/:idUsuario', proteger, obtenerUsuarioPorId);
 router.post('/', proteger, crearUsuario);
 router.delete('/:idUsuario', proteger, eliminarUsuario);
 
+router.put('/avatar', proteger, actualizarAvatar);
 module.exports = router;

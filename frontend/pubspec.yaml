@@ -24,7 +24,8 @@ dependencies:
   flutter_local_notifications: ^17.1.0
   mobile_scanner: ^3.5.1
   qr_flutter: ^4.0.0
-
+  fluttermoji: ^1.0.4
+  flutter_svg: any
   # HTTP, almacenamiento seguro y fondo
   http: ^1.3.0
   flutter_secure_storage: ^9.2.4
@@ -50,6 +51,11 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/avatar/clothing/
+    - assets/avatar/base/
+    - assets/avatar/hair/
+    - assets/avatar/accesorios/
+
 
 flutter_icons:
   android: true

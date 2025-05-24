@@ -1,7 +1,7 @@
 // backend/models/Usuario.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const AvatarSchema = require('./Avatar'); // asegúrate de la ruta
+
 const esquemaUsuario = new mongoose.Schema({
   nombre: { type: String, required: true, trim: true },
   correo: { type: String, required: true, unique: true, trim: true },
@@ -13,7 +13,7 @@ const esquemaUsuario = new mongoose.Schema({
   tiposDeClases: {type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true,
   },
   asistencias: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Clase' }],
-  avatar: { type: AvatarSchema, default: () => ({}) },
+  avatar: { type: Object, default: {} },
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla

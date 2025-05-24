@@ -140,3 +140,18 @@ exports.eliminarUsuario = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al eliminar el usuario', error });
   }
 };
+exports.actualizarAvatar = async (req, res) => {
+  try {
+    const { fluttermojiJson } = req.body; // así se llamará el campo desde fluttermoji
+    if (!fluttermojiJson) return res.status(400).json({ mensaje: 'Falta JSON del avatar' });
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.user.id,
+      { avatar: fluttermojiJson },
+      { new: true }
+    );
+    res.json({ mensaje: 'Avatar actualizado', avatar: usuario.avatar });
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al actualizar avatar', error });
+  }
+};
