@@ -59,8 +59,8 @@ exports.actualizarPasos = async (req, res) => {
     }
 
     await salud.save();
-
-    res.json({ mensaje: 'Datos de salud actualizados correctamente.', salud });
+    const nuevosLogros = await exports.chequearLogrosYDesbloquear(usuarioId);
+    res.json({ mensaje: 'Datos de salud actualizados correctamente.', salud, nuevosLogros });
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al actualizar los datos de salud' });
@@ -138,26 +138,7 @@ exports.obtenerHistorialSalud = async (req, res) => {
   }
 };
 
-exports.obtenerLogros = async (req, res) => {
-  try {
-    const usuarioId = req.user.id;
-    const registros = await Salud.find({ usuario: usuarioId }).sort({ fecha: -1 });
 
-    const hoy = registros[0] || {};
-    const pasosHoy = hoy.pasos || 0;
-    const kcalHoy = hoy.kcalQuemadas || 0;
-    const logros = [];
-
-    if (pasosHoy >= 10000) logros.push('🏅 10.000 pasos alcanzados');
-    if (kcalHoy >= 500) logros.push('🔥 500 kcal quemadas');
-    if (registros.length >= 7) logros.push('📅 Semana completa registrada');
-
-    res.json({ logros });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: 'Error al obtener logros' });
-  }
-};
 exports.guardarDatosSalud = async (req, res) => {
   try {
     const usuarioId = req.user.id;
@@ -178,7 +159,8 @@ exports.guardarDatosSalud = async (req, res) => {
     salud.kcalConsumidas = kcalConsumidas;
 
     await salud.save();
-    res.json({ mensaje: 'Datos de salud guardados exitosamente', salud });
+    const nuevosLogros = await exports.chequearLogrosYDesbloquear(usuarioId);
+    res.json({ mensaje: 'Datos de salud guardados exitosamente', salud, nuevosLogros });
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al guardar los datos de salud' });

@@ -8,7 +8,10 @@ const {
   crearUsuario,
   eliminarUsuario,
   cambiarContrasena,
-  actualizarAvatar
+  actualizarAvatar, 
+  obtenerCatalogoPrendas,
+  obtenerPrendasDesbloqueadas,
+  obtenerProgresoLogros
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -25,4 +28,9 @@ router.post('/', proteger, crearUsuario);
 router.delete('/:idUsuario', proteger, eliminarUsuario);
 
 router.put('/avatar', proteger, actualizarAvatar);
+// --- RUTAS DE LOGROS Y PRENDAS ---
+router.get('/prendas/catalogo', proteger, obtenerCatalogoPrendas); // Ver todo el catálogo
+router.get('/prendas/desbloqueadas', proteger, obtenerPrendasDesbloqueadas); // Ver prendas desbloqueadas
+router.get('/prendas/progreso', proteger, obtenerProgresoLogros);
+
 module.exports = router;

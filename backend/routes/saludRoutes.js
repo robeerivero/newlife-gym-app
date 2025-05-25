@@ -7,6 +7,5 @@ router.put('/pasos', proteger, actualizarPasos);
 router.get('/kcal-consumidas', proteger, actualizarKcalConsumidas);
 router.get('/historial', proteger, obtenerHistorialSalud);
 router.post('/guardar', proteger, guardarDatosSalud);
-router.get('/logros', proteger, obtenerLogros);
 router.get('/dia/:fecha', proteger, DatosSalud); 
 module.exports = router;

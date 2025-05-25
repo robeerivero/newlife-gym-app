@@ -14,6 +14,7 @@ const esquemaUsuario = new mongoose.Schema({
   },
   asistencias: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Clase' }],
   avatar: { type: Object, default: {} },
+  desbloqueados: {type: [Object], default: []},
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla

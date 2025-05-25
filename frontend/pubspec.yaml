@@ -52,10 +52,6 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/avatar/clothing/
-    - assets/avatar/base/
-    - assets/avatar/hair/
-    - assets/avatar/accesorios/
 
 
 flutter_icons:

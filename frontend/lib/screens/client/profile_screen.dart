@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../config.dart';
+import 'edit_profile_screen.dart'; // <- esta es la pantalla de editar perfil
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -69,10 +70,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _editarAvatar() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const FluttermojiCustomizer()),
+      MaterialPageRoute(builder: (context) => FluttermojiCustomizer()),
     );
     await _guardarAvatar();
     setState(() {});
+  }
+
+  void _editarPerfil() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          initialName: _name ?? "",
+          initialEmail: _email ?? "",
+        ),
+      ),
+    );
+    if (result == true) {
+      _fetchProfile(); // Recarga los datos si se editó el perfil
+    }
   }
 
   void _showSettingsDialog() {
@@ -81,27 +97,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Editar avatar'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _editarAvatar();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Cerrar sesión'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _storage.delete(key: 'jwt_token');
-                if (mounted) Navigator.of(context).pushReplacementNamed('/login');
-              },
-            ),
-          ],
+        return Container(
+          color: Colors.white,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.person, color: Color(0xFF1E88E5)),
+                title: const Text('Editar perfil'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _editarPerfil();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.face, color: Color(0xFF42A5F5)),
+                title: const Text('Editar avatar'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _editarAvatar();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text('Cerrar sesión'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _storage.delete(key: 'jwt_token');
+                  if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -110,11 +137,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFE3F2FD),
       appBar: AppBar(
-        title: const Text('Perfil'),
+        backgroundColor: const Color(0xFF1E88E5),
+        title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: _showSettingsDialog,
           ),
         ],
@@ -122,25 +152,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  if (_error != null)
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  FluttermojiCircleAvatar(
-                    backgroundColor: Colors.blue[50],
-                    radius: 70,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              child: Center(
+                child: Card(
+                  elevation: 12,
+                  margin: const EdgeInsets.only(top: 20, bottom: 28),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Text(_error!,
+                                style: const TextStyle(color: Colors.red, fontSize: 16)),
+                          ),
+                        FluttermojiCircleAvatar(
+                          backgroundColor: Colors.blue[50],
+                          radius: 70,
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          _name ?? "",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: Color(0xFF1E88E5),
+                          ),
+                        ),
+                        Text(
+                          _email ?? "",
+                          style: const TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.person, size: 22),
+                          label: const Text("Editar perfil"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E88E5),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          onPressed: _editarPerfil,
+                        ),
+                        const SizedBox(height: 14),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.face, size: 22),
+                          label: const Text("Editar avatar"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF42A5F5),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          onPressed: _editarAvatar,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  Text(_name ?? "", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-                  Text(_email ?? "", style: const TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.edit),
-                    label: const Text("Editar avatar"),
-                    onPressed: _editarAvatar,
-                  ),
-                ],
+                ),
               ),
             ),
     );

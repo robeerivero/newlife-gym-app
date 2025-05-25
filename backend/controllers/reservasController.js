@@ -373,8 +373,8 @@ exports.registrarAsistencia = async (req, res) => {
       usuario.asistencias.push(idClase);
       await usuario.save();
     }
-
-    res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' });
+    const nuevosLogros = await exports.chequearLogrosYDesbloquear(usuarioId);
+    res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito', nuevosLogros });
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error al registrar asistencia' });

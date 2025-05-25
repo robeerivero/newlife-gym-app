@@ -1,4 +1,99 @@
 const Usuario = require('../models/Usuario');
+const fs = require('fs');
+const path = require('path');
+const Salud = require('../models/Salud');
+const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
+const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
+
+exports.chequearLogrosYDesbloquear = async function(usuarioId) {
+  const Usuario = require('../models/Usuario');
+  const usuario = await Usuario.findById(usuarioId);
+  if (!usuario) return [];
+
+  const desbloqueados = usuario.desbloqueados || [];
+  const totalAsistencias = usuario.asistencias ? usuario.asistencias.length : 0;
+  const fechasAsistencias = usuario.asistenciasFechas
+    ? usuario.asistenciasFechas.map(f => new Date(f)).sort((a, b) => a - b)
+    : [];
+
+  // Cálculo de racha máxima (días consecutivos)
+  let maxRacha = 0, actualRacha = 1;
+  for (let i = 1; i < fechasAsistencias.length; i++) {
+    let diff = (fechasAsistencias[i] - fechasAsistencias[i-1]) / (1000 * 60 * 60 * 24);
+    if (diff === 1) actualRacha++;
+    else actualRacha = 1;
+    if (actualRacha > maxRacha) maxRacha = actualRacha;
+  }
+  if (fechasAsistencias.length) maxRacha = Math.max(maxRacha, 1);
+
+  // Datos de salud de hoy
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  const manana = new Date(hoy); manana.setDate(hoy.getDate()+1);
+
+  const saludHoy = await Salud.findOne({
+    usuario: usuario._id,
+    fecha: { $gte: hoy, $lt: manana }
+  });
+
+  // Fechas especiales
+  const esSanValentin = fechasAsistencias.some(f =>
+    (new Date(f)).getDate() === 14 && (new Date(f)).getMonth() === 1
+  );
+  const es8Marzo = fechasAsistencias.some(f =>
+    (new Date(f)).getDate() === 8 && (new Date(f)).getMonth() === 2
+  );
+  const esHalloween = fechasAsistencias.some(f =>
+    (new Date(f)).getDate() === 31 && (new Date(f)).getMonth() === 9
+  );
+  const esNavidad = fechasAsistencias.some(f =>
+    (new Date(f)).getDate() === 25 && (new Date(f)).getMonth() === 11
+  );
+
+  // Chequeo
+  let nuevosDesbloqueos = [];
+  for (const prenda of prendasLogros) {
+    if (prenda.desbloqueadoPorDefecto) continue;
+    if (desbloqueados.find(d => d.key === prenda.key && d.value === prenda.value)) continue;
+    const logro = prenda.logro;
+    let cumple = false;
+    if (logro === 'asiste_primera_clase' && totalAsistencias >= 1) cumple = true;
+    if (logro && logro.startsWith('asistencia_')) {
+      const match = logro.match(/asistencia_(\d+)_total/);
+      if (match && totalAsistencias >= parseInt(match[1])) cumple = true;
+    }
+    if (logro && logro.startsWith('asistencia_') && logro.includes('seguidas')) {
+      const match = logro.match(/asistencia_(\d+)_seguidas/);
+      if (match && maxRacha >= parseInt(match[1])) cumple = true;
+    }
+    if (logro && logro.startsWith('racha_')) {
+      const match = logro.match(/racha_(\d+)_seguidas/);
+      if (match && maxRacha >= parseInt(match[1])) cumple = true;
+    }
+    if (logro && logro.startsWith('pasos_')) {
+      const match = logro.match(/pasos_(\d+)_dia/);
+      if (match && saludHoy && saludHoy.pasos >= parseInt(match[1])) cumple = true;
+    }
+    if (logro && logro.startsWith('kcal_')) {
+      const match = logro.match(/kcal_(\d+)_dia/);
+      if (match && saludHoy && ((saludHoy.kcalQuemadas || 0) + (saludHoy.kcalQuemadasManual || 0)) >= parseInt(match[1])) cumple = true;
+    }
+    if (logro === 'clase_san_valentin' && esSanValentin) cumple = true;
+    if (logro === 'clase_8_marzo' && es8Marzo) cumple = true;
+    if (logro === 'clase_halloween' && esHalloween) cumple = true;
+    if (logro === 'clase_navidad' && esNavidad) cumple = true;
+
+    if (cumple) nuevosDesbloqueos.push({ key: prenda.key, value: prenda.value });
+  }
+
+  if (nuevosDesbloqueos.length) {
+    usuario.desbloqueados = [...desbloqueados, ...nuevosDesbloqueos];
+    await usuario.save();
+    return nuevosDesbloqueos;
+  }
+  return [];
+};
+
 
 // Ver perfil del usuario
 exports.obtenerPerfilUsuario = async (req, res) => {
@@ -153,5 +248,59 @@ exports.actualizarAvatar = async (req, res) => {
     res.json({ mensaje: 'Avatar actualizado', avatar: usuario.avatar });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al actualizar avatar', error });
+  }
+};
+
+
+exports.obtenerCatalogoPrendas = (req, res) => {
+  const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
+  const prendas = JSON.parse(fs.readFileSync(prendasPath));
+  res.json(prendas);
+};
+
+exports.obtenerPrendasDesbloqueadas = async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.user.id);
+    res.json(usuario.desbloqueados);
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error', error });
+  }
+};
+
+exports.obtenerProgresoLogros = async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
+
+    // Puedes centralizar el mapeo de emojis
+    const mapeoEmojis = {
+      "accesorio": "🕶️",
+      "ojos": "👀",
+      "ropa": "👕",
+      "cabeza": "🎩",
+      "color ropa": "🌈",
+      "barba": "🧔",
+      "grafico": "🎨",
+      "piel": "🧑",
+      "marco": "🟡"
+      // añade los que quieras
+    };
+
+    // Para saber qué ha conseguido
+    const desbloqueados = usuario.desbloqueados || [];
+    const progreso = prendasLogros.map(prenda => {
+      const conseguido = prenda.desbloqueadoPorDefecto ||
+        desbloqueados.some(d => d.key === prenda.key && d.value === prenda.value);
+
+      return {
+        ...prenda,
+        conseguido,
+        emoji: mapeoEmojis[prenda.categoria] || "🎉"
+      };
+    });
+
+    res.json(progreso);
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al obtener el progreso de logros", error });
   }
 };
