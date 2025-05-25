@@ -69,7 +69,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==== MAPEADO DESBLOQUEOS PARA PASAR AL CUSTOMIZER ====
+  Future<List<dynamic>> _fetchCatalogoPrendas() async {
+    final token = await _storage.read(key: 'jwt_token');
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/catalogo-prendas'),
+      headers: { 'Authorization': 'Bearer $token' },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List;
+    }
+    throw Exception('Error al cargar catálogo');
+  }
+
   Future<Map<String, Set<int>>> _fetchPrendasDesbloqueadas() async {
     final token = await _storage.read(key: 'jwt_token');
     final response = await http.get(
@@ -81,9 +92,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Map<String, Set<int>> map = {};
       for (final prenda in prendas) {
         final key = prenda['key'];
-        final value = prenda['value'];
-        final idx = fluttermojiProperties[key]!.property!.indexOf(value);
-        if (idx != -1) {
+        final idx = prenda['idx'];
+        if (idx != null && idx is int) {
           map.putIfAbsent(key, () => <int>{}).add(idx);
         }
       }
@@ -91,6 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     throw Exception('Error al cargar prendas desbloqueadas');
   }
+
 
   void _editarAvatar() async {
     // Mostramos loader mientras obtenemos prendas desbloqueadas

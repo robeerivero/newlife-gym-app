@@ -7,6 +7,7 @@ const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
 exports.obtenerPrendasDesbloqueadas = async (req, res) => {
   try {
+        console.log("=> PETICIÓN prendas desbloqueadas de", req.user.id);
     const usuario = await Usuario.findById(req.user.id);
     if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
 
@@ -18,7 +19,8 @@ exports.obtenerPrendasDesbloqueadas = async (req, res) => {
         mapPrendas[prenda.key].push(prenda.value);
       }
     }
-
+    console.log("=> MapPrendas keys:", Object.keys(mapPrendas));
+    console.log("=> Usuario.desbloqueados:", usuario.desbloqueados);
     // Ahora, devolver array [{key, idx}]
     const desbloqueados = (usuario.desbloqueados || []).map(d => {
       const arr = mapPrendas[d.key] || [];
