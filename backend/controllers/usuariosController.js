@@ -5,6 +5,34 @@ const Salud = require('../models/Salud');
 const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
 const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
+exports.obtenerPrendasDesbloqueadas = async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.user.id);
+    if (!usuario) return res.status(404).json({ mensaje: "Usuario no encontrado" });
+
+    // Construir un mapa key -> array de values en el orden correcto
+    const mapPrendas = {};
+    for (const prenda of prendasLogros) {
+      if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
+      if (!mapPrendas[prenda.key].includes(prenda.value)) {
+        mapPrendas[prenda.key].push(prenda.value);
+      }
+    }
+
+    // Ahora, devolver array [{key, idx}]
+    const desbloqueados = (usuario.desbloqueados || []).map(d => {
+      const arr = mapPrendas[d.key] || [];
+      const idx = arr.indexOf(d.value);
+      // si existe, devolver {key, idx}
+      return idx !== -1 ? { key: d.key, idx } : null;
+    }).filter(x => x !== null);
+
+    res.json(desbloqueados);
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error', error });
+  }
+};
+
 exports.chequearLogrosYDesbloquear = async function(usuarioId) {
   const Usuario = require('../models/Usuario');
   const usuario = await Usuario.findById(usuarioId);
@@ -120,8 +148,10 @@ exports.crearUsuario = async (req, res) => {
     if (!tiposValidos) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
-
-    const nuevoUsuario = new Usuario({ nombre, correo, contrasena, rol, tiposDeClases });
+    const desbloqueadosPorDefecto = prendasLogros
+      .filter(prenda => prenda.desbloqueadoPorDefecto)
+      .map(prenda => ({ key: prenda.key, value: prenda.value }));
+    const nuevoUsuario = new Usuario({ nombre, correo, contrasena, rol, tiposDeClases, desbloqueados: desbloqueadosPorDefecto });
     await nuevoUsuario.save();
     res.status(201).json({ mensaje: 'Usuario creado exitosamente', nuevoUsuario });
   } catch (error) {
@@ -258,14 +288,7 @@ exports.obtenerCatalogoPrendas = (req, res) => {
   res.json(prendas);
 };
 
-exports.obtenerPrendasDesbloqueadas = async (req, res) => {
-  try {
-    const usuario = await Usuario.findById(req.user.id);
-    res.json(usuario.desbloqueados);
-  } catch (error) {
-    res.status(500).json({ mensaje: 'Error', error });
-  }
-};
+
 
 exports.obtenerProgresoLogros = async (req, res) => {
   try {
@@ -283,7 +306,7 @@ exports.obtenerProgresoLogros = async (req, res) => {
       "grafico": "🎨",
       "piel": "🧑",
       "marco": "🟡"
-      // añade los que quieras
+
     };
 
     // Para saber qué ha conseguido

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:fluttermoji/fluttermoji.dart';
+import '../../fluttermoji/fluttermoji.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../config.dart';
-import 'edit_profile_screen.dart'; // <- esta es la pantalla de editar perfil
+import 'edit_profile_screen.dart';
+import '../../fluttermoji/fluttermoji_assets/fluttermojimodel.dart';
+import '../../fluttermoji/fluttermojiCustomizer.dart'; // Corrige el import según tu carpeta real
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -67,10 +69,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ==== MAPEADO DESBLOQUEOS PARA PASAR AL CUSTOMIZER ====
+  Future<Map<String, Set<int>>> _fetchPrendasDesbloqueadas() async {
+    final token = await _storage.read(key: 'jwt_token');
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/desbloqueadas'),
+      headers: { 'Authorization': 'Bearer $token' },
+    );
+    if (response.statusCode == 200) {
+      final prendas = jsonDecode(response.body) as List;
+      Map<String, Set<int>> map = {};
+      for (final prenda in prendas) {
+        final key = prenda['key'];
+        final value = prenda['value'];
+        final idx = fluttermojiProperties[key]!.property!.indexOf(value);
+        if (idx != -1) {
+          map.putIfAbsent(key, () => <int>{}).add(idx);
+        }
+      }
+      return map;
+    }
+    throw Exception('Error al cargar prendas desbloqueadas');
+  }
+
   void _editarAvatar() async {
+    // Mostramos loader mientras obtenemos prendas desbloqueadas
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    Map<String, Set<int>> prendasDesbloqueadas = {};
+    try {
+      prendasDesbloqueadas = await _fetchPrendasDesbloqueadas();
+    } catch (e) {
+      Navigator.of(context).pop(); // Cierra el loader
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar tus prendas desbloqueadas')),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop(); // Cierra el loader
+
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => FluttermojiCustomizer()),
+      MaterialPageRoute(
+        builder: (context) => FluttermojiCustomizer(
+          prendasDesbloqueadasPorAtributo: prendasDesbloqueadas,
+        ),
+      ),
     );
     await _guardarAvatar();
     setState(() {});

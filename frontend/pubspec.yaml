@@ -24,9 +24,9 @@ dependencies:
   flutter_local_notifications: ^17.1.0
   mobile_scanner: ^3.5.1
   qr_flutter: ^4.0.0
-  fluttermoji: ^1.0.2
-  flutter_svg: any
-  shared_preferences: ^2.2.2
+  flutter_svg: ^2.0.7
+  get: ^4.6.5
+  shared_preferences: ^2.0.18
   # HTTP, almacenamiento seguro y fondo
   http: ^1.3.0
   flutter_secure_storage: ^9.2.4
