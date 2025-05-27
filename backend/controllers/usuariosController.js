@@ -121,7 +121,7 @@ exports.obtenerPrendasDesbloqueadas = async (req, res) => {
   }
 };
 
-exports.chequearLogrosYDesbloquear = async function(usuarioId) {
+async function chequearLogrosYDesbloquear(usuarioId){
   const Usuario = require('../models/Usuario');
   const usuario = await Usuario.findById(usuarioId);
   if (!usuario) return [];
@@ -209,7 +209,7 @@ exports.chequearLogrosYDesbloquear = async function(usuarioId) {
   }
   return [];
 };
-
+exports.chequearLogrosYDesbloquear = chequearLogrosYDesbloquear;
 
 // Ver perfil del usuario
 exports.obtenerPerfilUsuario = async (req, res) => {

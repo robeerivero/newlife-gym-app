@@ -27,14 +27,23 @@ class UsuarioRanking {
   });
 
   factory UsuarioRanking.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic> avatarDecoded = {};
+    if (json['avatar'] != null) {
+      if (json['avatar'] is String && json['avatar'].isNotEmpty) {
+        avatarDecoded = jsonDecode(json['avatar']);
+      } else if (json['avatar'] is Map<String, dynamic>) {
+        avatarDecoded = json['avatar'];
+      }
+    }
     return UsuarioRanking(
       id: json['_id'],
       nombre: json['nombre'],
-      avatar: json['avatar'] ?? {},
+      avatar: avatarDecoded,
       asistenciasEsteMes: json['asistenciasEsteMes'] ?? 0,
       pasosEsteMes: json['pasosEsteMes'] ?? 0,
     );
   }
+
 }
 
 class LogroPrenda {
@@ -428,56 +437,124 @@ Future<List<UsuarioRanking>> fetchRankingUsuarios() async {
             FutureBuilder<List<UsuarioRanking>>(
               future: futureRanking,
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
                 if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
                 final ranking = snapshot.data!;
                 if (ranking.isEmpty) return Text("Aún no hay asistencias este mes");
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: ranking.length,
-                  itemBuilder: (context, index) {
-                    final usuario = ranking[index];
-                    return ListTile(
-                      leading: GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => Dialog(
-                              child: Container(
-                                padding: EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(usuario.nombre, style: TextStyle(fontSize: 22)),
-                                    SizedBox(height: 16),
-                                    FluttermojiCircleAvatar(
-                                      radius: 60,
-                                      avatarJson: jsonEncode(usuario.avatar),
+
+                // Top 3 en podio
+                List<Widget> podio = [];
+                final coloresPodio = [Colors.amber, Colors.grey, Colors.brown];
+                for (int i = 0; i < ranking.length && i < 3; i++) {
+                  final usuario = ranking[i];
+                  podio.add(Column(
+                    children: [
+                      Text(
+                        i == 0 ? '🥇' : (i == 1 ? '🥈' : '🥉'),
+                        style: TextStyle(fontSize: 32),
+                      ),
+                      SizedBox(height: 8),
+                      FluttermojiCircleAvatar(
+                        radius: i == 0 ? 40 : 32,
+                        avatarJson: jsonEncode(usuario.avatar),
+                        backgroundColor: coloresPodio[i][100],
+                      ),
+                      SizedBox(height: 8),
+                      Text(usuario.nombre, style: TextStyle(fontWeight: FontWeight.bold, color: coloresPodio[i], fontSize: 16)),
+                      Text('Asistencias: ${usuario.asistenciasEsteMes}'),
+                    ],
+                  ));
+                }
+
+                return Column(
+                  children: [
+                    // Podio visual
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: podio,
+                    ),
+                    SizedBox(height: 24),
+                    // Resto de la lista con posiciones
+                    SizedBox(
+                      height: 350, // ajusta el alto según tu diseño
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: ranking.length,
+                        itemBuilder: (context, index) {
+                          if (index < 3) return SizedBox(); // Saltar los top 3
+                          final usuario = ranking[index];
+                          return Card(
+                            margin: EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+                            color: index % 2 == 0 ? Colors.blue[50] : Colors.white,
+                            child: ListTile(
+                              leading: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  FluttermojiCircleAvatar(
+                                    radius: 18,
+                                    avatarJson: jsonEncode(usuario.avatar),
+                                  ),
+                                  // Ranking numérico encima del avatar
+                                  Positioned(
+                                    right: -10,
+                                    top: 0,
+                                    child: CircleAvatar(
+                                      radius: 11,
+                                      backgroundColor: Colors.blueAccent,
+                                      child: Text('${index + 1}', style: TextStyle(color: Colors.white, fontSize: 13)),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
+                              title: Text(usuario.nombre),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Barra de progreso de asistencias
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: LinearProgressIndicator(
+                                          value: usuario.asistenciasEsteMes / (ranking[0].asistenciasEsteMes == 0 ? 1 : ranking[0].asistenciasEsteMes),
+                                          backgroundColor: Colors.grey[200],
+                                          color: Colors.lightBlue,
+                                          minHeight: 7,
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text('${usuario.asistenciasEsteMes} asist.'),
+                                    ],
+                                  ),
+                                  // Mostrar pasos solo si empatan en asistencias
+                                  if (usuario.asistenciasEsteMes == ranking[0].asistenciasEsteMes && usuario.pasosEsteMes > 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text('${usuario.pasosEsteMes} pasos', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                                    ),
+                                  if (usuario.asistenciasEsteMes < ranking[0].asistenciasEsteMes)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        'A ${ranking[0].asistenciasEsteMes - usuario.asistenciasEsteMes} asist. del 1º',
+                                        style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 18),
+                              // Puedes poner un onTap para ver detalles si quieres
                             ),
                           );
                         },
-                        child: FluttermojiCircleAvatar(
-                          radius: 22,
-                          avatarJson: jsonEncode(usuario.avatar),
-                        ),
                       ),
-                      title: Text(usuario.nombre),
-                      subtitle: Text('Asistencias: ${usuario.asistenciasEsteMes}, Pasos: ${usuario.pasosEsteMes}'),
-                      trailing: index == 0
-                          ? Icon(Icons.emoji_events, color: Colors.amber)
-                          : index == 1
-                              ? Icon(Icons.emoji_events, color: Colors.grey)
-                              : index == 2
-                                  ? Icon(Icons.emoji_events, color: Colors.brown)
-                                  : null,
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
-            ),
+            )
+
           ],
         ),
       ),
