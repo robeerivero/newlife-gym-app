@@ -353,7 +353,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-class RankingModal extends StatelessWidget {
+
+class RankingModal extends StatefulWidget {
+  @override
+  State<RankingModal> createState() => _RankingModalState();
+}
+
+class _RankingModalState extends State<RankingModal> {
+  late Future<List<UsuarioRanking>> futureRanking;
+
+  @override
+  void initState() {
+    super.initState();
+    futureRanking = fetchRankingUsuarios();
+  }
+
+  Future<List<UsuarioRanking>> fetchRankingUsuarios() async {
+    final token = await FlutterSecureStorage().read(key: 'jwt_token');
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/ranking-mensual'),
+      headers: { 'Authorization': 'Bearer $token' },
+    );
+
+    if (response.statusCode != 200) throw Exception('Error obteniendo ranking');
+
+    final List data = jsonDecode(response.body);
+
+    return data.map<UsuarioRanking>((json) => UsuarioRanking.fromJson(json)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -361,19 +389,72 @@ class RankingModal extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         padding: EdgeInsets.all(16),
+        width: 350,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Ranking mensual', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             SizedBox(height: 16),
-            // Aquí irá la lista de usuarios (liga)
-            Center(child: CircularProgressIndicator()),
+            FutureBuilder<List<UsuarioRanking>>(
+              future: futureRanking,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+                final ranking = snapshot.data!;
+                if (ranking.isEmpty) return Text("Aún no hay asistencias este mes");
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: ranking.length,
+                  itemBuilder: (context, index) {
+                    final usuario = ranking[index];
+                    return ListTile(
+                      leading: GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => Dialog(
+                              child: Container(
+                                padding: EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(usuario.nombre, style: TextStyle(fontSize: 22)),
+                                    SizedBox(height: 16),
+                                    FluttermojiCircleAvatar(
+                                      radius: 60,
+                                      avatarJson: jsonEncode(usuario.avatar),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        child: FluttermojiCircleAvatar(
+                          radius: 22,
+                          avatarJson: jsonEncode(usuario.avatar),
+                        ),
+                      ),
+                      title: Text(usuario.nombre),
+                      subtitle: Text('Asistencias: ${usuario.asistenciasEsteMes}, Pasos: ${usuario.pasosEsteMes}'),
+                      trailing: index == 0
+                          ? Icon(Icons.emoji_events, color: Colors.amber)
+                          : index == 1
+                              ? Icon(Icons.emoji_events, color: Colors.grey)
+                              : index == 2
+                                  ? Icon(Icons.emoji_events, color: Colors.brown)
+                                  : null,
+                    );
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),
     );
   }
 }
+
 
 class LogrosModal extends StatelessWidget {
   @override

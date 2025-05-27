@@ -2,7 +2,7 @@ const Usuario = require('../models/Usuario');
 const fs = require('fs');
 const path = require('path');
 const Salud = require('../models/Salud');
-const Clase = require('../models/Class');
+const Clase = require('../models/Clase');
 const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
 const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
