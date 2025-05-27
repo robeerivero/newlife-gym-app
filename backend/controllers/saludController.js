@@ -7,6 +7,7 @@ exports.actualizarPasos = async (req, res) => {
   try {
     const usuarioId = req.user.id;
     const { pasos, kcalQuemadas, kcalConsumidas, fecha, sumarKcal } = req.body;
+    console.log("ACTUALIZAR PASOS", req.body);
 
     if (
       pasos === undefined &&

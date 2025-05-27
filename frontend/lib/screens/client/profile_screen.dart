@@ -9,6 +9,33 @@ import 'edit_profile_screen.dart';
 import '../../fluttermoji/fluttermoji_assets/fluttermojimodel.dart';
 import '../../fluttermoji/fluttermojiCustomizer.dart'; // Corrige el import según tu carpeta real
 
+class UsuarioRanking {
+  final String id;
+  final String nombre;
+  final Map<String, dynamic> avatar; // Suponiendo que es un JSON tipo fluttermoji
+  final int asistenciasEsteMes;
+  final int pasosEsteMes;
+
+  UsuarioRanking({
+    required this.id,
+    required this.nombre,
+    required this.avatar,
+    required this.asistenciasEsteMes,
+    required this.pasosEsteMes,
+  });
+
+  // Factory para crear desde json
+  factory UsuarioRanking.fromJson(Map<String, dynamic> json) {
+    return UsuarioRanking(
+      id: json['_id'],
+      nombre: json['nombre'],
+      avatar: json['avatar'] ?? {},
+      asistenciasEsteMes: json['asistenciasEsteMes'] ?? 0,
+      pasosEsteMes: json['pasosEsteMes'] ?? 0,
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
@@ -72,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<List<dynamic>> _fetchCatalogoPrendas() async {
     final token = await _storage.read(key: 'jwt_token');
     final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios/catalogo-prendas'),
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios//prendas/catalogo'),
       headers: { 'Authorization': 'Bearer $token' },
     );
     if (response.statusCode == 200) {
@@ -84,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<Map<String, Set<int>>> _fetchPrendasDesbloqueadas() async {
     final token = await _storage.read(key: 'jwt_token');
     final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios/desbloqueadas'),
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/prendas/desbloqueadas'),
       headers: { 'Authorization': 'Bearer $token' },
     );
     if (response.statusCode == 200) {
@@ -277,12 +304,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           onPressed: _editarAvatar,
                         ),
+                        GestureDetector(
+                          onTap: () {
+                            // Mostrar modal de liga/ranking
+                            showDialog(
+                              context: context,
+                              builder: (_) => RankingModal(),
+                            );
+                          },
+                          child: Card(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 5,
+                            child: ListTile(
+                              leading: Icon(Icons.emoji_events, color: Colors.amber, size: 40),
+                              title: Text('Ranking mensual'),
+                              subtitle: Text('¿Quién va primero en la liga este mes?'),
+                              trailing: Icon(Icons.arrow_forward_ios),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        // Card Logros
+                        GestureDetector(
+                          onTap: () {
+                            // Mostrar modal de logros
+                            showDialog(
+                              context: context,
+                              builder: (_) => LogrosModal(),
+                            );
+                          },
+                          child: Card(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 5,
+                            child: ListTile(
+                              leading: Icon(Icons.stars, color: Colors.blue, size: 40),
+                              title: Text('Logros y recompensas'),
+                              subtitle: Text('¡Descubre qué has desbloqueado!'),
+                              trailing: Icon(Icons.arrow_forward_ios),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
+    );
+  }
+}
+class RankingModal extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Ranking mensual', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            SizedBox(height: 16),
+            // Aquí irá la lista de usuarios (liga)
+            Center(child: CircularProgressIndicator()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LogrosModal extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Tus logros', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            SizedBox(height: 16),
+            // Aquí irá la lista de logros y progreso
+            Center(child: CircularProgressIndicator()),
+          ],
+        ),
+      ),
     );
   }
 }

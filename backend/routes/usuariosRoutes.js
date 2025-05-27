@@ -11,7 +11,8 @@ const {
   actualizarAvatar, 
   obtenerCatalogoPrendas,
   obtenerPrendasDesbloqueadas,
-  obtenerProgresoLogros
+  obtenerProgresoLogros,
+  rankingMensual
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -28,6 +29,7 @@ router.post('/', proteger, crearUsuario);
 router.delete('/:idUsuario', proteger, eliminarUsuario);
 
 router.put('/avatar', proteger, actualizarAvatar);
+router.get('/ranking-mensual', proteger, rankingMensual);
 // --- RUTAS DE LOGROS Y PRENDAS ---
 router.get('/prendas/catalogo', proteger, obtenerCatalogoPrendas); // Ver todo el catálogo
 router.get('/prendas/desbloqueadas', proteger, obtenerPrendasDesbloqueadas); // Ver prendas desbloqueadas

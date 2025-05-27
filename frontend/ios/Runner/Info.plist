@@ -57,5 +57,18 @@
 	<string>fetch</string>
 	<string>remote-notification</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>be.tramckrijte.workmanager.background</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Sincronizamos tus datos con Apple Health para mostrarte tus pasos.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Sincronizamos tus datos con Apple Health para mostrarte tus pasos.</string>
+
 </dict>
 </plist>
