@@ -8,6 +8,8 @@ const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
 exports.rankingMensual = async (req, res) => {
   try {
+    console.log("LLEGA A RANKING MENSUAL!");
+
     const now = new Date();
     const mesActual = now.getMonth();
     const anioActual = now.getFullYear();
