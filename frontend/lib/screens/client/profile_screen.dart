@@ -1,3 +1,4 @@
+// ... tus imports ya están OK
 import 'package:flutter/material.dart';
 import '../../fluttermoji/fluttermoji.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,10 +10,11 @@ import 'edit_profile_screen.dart';
 import '../../fluttermoji/fluttermoji_assets/fluttermojimodel.dart';
 import '../../fluttermoji/fluttermojiCustomizer.dart'; // Corrige el import según tu carpeta real
 
+// -------------- MODELOS ----------------
 class UsuarioRanking {
   final String id;
   final String nombre;
-  final Map<String, dynamic> avatar; // Suponiendo que es un JSON tipo fluttermoji
+  final Map<String, dynamic> avatar;
   final int asistenciasEsteMes;
   final int pasosEsteMes;
 
@@ -24,7 +26,6 @@ class UsuarioRanking {
     required this.pasosEsteMes,
   });
 
-  // Factory para crear desde json
   factory UsuarioRanking.fromJson(Map<String, dynamic> json) {
     return UsuarioRanking(
       id: json['_id'],
@@ -36,6 +37,42 @@ class UsuarioRanking {
   }
 }
 
+class LogroPrenda {
+  final String key;
+  final String value;
+  final String nombre;
+  final String categoria;
+  final String descripcion;
+  final String? logro;
+  final bool conseguido;
+  final String emoji;
+
+  LogroPrenda({
+    required this.key,
+    required this.value,
+    required this.nombre,
+    required this.categoria,
+    required this.descripcion,
+    required this.logro,
+    required this.conseguido,
+    required this.emoji,
+  });
+
+  factory LogroPrenda.fromJson(Map<String, dynamic> json) {
+    return LogroPrenda(
+      key: json['key'],
+      value: json['value'],
+      nombre: json['nombre'],
+      categoria: json['categoria'],
+      descripcion: json['descripcion'],
+      logro: json['logro'],
+      conseguido: json['conseguido'] ?? false,
+      emoji: json['emoji'] ?? "🎉",
+    );
+  }
+}
+
+// -------------- PROFILE SCREEN --------------
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
@@ -96,18 +133,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<List<dynamic>> _fetchCatalogoPrendas() async {
-    final token = await _storage.read(key: 'jwt_token');
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios//prendas/catalogo'),
-      headers: { 'Authorization': 'Bearer $token' },
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List;
-    }
-    throw Exception('Error al cargar catálogo');
-  }
-
   Future<Map<String, Set<int>>> _fetchPrendasDesbloqueadas() async {
     final token = await _storage.read(key: 'jwt_token');
     final response = await http.get(
@@ -129,9 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     throw Exception('Error al cargar prendas desbloqueadas');
   }
 
-
   void _editarAvatar() async {
-    // Mostramos loader mientras obtenemos prendas desbloqueadas
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -142,14 +165,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       prendasDesbloqueadas = await _fetchPrendasDesbloqueadas();
     } catch (e) {
-      Navigator.of(context).pop(); // Cierra el loader
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar tus prendas desbloqueadas')),
       );
       return;
     }
 
-    Navigator.of(context).pop(); // Cierra el loader
+    Navigator.of(context).pop();
 
     await Navigator.push(
       context,
@@ -174,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (result == true) {
-      _fetchProfile(); // Recarga los datos si se editó el perfil
+      _fetchProfile();
     }
   }
 
@@ -306,7 +329,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            // Mostrar modal de liga/ranking
                             showDialog(
                               context: context,
                               builder: (_) => RankingModal(),
@@ -324,10 +346,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         SizedBox(height: 16),
-                        // Card Logros
                         GestureDetector(
                           onTap: () {
-                            // Mostrar modal de logros
                             showDialog(
                               context: context,
                               builder: (_) => LogrosModal(),
@@ -354,6 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+// -------------- RANKING MODAL --------------
 class RankingModal extends StatefulWidget {
   @override
   State<RankingModal> createState() => _RankingModalState();
@@ -455,8 +476,34 @@ class _RankingModalState extends State<RankingModal> {
   }
 }
 
+// -------------- LOGROS MODAL --------------
+class LogrosModal extends StatefulWidget {
+  @override
+  State<LogrosModal> createState() => _LogrosModalState();
+}
 
-class LogrosModal extends StatelessWidget {
+class _LogrosModalState extends State<LogrosModal> {
+  late Future<List<LogroPrenda>> futureLogros;
+
+  @override
+  void initState() {
+    super.initState();
+    futureLogros = fetchLogros();
+  }
+
+  Future<List<LogroPrenda>> fetchLogros() async {
+    final token = await FlutterSecureStorage().read(key: 'jwt_token');
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/prendas/progreso'),
+      headers: { 'Authorization': 'Bearer $token' },
+    );
+
+    if (response.statusCode != 200) throw Exception('Error obteniendo logros');
+
+    final List data = jsonDecode(response.body);
+    return data.map<LogroPrenda>((json) => LogroPrenda.fromJson(json)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -464,16 +511,147 @@ class LogrosModal extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         padding: EdgeInsets.all(16),
+        width: 400,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Tus logros', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Logros y recompensas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             SizedBox(height: 16),
-            // Aquí irá la lista de logros y progreso
-            Center(child: CircularProgressIndicator()),
+            FutureBuilder<List<LogroPrenda>>(
+              future: futureLogros,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+                final logros = snapshot.data!;
+                if (logros.isEmpty) return Text("No hay logros definidos");
+                return SizedBox(
+                  height: 450,
+                  child: ListView.separated(
+                    itemCount: logros.length,
+                    separatorBuilder: (_, __) => Divider(height: 10),
+                    itemBuilder: (context, idx) {
+                      final logro = logros[idx];
+                      return ListTile(
+                        leading: Text(logro.emoji, style: TextStyle(fontSize: 28)),
+                        title: Text(logro.nombre, style: TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(logro.descripcion),
+                            if (!logro.conseguido)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 5.0),
+                                child: ProgresoLogroWidget(logro: logro),
+                              )
+                          ],
+                        ),
+                        trailing: logro.conseguido
+                          ? Icon(Icons.check_circle, color: Colors.green)
+                          : Icon(Icons.lock_outline, color: Colors.grey),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+// -------------- PROGRESO DE LOGRO (para mostrar 8/10, pasos, etc) --------------
+class ProgresoLogroWidget extends StatefulWidget {
+  final LogroPrenda logro;
+
+  ProgresoLogroWidget({required this.logro});
+
+  @override
+  State<ProgresoLogroWidget> createState() => _ProgresoLogroWidgetState();
+}
+
+class _ProgresoLogroWidgetState extends State<ProgresoLogroWidget> {
+  int? totalAsistencias;
+  int? rachaActual;
+  int? pasosHoy;
+  int? kcalHoy;
+
+  @override
+  void initState() {
+    super.initState();
+    obtenerProgreso();
+  }
+
+  Future<void> obtenerProgreso() async {
+    final token = await FlutterSecureStorage().read(key: 'jwt_token');
+    if (widget.logro.logro?.contains("asistencia") == true || widget.logro.logro?.contains("racha") == true) {
+      final res = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/usuarios/perfil'),
+        headers: { 'Authorization': 'Bearer $token' },
+      );
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        final asistencias = json['asistencias'] as List? ?? [];
+        totalAsistencias = asistencias.length;
+
+        List<DateTime> fechas = [];
+        if (json['asistenciasFechas'] != null) {
+          fechas = (json['asistenciasFechas'] as List)
+              .map<DateTime>((f) => DateTime.parse(f)).toList();
+        }
+        fechas.sort();
+        int racha = 1, maxRacha = 1;
+        for (int i = 1; i < fechas.length; i++) {
+          if (fechas[i].difference(fechas[i - 1]).inDays == 1) {
+            racha++;
+          } else {
+            racha = 1;
+          }
+          if (racha > maxRacha) maxRacha = racha;
+        }
+        rachaActual = racha;
+      }
+    }
+    if (widget.logro.logro?.contains("pasos") == true || widget.logro.logro?.contains("kcal") == true) {
+      final hoy = DateTime.now();
+      final fechaHoy = "${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}";
+      final res = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/salud/dia/$fechaHoy'),
+        headers: { 'Authorization': 'Bearer $token' },
+      );
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        pasosHoy = json['pasos'] ?? 0;
+        kcalHoy = (json['kcalQuemadas'] ?? 0) + (json['kcalQuemadasManual'] ?? 0);
+      }
+    }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logro = widget.logro.logro;
+    if (logro == null) return SizedBox();
+    if (logro.contains("asistencia_") && logro.contains("_total") && totalAsistencias != null) {
+      final req = int.parse(RegExp(r'asistencia_(\d+)_total').firstMatch(logro)!.group(1)!);
+      return Text('Progreso: $totalAsistencias / $req asistencias');
+    }
+    if (logro.contains("asistencia_") && logro.contains("_seguidas") && rachaActual != null) {
+      final req = int.parse(RegExp(r'asistencia_(\d+)_seguidas').firstMatch(logro)!.group(1)!);
+      return Text('Racha actual: $rachaActual / $req');
+    }
+    if (logro.contains("racha_") && rachaActual != null) {
+      final req = int.parse(RegExp(r'racha_(\d+)_seguidas').firstMatch(logro)!.group(1)!);
+      return Text('Racha actual: $rachaActual / $req');
+    }
+    if (logro.contains("pasos_") && pasosHoy != null) {
+      final req = int.parse(RegExp(r'pasos_(\d+)_dia').firstMatch(logro)!.group(1)!);
+      return Text('Hoy: $pasosHoy / $req pasos');
+    }
+    if (logro.contains("kcal_") && kcalHoy != null) {
+      final req = int.parse(RegExp(r'kcal_(\d+)_dia').firstMatch(logro)!.group(1)!);
+      return Text('Hoy: $kcalHoy / $req kcal');
+    }
+    return SizedBox();
   }
 }

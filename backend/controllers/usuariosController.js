@@ -8,50 +8,60 @@ const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
 exports.rankingMensual = async (req, res) => {
   try {
-    // Fecha actual
     const now = new Date();
-    const mesActual = now.getMonth(); // 0-indexed!
+    const mesActual = now.getMonth();
     const anioActual = now.getFullYear();
 
-    // 1. Buscar todos los usuarios
-    const usuarios = await Usuario.find({});
+    // Solo usuarios cliente
+    const usuarios = await Usuario.find({ rol: 'cliente' });
 
-    // 2. Para cada usuario, obtener asistencias de este mes y suma de pasos
-    let ranking = [];
+    // Todas las clases de este mes
+    const clasesMes = await Clase.find({
+      fecha: {
+        $gte: new Date(anioActual, mesActual, 1),
+        $lt: new Date(anioActual, mesActual + 1, 1),
+      }
+    }).select('asistencias');
 
-    for (const usuario of usuarios) {
-      // Buscar clases a las que asistió este usuario este mes
-      const clases = await Clase.find({
-        _id: { $in: usuario.asistencias },
-        fecha: {
-          $gte: new Date(anioActual, mesActual, 1),
-          $lt: new Date(anioActual, mesActual + 1, 1),
+    // Asistencias por usuario
+    let asistenciasPorUsuario = {};
+    clasesMes.forEach(clase => {
+      clase.asistencias.forEach(idUsuario => {
+        asistenciasPorUsuario[idUsuario] = (asistenciasPorUsuario[idUsuario] || 0) + 1;
+      });
+    });
+
+    // Pasos del mes por usuario (agregado Mongo)
+    const saludMes = await Salud.aggregate([
+      {
+        $match: {
+          fecha: {
+            $gte: new Date(anioActual, mesActual, 1),
+            $lt: new Date(anioActual, mesActual + 1, 1),
+          }
         }
-      });
-
-      const asistenciasEsteMes = clases.length;
-
-      // Buscar suma de pasos este mes para este usuario
-      const saludMes = await Salud.find({
-        usuario: usuario._id,
-        fecha: {
-          $gte: new Date(anioActual, mesActual, 1),
-          $lt: new Date(anioActual, mesActual + 1, 1),
+      },
+      {
+        $group: {
+          _id: "$usuario",
+          totalPasos: { $sum: "$pasos" }
         }
-      });
-      // Sumar todos los pasos del mes
-      const pasosEsteMes = saludMes.reduce((total, s) => total + (s.pasos || 0), 0);
+      }
+    ]);
+    let pasosPorUsuario = {};
+    saludMes.forEach(s => {
+      pasosPorUsuario[s._id.toString()] = s.totalPasos;
+    });
 
-      ranking.push({
-        _id: usuario._id,
-        nombre: usuario.nombre,
-        avatar: usuario.avatar,
-        asistenciasEsteMes,
-        pasosEsteMes,
-      });
-    }
+    // Crea ranking para cada usuario
+    let ranking = usuarios.map(usuario => ({
+      _id: usuario._id,
+      nombre: usuario.nombre,
+      avatar: usuario.avatar,
+      asistenciasEsteMes: asistenciasPorUsuario[usuario._id.toString()] || 0,
+      pasosEsteMes: pasosPorUsuario[usuario._id.toString()] || 0,
+    }));
 
-    // Ordenar por asistencias, luego pasos
     ranking.sort((a, b) => {
       if (b.asistenciasEsteMes !== a.asistenciasEsteMes) {
         return b.asistenciasEsteMes - a.asistenciasEsteMes;
@@ -66,6 +76,7 @@ exports.rankingMensual = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al generar ranking mensual' });
   }
 };
+
 
 exports.obtenerPrendasDesbloqueadas = async (req, res) => {
   try {
