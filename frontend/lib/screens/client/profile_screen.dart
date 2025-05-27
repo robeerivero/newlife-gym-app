@@ -327,6 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           onPressed: _editarAvatar,
                         ),
+                        const SizedBox(height: 18),
                         GestureDetector(
                           onTap: () {
                             showDialog(
@@ -389,19 +390,27 @@ class _RankingModalState extends State<RankingModal> {
     futureRanking = fetchRankingUsuarios();
   }
 
-  Future<List<UsuarioRanking>> fetchRankingUsuarios() async {
-    final token = await FlutterSecureStorage().read(key: 'jwt_token');
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios/ranking-mensual'),
-      headers: { 'Authorization': 'Bearer $token' },
-    );
+Future<List<UsuarioRanking>> fetchRankingUsuarios() async {
+  print('==> [fetchRankingUsuarios] Entrando a la función');
+  final token = await FlutterSecureStorage().read(key: 'jwt_token');
+  print('==> [fetchRankingUsuarios] Token obtenido: $token');
+  final url = '${AppConstants.baseUrl}/api/usuarios/ranking-mensual';
+  print('==> [fetchRankingUsuarios] URL: $url');
+  final response = await http.get(
+    Uri.parse(url),
+    headers: { 'Authorization': 'Bearer $token' },
+  );
+  print('==> [fetchRankingUsuarios] Status: ${response.statusCode}');
+  print('==> [fetchRankingUsuarios] Body: ${response.body}');
 
-    if (response.statusCode != 200) throw Exception('Error obteniendo ranking');
+  if (response.statusCode != 200) throw Exception('Error obteniendo ranking');
 
-    final List data = jsonDecode(response.body);
+  final List data = jsonDecode(response.body);
+  print('==> [fetchRankingUsuarios] Data decodificada: $data');
 
-    return data.map<UsuarioRanking>((json) => UsuarioRanking.fromJson(json)).toList();
-  }
+  return data.map<UsuarioRanking>((json) => UsuarioRanking.fromJson(json)).toList();
+}
+
 
   @override
   Widget build(BuildContext context) {
