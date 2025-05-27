@@ -14,6 +14,7 @@ exports.rankingMensual = async (req, res) => {
 
     // Solo usuarios cliente
     const usuarios = await Usuario.find({ rol: 'cliente' });
+    console.log("Usuarios cliente:", usuarios.map(u => ({ id: u._id, nombre: u.nombre })));
 
     // Todas las clases de este mes
     const clasesMes = await Clase.find({
@@ -21,7 +22,8 @@ exports.rankingMensual = async (req, res) => {
         $gte: new Date(anioActual, mesActual, 1),
         $lt: new Date(anioActual, mesActual + 1, 1),
       }
-    }).select('asistencias');
+    }).select('asistencias fecha');
+    console.log("Clases este mes:", clasesMes.length);
 
     // Asistencias por usuario
     let asistenciasPorUsuario = {};
@@ -30,6 +32,7 @@ exports.rankingMensual = async (req, res) => {
         asistenciasPorUsuario[idUsuario] = (asistenciasPorUsuario[idUsuario] || 0) + 1;
       });
     });
+    console.log("Asistencias por usuario:", asistenciasPorUsuario);
 
     // Pasos del mes por usuario (agregado Mongo)
     const saludMes = await Salud.aggregate([
@@ -48,10 +51,13 @@ exports.rankingMensual = async (req, res) => {
         }
       }
     ]);
+    console.log("Salud (pasos mes):", saludMes);
+
     let pasosPorUsuario = {};
     saludMes.forEach(s => {
       pasosPorUsuario[s._id.toString()] = s.totalPasos;
     });
+    console.log("Pasos por usuario:", pasosPorUsuario);
 
     // Crea ranking para cada usuario
     let ranking = usuarios.map(usuario => ({
@@ -62,6 +68,8 @@ exports.rankingMensual = async (req, res) => {
       pasosEsteMes: pasosPorUsuario[usuario._id.toString()] || 0,
     }));
 
+    console.log("Ranking (antes sort):", ranking);
+
     ranking.sort((a, b) => {
       if (b.asistenciasEsteMes !== a.asistenciasEsteMes) {
         return b.asistenciasEsteMes - a.asistenciasEsteMes;
@@ -69,13 +77,16 @@ exports.rankingMensual = async (req, res) => {
       return b.pasosEsteMes - a.pasosEsteMes;
     });
 
+    console.log("Ranking (despues sort):", ranking);
+
     res.json(ranking);
 
   } catch (error) {
-    console.error(error);
+    console.error("ERROR EN rankingMensual:", error);
     res.status(500).json({ mensaje: 'Error al generar ranking mensual' });
   }
 };
+
 
 
 exports.obtenerPrendasDesbloqueadas = async (req, res) => {
