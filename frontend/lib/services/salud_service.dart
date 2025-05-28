@@ -1,18 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:timezone/timezone.dart' as tz;
 import '../config.dart';
 
 class SaludService {
   final _storage = const FlutterSecureStorage();
 
-  // 1. Solicitar permisos
+  // 1. Solicitar permisos (activity recognition)
   Future<void> solicitarPermisos() async {
     await Permission.activityRecognition.request();
   }
@@ -87,17 +84,24 @@ class SaludService {
     return 0.0;
   }
 
-  // 6. Actualiza backend con los pasos actuales
+  /// 6. Actualiza backend con los pasos actuales, o suma kcal manuales.
+  /// Si mandas [kcalQuemadas], el backend la suma (si sumarKcal=true).
   Future<void> actualizarBackend(int pasos, [double? kcalQuemadas, double? kcalConsumidas]) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return;
 
-    final Map<String, dynamic> payload = {
+    final payload = <String, dynamic>{
       'pasos': pasos,
-      'kcalQuemadas': kcalQuemadas,
-      'kcalConsumidas': kcalConsumidas,
       'fecha': DateTime.now().toIso8601String().split('T')[0],
     };
+
+    if (kcalQuemadas != null) {
+      payload['kcalQuemadas'] = kcalQuemadas;
+      payload['sumarKcal'] = true; // para el backend: suma, no reemplaza
+    }
+    if (kcalConsumidas != null) {
+      payload['kcalConsumidas'] = kcalConsumidas;
+    }
 
     await http.put(
       Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
@@ -107,74 +111,5 @@ class SaludService {
       },
       body: json.encode(payload),
     );
-  }
-
-  // 7. Botón para sumar kcal manualmente
-  Widget botonKcalClase(BuildContext context, VoidCallback onActualizado) {
-    final kcalController = TextEditingController();
-
-    return ElevatedButton.icon(
-      icon: const Icon(Icons.fitness_center),
-      label: const Text("Añadir kcal de clase"),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Registrar kcal quemadas en clase'),
-            content: TextField(
-              controller: kcalController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Kcal'),
-            ),
-            actions: [
-              TextButton(
-                child: const Text('Cancelar'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              TextButton(
-                child: const Text('Guardar'),
-                onPressed: () async {
-                  final kcal = double.tryParse(kcalController.text) ?? 0.0;
-                  if (kcal <= 0) return;
-
-                  final token = await _storage.read(key: 'jwt_token');
-                  if (token == null) return;
-
-                  final today = DateTime.now().toIso8601String().split('T')[0];
-
-                  await http.put(
-                    Uri.parse('${AppConstants.baseUrl}/api/salud/pasos'),
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': 'Bearer $token',
-                    },
-                    body: json.encode({
-                      'kcalQuemadas': kcal,
-                      'fecha': today,
-                      'sumarKcal': true, // Sumar a lo existente
-                    }),
-                  );
-
-                  Navigator.pop(context);
-                  onActualizado();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // 8. Para notificaciones a las 23h (por si usas en otro lado)
-  static tz.TZDateTime hoyA23Horas() {
-    tzdata.initializeTimeZones();
-    final location = tz.getLocation('Europe/Madrid');
-    final now = tz.TZDateTime.now(location);
-    return tz.TZDateTime(location, now.year, now.month, now.day, 23, 0);
   }
 }

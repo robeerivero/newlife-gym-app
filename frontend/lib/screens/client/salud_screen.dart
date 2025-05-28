@@ -4,6 +4,7 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:intl/intl.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/salud_service.dart';
 
 class SaludScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _SaludScreenState extends State<SaludScreen> {
   bool loading = true;
   int objetivoSemanal = 50000;
   StreamSubscription<StepCount>? _stepsSubscription;
+  bool permisoDenegado = false;
 
   @override
   void initState() {
@@ -32,6 +34,82 @@ class _SaludScreenState extends State<SaludScreen> {
   void dispose() {
     _stepsSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _inicializarTodo() async {
+    setState(() {
+      loading = true;
+      permisoDenegado = false;
+    });
+
+    // === PEDIR PERMISO ACTIVITY_RECOGNITION ===
+    final status = await Permission.activityRecognition.request();
+    if (status != PermissionStatus.granted) {
+      setState(() {
+        permisoDenegado = true;
+        loading = false;
+      });
+      _showPermisoDialog();
+      return;
+    }
+
+    await _cargarObjetivo();
+
+    await SaludService().inicializarPasosDiarios();
+    final base = await SaludService().obtenerInicialPasosHoy();
+    setState(() => inicialPasos = base);
+
+    _stepsSubscription?.cancel();
+    _stepsSubscription = Pedometer.stepCountStream.listen((event) async {
+      int pasosActual = event.steps - inicialPasos;
+      if (pasosActual < 0) pasosActual = 0;
+      setState(() {
+        pasosHoy = pasosActual;
+      });
+      await SaludService().actualizarBackend(
+        pasosHoy,
+        null,
+        kcalConsumidasHoy,
+      );
+    }, onError: (e) {
+      setState(() => pasosHoy = 0);
+    });
+
+    final hist = await SaludService().obtenerHistorialUltimos7Dias();
+
+    double kcalConsHoy = 0.0, kcalQuemadasBackend = 0.0;
+    final todayStr = DateTime.now().toIso8601String().split('T')[0];
+    for (final dia in hist) {
+      if ((dia['fecha'] ?? '').toString().split('T')[0] == todayStr) {
+        kcalConsHoy = (dia['kcalConsumidas'] ?? 0.0).toDouble();
+        kcalQuemadasBackend = (dia['kcalQuemadas'] ?? 0.0).toDouble();
+        break;
+      }
+    }
+
+    setState(() {
+      kcalQuemadasHoy = kcalQuemadasBackend;
+      kcalConsumidasHoy = kcalConsHoy;
+      historial = hist;
+      loading = false;
+    });
+  }
+
+  void _showPermisoDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Permiso necesario"),
+        content: const Text(
+            "Para registrar tus pasos es necesario el permiso de Reconocimiento de Actividad. Por favor, concédelo desde ajustes."),
+        actions: [
+          TextButton(
+            child: const Text("OK"),
+            onPressed: () => Navigator.of(context).pop(),
+          )
+        ],
+      ),
+    );
   }
 
   Future<void> _cargarObjetivo() async {
@@ -83,54 +161,46 @@ class _SaludScreenState extends State<SaludScreen> {
     }
   }
 
-  Future<void> _inicializarTodo() async {
-    setState(() => loading = true);
-    await _cargarObjetivo();
+  // Cambia esto para que SIEMPRE refresque la pantalla tras añadir kcal
+  Future<void> _anadirKcalManual() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        final kcalController = TextEditingController();
+        return AlertDialog(
+          title: const Text('Registrar kcal quemadas en clase'),
+          content: TextField(
+            controller: kcalController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Kcal'),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            TextButton(
+              child: const Text('Guardar'),
+              onPressed: () async {
+                final kcal = double.tryParse(kcalController.text) ?? 0.0;
+                if (kcal <= 0) return;
 
-    await SaludService().inicializarPasosDiarios();
-    final base = await SaludService().obtenerInicialPasosHoy();
-    setState(() => inicialPasos = base);
+                setState(() => loading = true);
 
-    _stepsSubscription?.cancel();
-    _stepsSubscription = Pedometer.stepCountStream.listen((event) async {
-      int pasosActual = event.steps - inicialPasos;
-      if (pasosActual < 0) pasosActual = 0;
-      setState(() {
-        pasosHoy = pasosActual;
-      });
-      // No calcules kcal quemadas aquí
-      await SaludService().actualizarBackend(
-        pasosHoy,
-        null, // <-- solo manda kcalQuemadas si es manual
-        kcalConsumidasHoy,
-      );
-    }, onError: (e) {
-      setState(() => pasosHoy = 0);
-    });
+                await SaludService().actualizarBackend(
+                  pasosHoy,
+                  kcal,
+                  null,
+                );
 
-    final hist = await SaludService().obtenerHistorialUltimos7Dias();
-
-    // Busca los valores de hoy para kcal y pasos y kcalQuemadas (todas del backend)
-    double kcalConsHoy = 0.0, kcalQuemadasBackend = 0.0;
-    int pasosHoyBackend = 0;
-    final todayStr = DateTime.now().toIso8601String().split('T')[0];
-    for (final dia in hist) {
-      if ((dia['fecha'] ?? '').toString().split('T')[0] == todayStr) {
-        pasosHoyBackend = ((dia['pasos'] ?? 0) as num).toInt();
-        kcalConsHoy = (dia['kcalConsumidas'] ?? 0.0).toDouble();
-        kcalQuemadasBackend = (dia['kcalQuemadas'] ?? 0.0).toDouble();
-        break;
-      }
-    }
-
-    setState(() {
-      // Si backend tiene pasos distintos, puedes elegir el mayor de los dos para mostrar
-      // pero normalmente serán iguales si todo funciona bien.
-      kcalQuemadasHoy = kcalQuemadasBackend;
-      kcalConsumidasHoy = kcalConsHoy;
-      historial = hist;
-      loading = false;
-    });
+                Navigator.pop(ctx);
+                await _inicializarTodo(); // <-- refresca todo para mostrar la suma
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -176,82 +246,105 @@ class _SaludScreenState extends State<SaludScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.flag, color: Colors.white),
-            onPressed: _cambiarObjetivo,
+            onPressed: permisoDenegado ? null : _cambiarObjetivo,
             tooltip: "Cambiar objetivo semanal",
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _inicializarTodo,
+            onPressed: permisoDenegado ? null : _inicializarTodo,
             tooltip: "Sincronizar",
           ),
         ],
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      body: permisoDenegado
+          ? Center(
               child: Column(
-                children: [
-                  const SizedBox(height: 6),
-                  CircularPercentIndicator(
-                    radius: 98,
-                    lineWidth: 16,
-                    percent: progreso,
-                    animation: true,
-                    animateFromLastPercent: true,
-                    circularStrokeCap: CircularStrokeCap.round,
-                    center: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "$pasosSemana",
-                          style: TextStyle(
-                              fontSize: 36, fontWeight: FontWeight.bold, color: colorProgreso),
-                        ),
-                        Text("de $objetivoSemanal\npasos semanales",
-                            textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
-                        const SizedBox(height: 6),
-                        Text(
-                          progreso >= 1.0
-                              ? "¡Objetivo semanal completado! 🎉"
-                              : progreso > 0.7
-                                  ? "¡Ya casi lo tienes!"
-                                  : progreso > 0.4
-                                      ? "¡Sigue sumando!"
-                                      : "¡Ánimo, tú puedes!",
-                          style: TextStyle(
-                              color: colorProgreso,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    progressColor: colorProgreso,
-                    backgroundColor: Colors.grey[300]!,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.error, size: 70, color: Colors.redAccent),
+                  SizedBox(height: 16),
+                  Text(
+                    'El permiso de actividad es necesario\ny ha sido denegado.',
+                    style: TextStyle(fontSize: 17, color: Colors.redAccent),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _infoCard("👣", "Hoy", pasosHoy.toString(), Colors.blue[700]!),
-                      _infoCard("🔥", "Kcal quem.", kcalQuemadasHoy.toStringAsFixed(0), Colors.redAccent),
-                      _infoCard("🍽️", "Kcal cons.", kcalConsumidasHoy.toStringAsFixed(0), Colors.green),
-                    ],
-                  ),
-                  const SizedBox(height: 26),
-                  SaludService().botonKcalClase(context, _inicializarTodo),
-                  const SizedBox(height: 26),
-                  const Text(
-                    'Historial (semana actual)',
-                    style: TextStyle(
-                        fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
-                  ),
-                  const SizedBox(height: 13),
-                  _buildHistorial(semana),
-                  const SizedBox(height: 20),
                 ],
               ),
-            ),
+            )
+          : loading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 6),
+                      CircularPercentIndicator(
+                        radius: 98,
+                        lineWidth: 16,
+                        percent: progreso,
+                        animation: true,
+                        animateFromLastPercent: true,
+                        circularStrokeCap: CircularStrokeCap.round,
+                        center: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "$pasosSemana",
+                              style: TextStyle(
+                                  fontSize: 36, fontWeight: FontWeight.bold, color: colorProgreso),
+                            ),
+                            Text("de $objetivoSemanal\npasos semanales",
+                                textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+                            const SizedBox(height: 6),
+                            Text(
+                              progreso >= 1.0
+                                  ? "¡Objetivo semanal completado! 🎉"
+                                  : progreso > 0.7
+                                      ? "¡Ya casi lo tienes!"
+                                      : progreso > 0.4
+                                          ? "¡Sigue sumando!"
+                                          : "¡Ánimo, tú puedes!",
+                              style: TextStyle(
+                                  color: colorProgreso,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16),
+                            ),
+                          ],
+                        ),
+                        progressColor: colorProgreso,
+                        backgroundColor: Colors.grey[300]!,
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _infoCard("👣", "Hoy", pasosHoy.toString(), Colors.blue[700]!),
+                          _infoCard("🔥", "Kcal quem.", kcalQuemadasHoy.toStringAsFixed(0), Colors.redAccent),
+                          _infoCard("🍽️", "Kcal cons.", kcalConsumidasHoy.toStringAsFixed(0), Colors.green),
+                        ],
+                      ),
+                      const SizedBox(height: 26),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.fitness_center),
+                        label: const Text("Añadir kcal de clase"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: loading || permisoDenegado ? null : _anadirKcalManual,
+                      ),
+                      const SizedBox(height: 26),
+                      const Text(
+                        'Historial (semana actual)',
+                        style: TextStyle(
+                            fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+                      ),
+                      const SizedBox(height: 13),
+                      _buildHistorial(semana),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
     );
   }
 

@@ -2,7 +2,7 @@
 const Salud = require('../models/Salud');
 const Plato = require('../models/Plato');
 const Dieta = require('../models/Dieta');
-const { chequearLogrosYDesbloquear } = require('./usuariosController');
+
 exports.actualizarPasos = async (req, res) => {
   try {
     const usuarioId = req.user.id;
@@ -60,7 +60,8 @@ exports.actualizarPasos = async (req, res) => {
     }
 
     await salud.save();
-    const nuevosLogros = await chequearLogrosYDesbloquear(usuarioId);
+    const usuariosController = require('./usuariosController');
+    const nuevosLogros = await usuariosController.chequearLogrosYDesbloquear(usuarioId);
     res.json({ mensaje: 'Datos de salud actualizados correctamente.', salud, nuevosLogros });
   } catch (error) {
     console.error(error);

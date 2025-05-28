@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'client/rutinas_screen.dart';
 import 'client/diet_screen.dart';
+import 'client/video_screen.dart';
 import 'client/profile_screen.dart';
 import 'client/salud_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,25 +11,25 @@ import 'login_screen.dart';
 import '../config.dart';
 
 class OnlineClientScreen extends StatefulWidget {
-  const OnlineClientScreen({super.key}); // Usa super.key para evitar advertencias
-  
+  const OnlineClientScreen({super.key});
+
   @override
-  OnlineClientScreenState createState() => OnlineClientScreenState();
+  State<OnlineClientScreen> createState() => _OnlineClientScreenState();
 }
 
-class OnlineClientScreenState extends State<OnlineClientScreen> {
+class _OnlineClientScreenState extends State<OnlineClientScreen> {
   int _selectedIndex = 0;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   String? _userName;
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Método para cerrar sesión
+  // Cerrar sesión
   Future<void> _logout(BuildContext context) async {
-    await _storage.delete(key: 'jwt_token'); // Eliminar el token de sesión
+    await _storage.delete(key: 'jwt_token');
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()), // Redirigir al login
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 
@@ -79,100 +80,60 @@ class OnlineClientScreenState extends State<OnlineClientScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfile(); // Carga el perfil al iniciar
+    _fetchProfile();
   }
 
   final List<Widget> _screens = [
-    const RutinasScreen(),
-    const DietScreen(),
-    const ProfileScreen(),
-    const SaludScreen(),
+    const RutinasScreen(),    // 0 - Rutinas
+    const DietScreen(),       // 1 - Dietas
+    const VideoScreen(),      // 2 - Videos
+    const ProfileScreen(),    // 3 - Perfil
+    const SaludScreen(),      // 4 - Salud
   ];
-  final List<String> titulos = [
+  final List<String> _titles = [
     'Mis Rutinas',
     'Mis Dietas',
+    'Videos',
     'Mi Perfil',
     'Mi Salud',
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    Navigator.pop(context); // Cierra el Drawer al seleccionar una opción
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
-        title: Text(
-          titulos[_selectedIndex], 
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            color: Color.fromARGB(255, 250, 250, 250),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: const Color(0xFF1E88E5),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.person, size: 60, color: Colors.white),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Bienvenido, ${_userName ?? 'Usuario'}',
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ],
-              ),
-            ),
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ),
-            ListTile(
-              leading: const Icon(Icons.fitness_center),
-              title: const Text('Rutinas'),
-              onTap: () => _onItemTapped(0),
-            ),
-            ListTile(
-              leading: const Icon(Icons.restaurant),
-              title: const Text('Dietas'),
-              onTap: () => _onItemTapped(1),
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Perfil'),
-              onTap: () => _onItemTapped(2),
-            ),
-            ListTile(
-              leading: const Icon(Icons.favorite),
-              title: const Text('Salud'),
-              onTap: () => _onItemTapped(3),
-            ),
-          ],
-        ),
-      ),
+      
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        selectedItemColor: const Color(0xFF1E88E5),
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Rutinas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.restaurant),
+            label: 'Dietas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.video_library),
+            label: 'Videos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Salud',
+          ),
+        ],
+      ),
     );
   }
 }

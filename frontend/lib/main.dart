@@ -1,39 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io' show Platform;
+
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/client_screen.dart';
 import 'screens/online_client_screen.dart';
 
-// Nombre de la tarea
-const String kDailyNotificationTask = "dailyNotificationTask";
+// Notificaciones
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
+// Nombres de las tareas
+const String kMorningNotificationTask = "morningNotificationTask";
+const String kNightNotificationTask = "nightNotificationTask";
+
+// --- WORKMANAGER CALLBACK ---
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == kDailyNotificationTask) {
-      print("[WorkManager] Ejecutando notificación diaria");
+    const androidInit = AndroidInitializationSettings('ic_notificacion');
+    const initSettings = InitializationSettings(android: androidInit);
+    await flutterLocalNotificationsPlugin.initialize(initSettings);
 
-      // Inicializa notificaciones locales
-      final plugin = FlutterLocalNotificationsPlugin();
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const settings = InitializationSettings(android: androidInit);
-
-      await plugin.initialize(settings);
-
-      await plugin.show(
-        0,
-        'Sincroniza tus pasos',
-        '¡No olvides abrir la app y sincronizar tus pasos de hoy!',
+    if (task == kMorningNotificationTask) {
+      await flutterLocalNotificationsPlugin.show(
+        1,
+        '¡Inicia el día!',
+        'Empieza a contabilizar tus pasos desde ya 🚶‍♂️',
         const NotificationDetails(
           android: AndroidNotificationDetails(
-            'canal1',
-            'Notificaciones diarias',
+            'canal_morning',
+            'Notificaciones de la mañana',
             importance: Importance.max,
             priority: Priority.high,
+            icon: 'ic_notificacion',
+          ),
+        ),
+      );
+    } else if (task == kNightNotificationTask) {
+      await flutterLocalNotificationsPlugin.show(
+        2,
+        '¡Mira tus pasos!',
+        'Consulta cuántos pasos has hecho hoy y revisa tu ranking en la app.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'canal_night',
+            'Notificaciones de la noche',
+            importance: Importance.max,
+            priority: Priority.high,
+            icon: 'ic_notificacion',
           ),
         ),
       );
@@ -42,29 +62,87 @@ void callbackDispatcher() {
   });
 }
 
+// ---- Permisos: Solo notificaciones y solo primera vez ----
+Future<void> requestNotificationPermissionIfNeeded() async {
+  final prefs = await SharedPreferences.getInstance();
+  final permisoPedido = prefs.getBool('permisoNotificacionesPedido') ?? false;
+  if (permisoPedido) return;
+
+  // ANDROID: Pedir POST_NOTIFICATIONS si Android 13+
+  if (Platform.isAndroid) {
+    var status = await Permission.notification.status;
+    if (!status.isGranted) {
+      status = await Permission.notification.request();
+    }
+    if (status.isGranted) {
+      await prefs.setBool('permisoNotificacionesPedido', true);
+    }
+  }
+
+  // iOS: pide permisos normales
+  if (Platform.isIOS) {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+    await prefs.setBool('permisoNotificacionesPedido', true);
+  }
+}
+
+// --- Programar tareas Workmanager a horas exactas ---
+Future<void> scheduleDailyTasks() async {
+  DateTime now = DateTime.now();
+
+  // Morning: 08:00
+  DateTime nextMorning = DateTime(now.year, now.month, now.day, 8, 00);
+  if (now.isAfter(nextMorning)) nextMorning = nextMorning.add(Duration(days: 1));
+  final delayMorning = nextMorning.difference(now);
+
+  // Night: 22:30
+  DateTime nextNight = DateTime(now.year, now.month, now.day, 22, 30);
+  if (now.isAfter(nextNight)) nextNight = nextNight.add(Duration(days: 1));
+  final delayNight = nextNight.difference(now);
+
+  // --- Cancela tareas anteriores ---
+  await Workmanager().cancelAll();
+
+  // --- Registra tareas periódicas ---
+  await Workmanager().registerPeriodicTask(
+    "morning_task_id",
+    kMorningNotificationTask,
+    frequency: const Duration(hours: 24),
+    initialDelay: delayMorning,
+    existingWorkPolicy: ExistingWorkPolicy.replace,
+    constraints: Constraints(networkType: NetworkType.not_required),
+  );
+
+  await Workmanager().registerPeriodicTask(
+    "night_task_id",
+    kNightNotificationTask,
+    frequency: const Duration(hours: 24),
+    initialDelay: delayNight,
+    existingWorkPolicy: ExistingWorkPolicy.replace,
+    constraints: Constraints(networkType: NetworkType.not_required),
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa WorkManager
+  // Pide permisos SOLO la primera vez (solo el de notificaciones)
+  await requestNotificationPermissionIfNeeded();
+
+  // Inicializa Workmanager
   await Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: false, // Ponlo en true solo en desarrollo
+    isInDebugMode: false,
   );
 
-  // Registra tarea periódica solo para notificación (no pasos)
-  await Workmanager().registerPeriodicTask(
-    "1", // id único
-    kDailyNotificationTask,
-    frequency: const Duration(hours: 24), // Cada 24h
-    initialDelay: const Duration(hours: 23), // Para que salga cerca de las 23h la primera vez
-    constraints: Constraints(
-      networkType: NetworkType.not_required,
-    ),
-  );
+  // Registra tareas para notificar a las horas deseadas
+  await scheduleDailyTasks();
 
   runApp(
     ScreenUtilInit(
-      designSize: Size(360, 690),
+      designSize: const Size(360, 690),
       minTextAdapt: true,
       builder: (context, child) => MyApp(),
     ),

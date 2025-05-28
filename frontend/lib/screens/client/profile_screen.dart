@@ -432,7 +432,17 @@ Future<List<UsuarioRanking>> fetchRankingUsuarios() async {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Ranking mensual', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                'Ranking mensual',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
             SizedBox(height: 16),
             FutureBuilder<List<UsuarioRanking>>(
               future: futureRanking,
