@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:convert';
 import 'chatbot_screen.dart';
 import '../config.dart';
-
+import 'dart:ui';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -194,84 +194,98 @@ class _LoginScreenState extends State<LoginScreen> {
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 500),
                             child: _showForm
-                                ? Card(
-                                    color: Colors.white.withOpacity(0.95),
-                                    elevation: 4,
-                                    margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Form(
-                                        key: _formKey,
-                                        child: Column(
-                                          children: [
-                                            TextFormField(
-                                              controller: _emailController,
-                                              decoration: InputDecoration(
-                                                labelText: 'Correo electrónico',
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(10.0),
-                                                ),
-                                              ),
-                                              validator: (value) {
-                                                if (value == null || value.isEmpty) {
-                                                  return 'Por favor, ingresa tu correo electrónico';
-                                                } else if (!RegExp(r"^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}").hasMatch(value)) {
-                                                  return 'Formato de correo no válido';
-                                                }
-                                                return null;
-                                              },
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16), // Ajusta el blur a tu gusto
+                                      child: Container(
+                                        margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.77), // Prueba con 0.7~0.8 para el efecto
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(color: Color(0xFF42A5F5), width: 2),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.10),
+                                              blurRadius: 12,
+                                              spreadRadius: 2,
+                                              offset: Offset(0, 6),
                                             ),
-                                            SizedBox(height: 20.h),
-                                            TextFormField(
-                                              controller: _passwordController,
-                                              obscureText: _obscurePassword,
-                                              decoration: InputDecoration(
-                                                labelText: 'Contraseña',
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(10.0),
-                                                ),
-                                                suffixIcon: IconButton(
-                                                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                                                  onPressed: () => setState(() {
-                                                    _obscurePassword = !_obscurePassword;
-                                                  }),
-                                                ),
-                                              ),
-                                              validator: (value) {
-                                                if (value == null || value.isEmpty) {
-                                                  return 'Por favor, ingresa tu contraseña';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                            SizedBox(height: 10.h),
-                                            if (_isLoading)
-                                              const CircularProgressIndicator()
-                                            else
-                                              ElevatedButton(
-                                                onPressed: _login,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.deepPurple,
-                                                  foregroundColor: Colors.white,
-                                                  padding: EdgeInsets.symmetric(horizontal: 100.w, vertical: 15.h),
-                                                  shape: RoundedRectangleBorder(
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Form(
+                                          key: _formKey,
+                                          child: Column(
+                                            children: [
+                                              TextFormField(
+                                                controller: _emailController,
+                                                decoration: InputDecoration(
+                                                  labelText: 'Correo electrónico',
+                                                  border: OutlineInputBorder(
                                                     borderRadius: BorderRadius.circular(10.0),
                                                   ),
                                                 ),
-                                                child: const Text(
-                                                  'Iniciar Sesión',
-                                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                                validator: (value) {
+                                                  if (value == null || value.isEmpty) {
+                                                    return 'Por favor, ingresa tu correo electrónico';
+                                                  } else if (!RegExp(r"^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}").hasMatch(value)) {
+                                                    return 'Formato de correo no válido';
+                                                  }
+                                                  return null;
+                                                },
+                                              ),
+                                              SizedBox(height: 20.h),
+                                              TextFormField(
+                                                controller: _passwordController,
+                                                obscureText: _obscurePassword,
+                                                decoration: InputDecoration(
+                                                  labelText: 'Contraseña',
+                                                  border: OutlineInputBorder(
+                                                    borderRadius: BorderRadius.circular(10.0),
+                                                  ),
+                                                  suffixIcon: IconButton(
+                                                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                                    onPressed: () => setState(() {
+                                                      _obscurePassword = !_obscurePassword;
+                                                    }),
+                                                  ),
                                                 ),
+                                                validator: (value) {
+                                                  if (value == null || value.isEmpty) {
+                                                    return 'Por favor, ingresa tu contraseña';
+                                                  }
+                                                  return null;
+                                                },
                                               ),
-                                            if (_errorMessage != null) ...[
                                               SizedBox(height: 10.h),
-                                              Text(
-                                                _errorMessage!,
-                                                style: const TextStyle(color: Colors.red),
-                                              ),
+                                              if (_isLoading)
+                                                const CircularProgressIndicator()
+                                              else
+                                                ElevatedButton(
+                                                  onPressed: _login,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Color(0xFF42A5F5), // Cambia el botón a azul-celeste
+                                                    foregroundColor: Colors.white,
+                                                    padding: EdgeInsets.symmetric(horizontal: 100.w, vertical: 15.h),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(10.0),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'Iniciar Sesión',
+                                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              if (_errorMessage != null) ...[
+                                                SizedBox(height: 10.h),
+                                                Text(
+                                                  _errorMessage!,
+                                                  style: const TextStyle(color: Colors.red),
+                                                ),
+                                              ],
                                             ],
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),
