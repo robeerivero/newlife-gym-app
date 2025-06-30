@@ -10,23 +10,32 @@ const generarToken = (id, rol, expiresIn) => {
 exports.login = async (req, res) => {
   const { correo, contrasena, recordar } = req.body;
 
+  console.log('[LOGIN] Datos recibidos:', { correo, recordar });
+
   try {
     const usuario = await Usuario.findOne({ correo }).select('+contrasena');
     if (!usuario) {
+      console.log('[LOGIN] Usuario no encontrado:', correo);
       return res.status(400).json({ mensaje: 'Credenciales inválidas' });
     }
 
     const contrasenaValida = await bcrypt.compare(contrasena, usuario.contrasena);
     if (!contrasenaValida) {
+      console.log('[LOGIN] Contraseña incorrecta para:', correo);
       return res.status(400).json({ mensaje: 'Credenciales inválidas' });
     }
 
-    // Configurar tiempos de expiración
     const accessTokenExpira = recordar ? '365d' : '180d';
     const refreshTokenExpira = '730d';
 
     const accessToken = generarToken(usuario._id, usuario.rol, accessTokenExpira);
     const refreshToken = generarToken(usuario._id, usuario.rol, refreshTokenExpira);
+
+    console.log('[LOGIN] Usuario autenticado:', usuario.correo);
+    console.log('[LOGIN] Tokens generados con expiración:', {
+      accessTokenExpira,
+      refreshTokenExpira
+    });
 
     res.status(200).json({
       mensaje: 'Inicio de sesión exitoso',
@@ -40,7 +49,7 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al iniciar sesión:', error);
+    console.error('[LOGIN] Error inesperado:', error);
     res.status(500).json({ mensaje: 'Error al procesar la solicitud' });
   }
 };

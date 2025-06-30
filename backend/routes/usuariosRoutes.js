@@ -1,5 +1,7 @@
 const express = require('express');
 const { proteger } = require('../middleware/authMiddleware');
+const { esAdministrador } = require('../middleware/authMiddleware'); // <--- Añade esto si no lo tienes
+
 const {
   obtenerPerfilUsuario,
   actualizarUsuario,
@@ -23,16 +25,17 @@ router.put('/perfil', proteger, actualizarUsuario);
 router.put('/perfil/contrasena', proteger, cambiarContrasena);
 router.put('/avatar', proteger, actualizarAvatar);
 router.get('/ranking-mensual', proteger, rankingMensual);
+
 // --- RUTAS DE LOGROS Y PRENDAS ---
 router.get('/prendas/catalogo', proteger, obtenerCatalogoPrendas); // Ver todo el catálogo
 router.get('/prendas/desbloqueadas', proteger, obtenerPrendasDesbloqueadas); // Ver prendas desbloqueadas
 router.get('/prendas/progreso', proteger, obtenerProgresoLogros);
 
-// Rutas de administración de usuarios (requiere autenticación)
-router.get('/', proteger, obtenerUsuarios);
-router.get('/:idUsuario', proteger, obtenerUsuarioPorId);
-router.post('/', proteger, crearUsuario);
-router.delete('/:idUsuario', proteger, eliminarUsuario);
-
+// RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
+router.get('/', proteger, esAdministrador, obtenerUsuarios);
+router.get('/:idUsuario', proteger, esAdministrador, obtenerUsuarioPorId);
+router.post('/', proteger, esAdministrador, crearUsuario);
+router.put('/:idUsuario', proteger, esAdministrador, actualizarUsuario); // <-- ¡añade esta!
+router.delete('/:idUsuario', proteger, esAdministrador, eliminarUsuario);
 
 module.exports = router;

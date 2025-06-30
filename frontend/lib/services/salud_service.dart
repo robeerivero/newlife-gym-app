@@ -5,16 +5,16 @@ import 'package:http/http.dart' as http;
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../config.dart';
+import '../models/salud.dart';
 
 class SaludService {
   final _storage = const FlutterSecureStorage();
 
-  // 1. Solicitar permisos (activity recognition)
-  Future<void> solicitarPermisos() async {
-    await Permission.activityRecognition.request();
+  Future<bool> solicitarPermisos() async {
+    final status = await Permission.activityRecognition.request();
+    return status == PermissionStatus.granted;
   }
 
-  // 2. Inicializa el valor base del día
   Future<void> inicializarPasosDiarios() async {
     final stepsKey = 'initial_steps';
     final todayKey = 'steps_date';
@@ -29,7 +29,6 @@ class SaludService {
     }
   }
 
-  // 3. Devuelve el valor inicial del día
   Future<int> obtenerInicialPasosHoy() async {
     final stepsKey = 'initial_steps';
     final todayKey = 'steps_date';
@@ -42,8 +41,7 @@ class SaludService {
     return 0;
   }
 
-  // 4. Devuelve la lista simple del historial (últimos 7 días)
-  Future<List<Map<String, dynamic>>> obtenerHistorialUltimos7Dias() async {
+  Future<List<Salud>> obtenerHistorialUltimos7Dias() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return [];
 
@@ -55,49 +53,26 @@ class SaludService {
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final List<dynamic> historial = data['historial'] ?? [];
-      return historial
-          .map<Map<String, dynamic>>((e) => {
-                'fecha': e['fecha'],
-                'pasos': e['pasos'] ?? 0,
-                'kcalQuemadas': (e['kcalQuemadas'] ?? 0.0).toDouble(),
-                'kcalConsumidas': (e['kcalConsumidas'] ?? 0.0).toDouble(),
-              })
-          .toList();
+      return historial.map((e) => Salud.fromJson(e)).toList();
     }
     return [];
   }
 
-  // 5. Obtener kcal consumidas hoy (opcional, desde backend)
-  Future<double> obtenerKcalConsumidas() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return 0.0;
-
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/salud/kcal-consumidas'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return (data['kcalConsumidas'] ?? 0.0).toDouble();
-    }
-    return 0.0;
-  }
-
-  /// 6. Actualiza backend con los pasos actuales, o suma kcal manuales.
-  /// Si mandas [kcalQuemadas], el backend la suma (si sumarKcal=true).
   Future<void> actualizarBackend(int pasos, [double? kcalQuemadas, double? kcalConsumidas]) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return;
 
+    final now = DateTime.now();
+    final fechaUtc = DateTime.utc(now.year, now.month, now.day);
+
     final payload = <String, dynamic>{
       'pasos': pasos,
-      'fecha': DateTime.now().toIso8601String().split('T')[0],
+      'fecha': DateTime.now().toIso8601String().split('T')[0], // Aquí el cambio importante
     };
 
     if (kcalQuemadas != null) {
       payload['kcalQuemadas'] = kcalQuemadas;
-      payload['sumarKcal'] = true; // para el backend: suma, no reemplaza
+      payload['sumarKcal'] = true;
     }
     if (kcalConsumidas != null) {
       payload['kcalConsumidas'] = kcalConsumidas;
@@ -111,5 +86,25 @@ class SaludService {
       },
       body: json.encode(payload),
     );
+  }
+
+  
+  // Devuelve un objeto Salud para el día dado
+  Future<Salud?> fetchSaludDia(String fecha) async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return null;
+
+    // La fecha siempre en UTC ISO para evitar líos de zona horaria
+    final now = DateTime.now();
+    final fechaUtc = DateTime.utc(now.year, now.month, now.day);
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/api/salud/dia/${fechaUtc.toIso8601String()}'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      return Salud.fromJson(json.decode(response.body));
+    }
+    return null;
   }
 }

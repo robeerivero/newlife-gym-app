@@ -4,9 +4,7 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
 const clasesRoutes = require('./routes/clasesRoutes');
-const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
-const grupoRoutes = require('./routes/grupoRoutes');
 const dietasRoutes = require('./routes/dietasRoutes');
 const platosRoutes = require('./routes/platosRoutes');
 const ejerciciosRoutes = require('./routes/ejerciciosRoutes');
@@ -31,10 +29,8 @@ app.use(cors());         // Habilitar CORS (opcional, según las necesidades del
 // Rutas
 app.use('/api/auth', authRoutes);             // Autenticación
 app.use('/api/usuarios', usuariosRoutes);         // Usuarios
-app.use('/api/clases', clasesRoutes);          // Clases
-app.use('/api/admin', adminRoutes);           // Administración
+app.use('/api/clases', clasesRoutes);          // Clases 
 app.use('/api/reservas', reservasRoutes);  // Reservas
-app.use('/api/grupos', grupoRoutes);
 app.use('/api/dietas', dietasRoutes);
 app.use('/api/platos', platosRoutes);
 app.use('/api/ejercicios', ejerciciosRoutes);

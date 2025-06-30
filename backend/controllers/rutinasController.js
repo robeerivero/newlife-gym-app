@@ -39,22 +39,71 @@ exports.modificarRutina = async (req, res) => {
   const { idRutina } = req.params;
   const { diaSemana, ejercicios } = req.body;
 
+  console.log('➡️ [modificarRutina] ID:', idRutina);
+  console.log('📥 Body recibido:', req.body);
+
   try {
     const rutina = await Rutina.findById(idRutina);
+    if (!rutina) {
+      console.warn('❌ Rutina no encontrada');
+      return res.status(404).json({ mensaje: 'Rutina no encontrada' });
+    }
+
+    const ejerciciosValidados = [];
+
+    for (const ej of ejercicios) {
+      console.log('🔍 Validando ejercicio:', ej);
+
+      const ejercicioExiste = await Ejercicio.findById(ej.ejercicio);
+      if (!ejercicioExiste) {
+        console.warn('❌ Ejercicio no encontrado:', ej.ejercicio);
+        return res.status(404).json({ mensaje: `Ejercicio no encontrado: ${ej.ejercicio}` });
+      }
+
+      if (ej.series <= 0 || ej.repeticiones <= 0) {
+        console.warn('❌ Series o repeticiones inválidas:', ej);
+        return res.status(400).json({ mensaje: 'Series y repeticiones deben ser mayores a 0.' });
+      }
+
+      ejerciciosValidados.push({
+        ejercicio: ejercicioExiste._id,
+        series: ej.series,
+        repeticiones: ej.repeticiones,
+      });
+    }
+
+    rutina.diaSemana = diaSemana || rutina.diaSemana;
+    rutina.ejercicios = ejerciciosValidados;
+
+    console.log('💾 Guardando rutina actualizada...');
+    await rutina.save();
+    console.log('✅ Rutina actualizada:', rutina);
+
+    res.status(200).json({ mensaje: 'Rutina actualizada exitosamente', rutina });
+
+  } catch (error) {
+    console.error('🔥 Error al actualizar la rutina:', error);
+    res.status(500).json({ mensaje: 'Error al actualizar la rutina', error });
+  }
+};
+
+exports.obtenerRutinaPorId = async (req, res) => {
+  try {
+    const rutina = await Rutina.findById(req.params.idRutina)
+      .populate('usuario', 'nombre correo rol') // incluir más si querés
+      .populate('ejercicios.ejercicio', 'nombre');
 
     if (!rutina) {
       return res.status(404).json({ mensaje: 'Rutina no encontrada' });
     }
 
-    rutina.diaSemana = diaSemana || rutina.diaSemana;
-    rutina.ejercicios = ejercicios || rutina.ejercicios;
-
-    await rutina.save();
-    res.status(200).json({ mensaje: 'Rutina actualizada exitosamente', rutina });
+    res.status(200).json(rutina);
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al actualizar la rutina', error });
+    console.error('Error al obtener rutina por ID:', error);
+    res.status(500).json({ mensaje: 'Error interno', error });
   }
 };
+
 
   
   exports.obtenerRutinasPorUsuario = async (req, res) => {

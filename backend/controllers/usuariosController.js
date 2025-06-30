@@ -2,41 +2,33 @@ const Usuario = require('../models/Usuario');
 const fs = require('fs');
 const path = require('path');
 const Salud = require('../models/Salud');
+const Reserva = require('../models/Reserva');
 const Clase = require('../models/Clase');
 const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
 const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
 exports.rankingMensual = async (req, res) => {
   try {
-    console.log("LLEGA A RANKING MENSUAL!");
-
     const now = new Date();
     const mesActual = now.getMonth();
     const anioActual = now.getFullYear();
 
     // Solo usuarios cliente
     const usuarios = await Usuario.find({ rol: 'cliente' });
-    console.log("Usuarios cliente:", usuarios.map(u => ({ id: u._id, nombre: u.nombre })));
 
-    // Todas las clases de este mes
-    const clasesMes = await Clase.find({
-      fecha: {
-        $gte: new Date(anioActual, mesActual, 1),
-        $lt: new Date(anioActual, mesActual + 1, 1),
-      }
-    }).select('asistencias fecha');
-    console.log("Clases este mes:", clasesMes.length);
+    // Buscar reservas con asistencia en este mes
+    const reservasMes = await Reserva.find({
+      asistio: true
+    }).populate('clase').where('clase.fecha').gte(new Date(anioActual, mesActual, 1)).lt(new Date(anioActual, mesActual + 1, 1));
 
-    // Asistencias por usuario
+    // Contar asistencias por usuario
     let asistenciasPorUsuario = {};
-    clasesMes.forEach(clase => {
-      clase.asistencias.forEach(idUsuario => {
-        asistenciasPorUsuario[idUsuario] = (asistenciasPorUsuario[idUsuario] || 0) + 1;
-      });
+    reservasMes.forEach(r => {
+      const id = r.usuario.toString();
+      asistenciasPorUsuario[id] = (asistenciasPorUsuario[id] || 0) + 1;
     });
-    console.log("Asistencias por usuario:", asistenciasPorUsuario);
 
-    // Pasos del mes por usuario (agregado Mongo)
+    // Pasos del mes por usuario (igual que antes)
     const saludMes = await Salud.aggregate([
       {
         $match: {
@@ -53,13 +45,11 @@ exports.rankingMensual = async (req, res) => {
         }
       }
     ]);
-    console.log("Salud (pasos mes):", saludMes);
 
     let pasosPorUsuario = {};
     saludMes.forEach(s => {
       pasosPorUsuario[s._id.toString()] = s.totalPasos;
     });
-    console.log("Pasos por usuario:", pasosPorUsuario);
 
     // Crea ranking para cada usuario
     let ranking = usuarios.map(usuario => ({
@@ -70,16 +60,12 @@ exports.rankingMensual = async (req, res) => {
       pasosEsteMes: pasosPorUsuario[usuario._id.toString()] || 0,
     }));
 
-    console.log("Ranking (antes sort):", ranking);
-
     ranking.sort((a, b) => {
       if (b.asistenciasEsteMes !== a.asistenciasEsteMes) {
         return b.asistenciasEsteMes - a.asistenciasEsteMes;
       }
       return b.pasosEsteMes - a.pasosEsteMes;
     });
-
-    console.log("Ranking (despues sort):", ranking);
 
     res.json(ranking);
 
@@ -88,8 +74,6 @@ exports.rankingMensual = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al generar ranking mensual' });
   }
 };
-
-
 
 exports.obtenerPrendasDesbloqueadas = async (req, res) => {
   try {
@@ -226,7 +210,6 @@ exports.crearUsuario = async (req, res) => {
   const { nombre, correo, contrasena, rol, tiposDeClases } = req.body;
 
   try {
-    // Validación de los valores enviados
     if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
     }
@@ -236,10 +219,43 @@ exports.crearUsuario = async (req, res) => {
     if (!tiposValidos) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
+
+    // Mapa: key → array de valores válidos
+    const mapPrendas = {};
+    for (const prenda of prendasLogros) {
+      if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
+      if (!mapPrendas[prenda.key].includes(prenda.value)) {
+        mapPrendas[prenda.key].push(prenda.value);
+      }
+    }
+
+    // Filtrar desbloqueadas por defecto
     const desbloqueadosPorDefecto = prendasLogros
-      .filter(prenda => prenda.desbloqueadoPorDefecto)
-      .map(prenda => ({ key: prenda.key, value: prenda.value }));
-    const nuevoUsuario = new Usuario({ nombre, correo, contrasena, rol, tiposDeClases, desbloqueados: desbloqueadosPorDefecto });
+      .filter(p => p.desbloqueadoPorDefecto)
+      .map(p => ({ key: p.key, value: p.value }));
+
+    // Avatar por índice
+    const avatar = {};
+    for (const d of desbloqueadosPorDefecto) {
+      if (!(d.key in avatar)) {
+        const valores = mapPrendas[d.key];
+        const idx = valores.indexOf(d.value);
+        if (idx !== -1) {
+          avatar[d.key] = idx; // 👈 guardar el índice
+        }
+      }
+    }
+
+    const nuevoUsuario = new Usuario({
+      nombre,
+      correo,
+      contrasena,
+      rol,
+      tiposDeClases,
+      desbloqueados: desbloqueadosPorDefecto,
+      avatar // 👈 avatar como { key: int }
+    });
+
     await nuevoUsuario.save();
     res.status(201).json({ mensaje: 'Usuario creado exitosamente', nuevoUsuario });
   } catch (error) {
@@ -247,6 +263,9 @@ exports.crearUsuario = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al crear el usuario', error });
   }
 };
+
+
+
 
 
 // Cambiar la contraseña del usuario
@@ -340,19 +359,54 @@ exports.actualizarUsuario = async (req, res) => {
 
 
 // Eliminar un usuario
+
+// Eliminar un usuario
 exports.eliminarUsuario = async (req, res) => {
   const { idUsuario } = req.params;
 
   try {
-    const usuario = await Usuario.findByIdAndDelete(idUsuario);
+    const usuario = await Usuario.findById(idUsuario);
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
-    res.status(200).json({ mensaje: 'Usuario eliminado exitosamente' });
+
+    const reservas = await Reserva.find({ usuario: idUsuario });
+
+    for (const reserva of reservas) {
+      const clase = await Clase.findById(reserva.clase);
+
+      if (clase) {
+        clase.cuposDisponibles += 1;
+
+        // Procesar lista de espera
+        if (clase.listaDeEspera.length > 0) {
+          const siguienteUsuarioId = clase.listaDeEspera.shift();
+
+          await Reserva.create({
+            usuario: siguienteUsuarioId,
+            clase: clase._id,
+            fecha: clase.fecha,
+          });
+
+          clase.cuposDisponibles -= 1; // porque se reasigna el cupo
+        }
+
+        await clase.save();
+      }
+
+      await reserva.deleteOne();
+    }
+
+    await usuario.deleteOne();
+
+    res.status(200).json({ mensaje: 'Usuario, reservas y cupos actualizados correctamente' });
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al eliminar el usuario', error });
+    console.error('Error al eliminar el usuario y procesar reservas:', error);
+    res.status(500).json({ mensaje: 'Error interno al eliminar usuario', error });
   }
 };
+
+
 exports.actualizarAvatar = async (req, res) => {
   try {
     const { avatar } = req.body; // <-- asegúrate de usar 'avatar' (no 'fluttermojiJson')

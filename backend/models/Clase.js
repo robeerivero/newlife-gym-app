@@ -1,4 +1,3 @@
-// backend/models/Class.js
 const mongoose = require('mongoose');
 
 const esquemaClase = new mongoose.Schema({
@@ -32,19 +31,11 @@ const esquemaClase = new mongoose.Schema({
     type: Number,
     default: 14 // Máximo por defecto es 14, pero puede variar
   },
-  participantes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Usuario' // Referencia al modelo de usuario
-  }],
   listaEspera: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Usuario' // Usuarios en lista de espera
-  }],
-  asistencias: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Usuario'
   }]
-
+  // participantes y asistencias eliminados
 }, { timestamps: true });
 
 const Clase = mongoose.model('Clase', esquemaClase);

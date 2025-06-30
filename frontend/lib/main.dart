@@ -5,13 +5,14 @@ import 'package:workmanager/workmanager.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'dart:io' show Platform;
 
-import 'screens/splash_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/admin_screen.dart';
-import 'screens/client_screen.dart';
-import 'screens/online_client_screen.dart';
+import 'views/splash/splash_screen.dart';
+import 'views/login/login_screen.dart';
+import 'views/admin/admin_screen.dart';
+import 'views/client/client_screen.dart';
+import 'views/online_client/online_client_screen.dart';
 
 // Notificaciones
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
