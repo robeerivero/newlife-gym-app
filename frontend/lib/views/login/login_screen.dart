@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.pushReplacementNamed(context, '/admin');
                   break;
                 case 'online':
-                  Navigator.pushReplacementNamed(context, '/online_client');
+                  Navigator.pushReplacementNamed(context, '/online');
                   break;
                 default:
                   Navigator.pushReplacementNamed(context, '/client');

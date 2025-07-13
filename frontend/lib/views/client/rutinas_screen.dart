@@ -1,7 +1,3 @@
-// ==========================
-// lib/views/client/rutinas_screen.dart
-// ==========================
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -21,44 +17,40 @@ class RutinasScreen extends StatelessWidget {
 }
 
 class _RutinasBody extends StatelessWidget {
-  const _RutinasBody({Key? key}) : super(key: key);
+  const _RutinasBody({super.key});
 
-  void showVideoFullScreen(BuildContext context, String videoUrl, {String? titulo}) {
-    final videoId = YoutubePlayer.convertUrlToId(videoUrl);
-    if (videoId != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => Scaffold(
-            backgroundColor: Colors.black,
-            appBar: AppBar(
-              backgroundColor: Colors.black,
-              iconTheme: const IconThemeData(color: Colors.white),
-              title: Text(titulo ?? "Video", style: const TextStyle(color: Colors.white)),
-            ),
-            body: SafeArea(
-              child: Center(
-                child: YoutubePlayer(
-                  controller: YoutubePlayerController(
-                    initialVideoId: videoId,
-                    flags: const YoutubePlayerFlags(
-                      autoPlay: true,
-                      mute: false,
-                    ),
-                  ),
-                  showVideoProgressIndicator: true,
-                  progressIndicatorColor: Colors.blue,
-                ),
-              ),
-            ),
-          ),
-          fullscreenDialog: true,
-        ),
-      );
-    } else {
+  void showVideo(BuildContext context, String url, String nombre) {
+    final videoId = YoutubePlayer.convertUrlToId(url);
+    if (videoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URL de video inválida')),
+        const SnackBar(content: Text('Video inválido')),
       );
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            title: Text(nombre, style: const TextStyle(color: Colors.white)),
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: YoutubePlayerBuilder(
+            player: YoutubePlayer(
+              controller: YoutubePlayerController(
+                initialVideoId: videoId,
+                flags: const YoutubePlayerFlags(autoPlay: true),
+              ),
+              showVideoProgressIndicator: true,
+            ),
+            builder: (context, player) => Center(child: player),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -68,65 +60,75 @@ class _RutinasBody extends StatelessWidget {
         if (vm.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
+
         if (vm.errorMessage.isNotEmpty) {
           return Center(
-            child: Text(
-              vm.errorMessage,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 16),
-            ),
+            child: Text(vm.errorMessage,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
           );
         }
+
         if (vm.rutinas.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.fitness_center, size: 72, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No tienes rutinas asignadas todavía.',
-                    style: TextStyle(color: Colors.black54, fontSize: 17)),
-              ],
-            ),
+          return const Center(
+            child: Text('No tienes rutinas asignadas.'),
           );
         }
+
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+          padding: const EdgeInsets.all(12),
           itemCount: vm.rutinas.length,
           itemBuilder: (context, index) {
             final rutina = vm.rutinas[index];
             return Card(
-              margin: const EdgeInsets.symmetric(vertical: 9, horizontal: 3),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
-              elevation: 5,
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  dividerColor: Colors.transparent,
-                  splashColor: Colors.blue[50],
-                ),
-                child: ExpansionTile(
-                  leading: const Icon(Icons.today, color: Color(0xFF1E88E5)),
-                  title: Text(
-                    rutina.diaSemana.isNotEmpty ? rutina.diaSemana : 'Día no especificado',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  children: rutina.ejercicios.map<Widget>((ejercicioRutina) {
-                    final nombre = ejercicioRutina.ejercicio.nombre;
-                    final series = ejercicioRutina.series;
-                    final repeticiones = ejercicioRutina.repeticiones;
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 4,
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      rutina.diaSemana,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E88E5),
+                      ),
+                    ),
+                    const Divider(height: 18, thickness: 1.2),
+                    ...rutina.ejercicios.map((ej) {
+                      final nombre = ej.ejercicio.nombre;
+                      final series = ej.series;
+                      final reps = ej.repeticiones;
+                      final video = ej.ejercicio.video;
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-                      leading: const Icon(Icons.sports_gymnastics, color: Colors.deepPurple),
-                      title: Text(
-                        nombre,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Series: $series   Reps: $repeticiones',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    );
-                  }).toList(),
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.fitness_center, color: Colors.deepPurple),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('Series: $series   Reps: $reps', style: const TextStyle(fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                            if (video.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 28),
+                                onPressed: () => showVideo(context, video, nombre),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             );

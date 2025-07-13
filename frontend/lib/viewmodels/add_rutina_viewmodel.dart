@@ -40,7 +40,13 @@ class AddRutinaViewModel extends ChangeNotifier {
   void addEjercicioSeleccionado(Ejercicio ejercicio) {
     ejerciciosSeleccionados.add(
       EjercicioRutina(
-        ejercicio: EjercicioRef(id: ejercicio.id, nombre: ejercicio.nombre),
+        ejercicio: EjercicioRef(
+  id: ejercicio.id,
+  nombre: ejercicio.nombre,
+  video: ejercicio.video,
+  descripcion: ejercicio.descripcion,
+  dificultad: ejercicio.dificultad,
+),
         series: 3,
         repeticiones: 10,
       ),

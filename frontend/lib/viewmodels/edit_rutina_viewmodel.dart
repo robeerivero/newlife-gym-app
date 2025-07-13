@@ -87,7 +87,13 @@ class EditRutinaViewModel extends ChangeNotifier {
     } else {
       selectedEjercicios.add(
         EjercicioRutina(
-          ejercicio: EjercicioRef(id: ejercicio.id, nombre: ejercicio.nombre),
+          ejercicio: EjercicioRef(
+  id: ejercicio.id,
+  nombre: ejercicio.nombre,
+  video: ejercicio.video,
+  descripcion: ejercicio.descripcion,
+  dificultad: ejercicio.dificultad,
+),
           series: 3,
           repeticiones: 10,
         ),
@@ -104,7 +110,13 @@ class EditRutinaViewModel extends ChangeNotifier {
     final er = selectedEjercicios.firstWhere(
       (e) => e.ejercicio.id == ejercicio.id,
       orElse: () => EjercicioRutina(
-        ejercicio: EjercicioRef(id: ejercicio.id, nombre: ejercicio.nombre),
+        ejercicio: EjercicioRef(
+  id: ejercicio.id,
+  nombre: ejercicio.nombre,
+  video: ejercicio.video,
+  descripcion: ejercicio.descripcion,
+  dificultad: ejercicio.dificultad,
+),
         series: 3,
         repeticiones: 10,
       ),
@@ -116,7 +128,13 @@ class EditRutinaViewModel extends ChangeNotifier {
     final er = selectedEjercicios.firstWhere(
       (e) => e.ejercicio.id == ejercicio.id,
       orElse: () => EjercicioRutina(
-        ejercicio: EjercicioRef(id: ejercicio.id, nombre: ejercicio.nombre),
+        ejercicio: EjercicioRef(
+  id: ejercicio.id,
+  nombre: ejercicio.nombre,
+  video: ejercicio.video,
+  descripcion: ejercicio.descripcion,
+  dificultad: ejercicio.dificultad,
+),
         series: 3,
         repeticiones: 10,
       ),

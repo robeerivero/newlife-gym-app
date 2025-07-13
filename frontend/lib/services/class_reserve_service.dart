@@ -30,7 +30,7 @@ class ClassReserveService {
     final dateQuery = '?fecha=${date.toIso8601String().split('T')[0]}';
 
     final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/clases/clases$dateQuery'),
+      Uri.parse('${AppConstants.baseUrl}/api/clases$dateQuery'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',

@@ -114,9 +114,34 @@ exports.obtenerHistorialSalud = async (req, res) => {
     sieteDiasAtras.setDate(sieteDiasAtras.getDate() - 7);
     sieteDiasAtras.setHours(0, 0, 0, 0);
 
-    const historial = await Salud.find({ usuario: usuarioId, fecha: { $gte: sieteDiasAtras } }).sort({ fecha: 1 });
+    const historial = await Salud.find({
+      usuario: usuarioId,
+      fecha: { $gte: sieteDiasAtras }
+    }).sort({ fecha: 1 });
 
-    // calcular racha
+    // Sincronizar kcalConsumidas desde dieta si es necesario
+    for (let i = 0; i < historial.length; i++) {
+      if (!historial[i].kcalConsumidas || historial[i].kcalConsumidas === 0) {
+        const inicioDia = new Date(historial[i].fecha);
+        inicioDia.setHours(0, 0, 0, 0);
+
+        const finDia = new Date(inicioDia);
+        finDia.setDate(inicioDia.getDate() + 1);
+
+        const dieta = await Dieta.findOne({
+          usuario: usuarioId,
+          fecha: { $gte: inicioDia, $lt: finDia }
+        }).populate('platos');
+
+        if (dieta) {
+          const kcal = dieta.platos.reduce((sum, p) => sum + (p.kcal || 0), 0);
+          historial[i].kcalConsumidas = kcal;
+          await historial[i].save();
+        }
+      }
+    }
+
+    // Calcular racha de días consecutivos
     let racha = 0;
     let fechaEsperada = new Date();
     fechaEsperada.setHours(0, 0, 0, 0);
@@ -139,6 +164,7 @@ exports.obtenerHistorialSalud = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al obtener historial de salud' });
   }
 };
+
 
 
 exports.guardarDatosSalud = async (req, res) => {
@@ -169,41 +195,6 @@ exports.guardarDatosSalud = async (req, res) => {
   }
 };
 
-exports.DatosSalud = async (req, res) => {
-  try {
-    const usuarioId = req.user.id;
-    const fecha = new Date(req.params.fecha);
-    fecha.setHours(0, 0, 0, 0);
 
-    let salud = await Salud.findOne({ usuario: usuarioId, fecha });
-
-    // Si no existe aún, se crea un documento base
-    if (!salud) {
-      salud = new Salud({ usuario: usuarioId, fecha });
-    }
-
-    // 🔄 Sincroniza automáticamente las kcalConsumidas desde la dieta
-    const inicioDia = new Date(fecha);
-    const finDia = new Date(inicioDia);
-    finDia.setDate(inicioDia.getDate() + 1);
-
-    const dieta = await Dieta.findOne({
-      usuario: usuarioId,
-      fecha: { $gte: inicioDia, $lt: finDia }
-    }).populate('platos');
-
-    if (dieta) {
-      const kcalConsumidas = dieta.platos.reduce((total, plato) => total + (plato.kcal || 0), 0);
-      salud.kcalConsumidas = kcalConsumidas;
-    }
-
-    await salud.save();
-
-    res.json(salud);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: 'Error al obtener los datos de salud' });
-  }
-};
 
 

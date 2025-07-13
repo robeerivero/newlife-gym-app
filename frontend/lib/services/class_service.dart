@@ -28,7 +28,7 @@ class ClassService {
   }
 
 
-  /// Clases próximas para el usuario autenticado (pantalla cliente)
+  /// Clases próximas para el usuario
   Future<List<Clase>?> fetchNextClasses() async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return null;
