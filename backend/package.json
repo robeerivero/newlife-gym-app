@@ -11,6 +11,7 @@
     "qrcode": "^1.5.4"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "seed:platos": "node seeder.js --importar"
   }
 }
