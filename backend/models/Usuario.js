@@ -9,7 +9,43 @@ const esquemaUsuario = new mongoose.Schema({
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
-  desbloqueados: { type: [Object], default: [] }
+  desbloqueados: { type: [Object], default: [] },
+  genero: {
+    type: String,
+    enum: ['masculino', 'femenino'],
+    default: 'masculino'
+  },
+  edad: {
+    type: Number,
+    min: 16,
+    default: 25
+  },
+  altura: { // En centímetros
+    type: Number,
+    min: 100,
+    default: 170
+  },
+  peso: { // En kilogramos
+    type: Number,
+    min: 40,
+    default: 70
+  },
+  nivelActividad: {
+    type: String,
+    enum: ['sedentario', 'ligero', 'moderado', 'activo', 'muy_activo'],
+    default: 'sedentario'
+  },
+  objetivo: {
+    type: String,
+    enum: ['perder', 'mantener', 'ganar'],
+    default: 'mantener'
+  },
+  
+  // Resultado del cálculo (lo guardaremos aquí)
+  kcalObjetivo: {
+    type: Number,
+    default: 2000
+  },
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla

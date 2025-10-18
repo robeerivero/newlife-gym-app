@@ -469,3 +469,71 @@ exports.obtenerProgresoLogros = async (req, res) => {
     res.status(500).json({ mensaje: "Error al obtener el progreso de logros", error });
   }
 };
+
+exports.actualizarDatosMetabolicos = async (req, res) => {
+  const { id } = req.user; // O req.params.id si es un admin
+  const { peso, altura, edad, genero, nivelActividad, objetivo } = req.body;
+
+  try {
+    // 1. Calcular TMB (Tasa Metabólica Basal) - Fórmula Mifflin-St Jeor
+    let tmb;
+    if (genero === 'masculino') {
+      tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5;
+    } else { // 'femenino'
+      tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
+    }
+
+    // 2. Calcular TDEE (Gasto Energético Total Diario)
+    const factoresActividad = {
+      sedentario: 1.2,
+      ligero: 1.375,
+      moderado: 1.55,
+      activo: 1.725,
+      muy_activo: 1.9
+    };
+    const tdee = tmb * (factoresActividad[nivelActividad] || 1.2);
+
+    // 3. Ajustar Kcal según el Objetivo
+    let kcalObjetivo;
+    switch (objetivo) {
+      case 'perder':
+        kcalObjetivo = tdee - 500; // Déficit de 500 kcal
+        break;
+      case 'ganar':
+        kcalObjetivo = tdee + 500; // Superávit de 500 kcal
+        break;
+      case 'mantener':
+      default:
+        kcalObjetivo = tdee;
+    }
+
+    // Redondear al número entero más cercano
+    kcalObjetivo = Math.round(kcalObjetivo);
+
+    // 4. Guardar los datos en el Usuario
+    const usuario = await Usuario.findByIdAndUpdate(
+      id,
+      {
+        peso,
+        altura,
+        edad,
+        genero,
+        nivelActividad,
+        objetivo,
+        kcalObjetivo // <-- ¡Guardamos el resultado!
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      mensaje: 'Datos metabólicos actualizados',
+      kcalObjetivo: usuario.kcalObjetivo,
+      tdee: Math.round(tdee),
+      tmb: Math.round(tmb)
+    });
+
+  } catch (error) {
+    console.error('Error al calcular datos metabólicos:', error);
+    res.status(500).json({ mensaje: 'Error en el servidor' });
+  }
+};

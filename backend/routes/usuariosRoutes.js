@@ -14,7 +14,8 @@ const {
   obtenerCatalogoPrendas,
   obtenerPrendasDesbloqueadas,
   obtenerProgresoLogros,
-  rankingMensual
+  rankingMensual,
+  actualizarDatosMetabolicos
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -38,4 +39,6 @@ router.post('/', proteger, esAdministrador, crearUsuario);
 router.put('/:idUsuario', proteger, esAdministrador, actualizarUsuario); // <-- ¡añade esta!
 router.delete('/:idUsuario', proteger, esAdministrador, eliminarUsuario);
 
+//Ruta calculo kcal objetivo
+router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
 module.exports = router;

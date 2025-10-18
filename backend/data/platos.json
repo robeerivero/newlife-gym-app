@@ -1,0 +1,506 @@
+[
+  {
+    "nombre": "Ensalada de Lentejas y Queso de Cabra",
+    "kcal": 520,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["200g Lentejas cocidas", "75g Queso de cabra", "50g Espinacas frescas", "Nueces", "Vinagreta de mostaza"],
+    "instrucciones": "Mezclar las lentejas frías con las espinacas y las nueces. Desmenuzar el queso de cabra por encima. Aliñar con la vinagreta.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Alta en proteína y fibra. Ideal para una comida completa."
+  },
+  {
+    "nombre": "Crema de Calabacín Ligera",
+    "kcal": 250,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["2 Calabacines", "1 Patata pequeña", "1/2 Cebolla", "500ml Caldo de verduras", "1 Quesito light", "Pimienta"],
+    "instrucciones": "Cocer el calabacín, la patata y la cebolla en el caldo de verduras. Cuando esté tierno, triturar todo junto al quesito light. Salpimentar.",
+    "tiempoPreparacion": 25,
+    "observaciones": "Cena muy ligera y reconfortante."
+  },
+  {
+    "nombre": "Tostada de Aguacate y Salmón Ahumado",
+    "kcal": 380,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["2 rebanadas de Pan integral", "1 Aguacate mediano", "100g Salmón ahumado", "Eneldo", "Gotas de limón"],
+    "instrucciones": "Tostar el pan. Machacar el aguacate con sal y limón y untarlo. Colocar el salmón ahumado encima y espolvorear eneldo.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Rico en Omega-3 y grasas saludables."
+  },
+  {
+    "nombre": "Wok de Verduras y Gambas",
+    "kcal": 310,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["150g Gambas peladas", "1 Brócoli pequeño", "1 Zanahoria", "1 Pimiento rojo", "Salsa de soja baja en sodio", "Aceite de sésamo"],
+    "instrucciones": "Cortar todas las verduras en juliana. Saltear en un wok con aceite de sésamo. Añadir las gambas y cocinar 2 minutos. Añadir la salsa de soja y servir.",
+    "tiempoPreparacion": 20,
+    "observaciones": "Rápido, bajo en calorías y alto en nutrientes."
+  },
+  {
+    "nombre": "Merluza al Horno con Patatas Panadera",
+    "kcal": 450,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["2 lomos de Merluza", "2 Patatas medianas", "1 Cebolla", "Aceite de oliva", "Vino blanco", "Perejil"],
+    "instrucciones": "Cortar patatas y cebolla en rodajas finas. Hornear 20 min a 180°C con aceite. Colocar la merluza encima, añadir vino blanco y perejil. Hornear 15 min más.",
+    "tiempoPreparacion": 40,
+    "observaciones": "Comida clásica española muy saludable."
+  },
+  {
+    "nombre": "Hummus con Crudités",
+    "kcal": 280,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["100g Hummus casero", "1 Zanahoria", "1 Pepino", "1/2 Pimiento rojo"],
+    "instrucciones": "Servir el hummus en un bol. Cortar las verduras en bastones (crudités) para dipear.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Snack saludable, alto en fibra y proteína vegetal."
+  },
+  {
+    "nombre": "Tortitas de Avena y Plátano",
+    "kcal": 350,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["1 Plátano maduro", "2 Huevos", "50g Avena molida", "Canela", "Frutos rojos para decorar"],
+    "instrucciones": "Aplastar el plátano y mezclar con los huevos batidos y la avena. Cocinar porciones de la mezcla en una sartén antiadherente. Servir con canela y frutos rojos.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Desayuno energético sin azúcares añadidos."
+  },
+  {
+    "nombre": "Quinoa con Verduras Salteadas y Tofu",
+    "kcal": 480,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["100g Quinoa", "150g Tofu firme", "Calabacín", "Pimiento rojo", "Brócoli", "Salsa de soja"],
+    "instrucciones": "Cocer la quinoa. Mientras, saltear el tofu en dados hasta que esté dorado. Añadir las verduras y saltear. Mezclar todo con la quinoa y un chorrito de soja.",
+    "tiempoPreparacion": 25,
+    "observaciones": "Opción vegana muy completa y alta en proteína."
+  },
+  {
+    "nombre": "Pisto Manchego con Huevo Poché",
+    "kcal": 410,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["1 Calabacín", "1 Berenjena", "1 Pimiento verde", "1/2 Cebolla", "400g Tomate triturado", "2 Huevos", "Aceite de oliva"],
+    "instrucciones": "Sofreír las verduras cortadas en dados. Cuando estén tiernas, añadir el tomate y cocinar 15 min. Hacer dos huevos poché y servirlos sobre el pisto.",
+    "tiempoPreparacion": 35,
+    "observaciones": "Cena tradicional y muy nutritiva."
+  },
+  {
+    "nombre": "Manzanas Asadas con Canela y Nueces",
+    "kcal": 180,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["2 Manzanas", "Canela en polvo", "30g Nueces picadas", "1 cucharadita de Miel (opcional)"],
+    "instrucciones": "Descorazonar las manzanas. Rellenar el hueco con las nueces picadas y la canela. Hornear a 180°C durante 30 minutos. Añadir miel al gusto.",
+    "tiempoPreparacion": 35,
+    "observaciones": "Postre o merienda saludable y saciante."
+  },
+  {
+    "nombre": "Espárragos Trigueros con Jamón Serrano",
+    "kcal": 160,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 manojo de Espárragos trigueros", "100g Jamón serrano en lonchas finas", "Aceite de oliva"],
+    "instrucciones": "Enrollar 3-4 espárragos en una loncha de jamón. Hacerlos a la plancha con unas gotas de aceite hasta que el jamón esté crujiente.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Snack proteico y bajo en carbohidratos."
+  },
+  {
+    "nombre": "Brochetas de Pollo y Piña",
+    "kcal": 360,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["200g Pechuga de pollo", "150g Piña natural", "1 Pimiento verde", "Salsa de soja", "Jengibre rallado"],
+    "instrucciones": "Marinar el pollo en dados con soja y jengibre. Montar brochetas alternando pollo, piña y pimiento. Cocinar a la plancha o al horno.",
+    "tiempoPreparacion": 30,
+    "observaciones": "Sabor agridulce y muy jugoso."
+  },
+  {
+    "nombre": "Dorada a la Sal",
+    "kcal": 300,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["1 Dorada de ración (aprox. 400g)", "1kg Sal gorda para hornear"],
+    "instrucciones": "Poner una cama de sal en una bandeja de horno. Colocar la dorada (sin desescamar) encima y cubrirla completamente con el resto de la sal, humedeciéndola un poco. Hornear a 200°C durante 25-30 min. Romper la costra de sal, retirar la piel y servir los lomos limpios.",
+    "tiempoPreparacion": 35,
+    "observaciones": "Método de cocción sin nada de grasa. El pescado queda increíblemente tierno."
+  },
+  {
+    "nombre": "Ensalada César Ligera",
+    "kcal": 400,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["1 Pechuga de pollo a la plancha", "Lechuga romana", "20g Picatostes integrales", "Salsa César light (yogur, anchoas, parmesano)"],
+    "instrucciones": "Trocear el pollo y la lechuga. Mezclar con la salsa césar light (hecha con base de yogur en lugar de mayonesa) y los picatostes.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Versión saludable de un clásico."
+  },
+  {
+    "nombre": "Sopa Fría de Melón con Menta",
+    "kcal": 130,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1/2 Melón Cantalupo", "Hojas de menta fresca", "1 Yogur natural (opcional)"],
+    "instrucciones": "Triturar la pulpa del melón con las hojas de menta hasta que quede una sopa fina. Se puede añadir un yogur para más cremosidad. Servir muy fría.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Perfecto para hidratarse en días de calor."
+  },
+  {
+    "nombre": "Huevos Revueltos con Espinacas y Queso Feta",
+    "kcal": 320,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["3 Huevos", "1 puñado de Espinacas frescas", "30g Queso feta", "Pimienta negra"],
+    "instrucciones": "Batir los huevos. Saltear las espinacas en una sartén. Añadir los huevos y remover. Cuando casi estén, añadir el queso feta desmigado y pimienta.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Desayuno proteico para empezar fuerte el día."
+  },
+  {
+    "nombre": "Bol de Açaí con Granola y Fruta",
+    "kcal": 420,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["100g Pulpa de Açaí congelada", "1/2 Plátano", "50ml Bebida de almendra", "30g Granola", "Fresas", "Semillas de chía"],
+    "instrucciones": "Batir el açaí con el plátano y la bebida de almendra hasta que esté cremoso. Servir en un bol y cubrir con la granola, fresas y semillas de chía.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Desayuno antioxidante y energético."
+  },
+  {
+    "nombre": "Wrap de Pollo y Aguacate",
+    "kcal": 480,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["1 Tortilla de trigo integral", "150g Pechuga de pollo a la plancha", "1/2 Aguacate", "Hojas de lechuga", "Tomate en rodajas", "Yogur griego (como salsa)"],
+    "instrucciones": "Cortar el pollo en tiras. Untar el yogur en la tortilla, añadir la lechuga, tomate, aguacate y el pollo. Enrollar firmemente.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Almuerzo rápido y equilibrado."
+  },
+  {
+    "nombre": "Crema de Lentejas Rojas y Zanahoria",
+    "kcal": 310,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["150g Lentejas rojas", "2 Zanahorias", "1 Cebolla", "1L Caldo de verduras", "Comino", "Pimentón dulce"],
+    "instrucciones": "Sofreír la cebolla y zanahoria. Añadir las lentejas (se cuecen rápido), el caldo y las especias. Cocer 20 min y triturar.",
+    "tiempoPreparacion": 30,
+    "observaciones": "Cena vegana, alta en fibra y muy reconfortante."
+  },
+  {
+    "nombre": "Puñado de Frutos Secos y Dátil",
+    "kcal": 220,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["20g Almendras", "20g Nueces", "1 Dátil Medjool"],
+    "instrucciones": "Combinar los frutos secos con el dátil.",
+    "tiempoPreparacion": 1,
+    "observaciones": "Snack rápido para un pico de energía."
+  },
+  {
+    "nombre": "Gachas de Avena (Porridge) con Manzana y Canela",
+    "kcal": 360,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["60g Copos de avena", "250ml Leche o bebida vegetal", "1 Manzana", "Canela en polvo", "Nueces picadas"],
+    "instrucciones": "Cocer la avena con la leche a fuego lento. Añadir la manzana rallada y la canela. Servir caliente con nueces por encima.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Desayuno saciante y saludable para el corazón."
+  },
+  {
+    "nombre": "Ensalada Completa de Garbanzos",
+    "kcal": 450,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["200g Garbanzos cocidos", "1/2 Pepino", "1 Pimiento rojo", "1/2 Cebolla morada", "Queso feta", "Aceitunas negras", "Aceite de oliva y limón"],
+    "instrucciones": "Picar todas las verduras y el queso feta en dados. Mezclar con los garbanzos y las aceitunas. Aliñar con aceite y limón.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Almuerzo vegetariano, fresco y rico en proteína."
+  },
+  {
+    "nombre": "Pollo al Limón y Romero con Boniato",
+    "kcal": 510,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["1 Pechuga de pollo", "1 Boniato mediano", "Zumo de 1 limón", "Romero fresco", "Aceite de oliva", "Sal y pimienta"],
+    "instrucciones": "Cortar el boniato en bastones y hornear 20 min. Marinar el pollo con limón, romero, sal y pimienta. Hornear el pollo junto al boniato 20 min más.",
+    "tiempoPreparacion": 45,
+    "observaciones": "Alto en proteína y carbohidratos de calidad."
+  },
+  {
+    "nombre": "Revuelto de Champiñones y Espárragos",
+    "kcal": 290,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["3 Huevos", "150g Champiñones laminados", "1 manojo de Espárragos trigueros", "Ajo", "Aceite de oliva"],
+    "instrucciones": "Saltear un ajo picado en la sartén. Añadir los espárragos troceados y los champiñones. Cuando estén hechos, añadir los huevos batidos y remover.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Cena rápida, ligera y proteica."
+  },
+  {
+    "nombre": "Batido de Proteína Fresa-Plátano",
+    "kcal": 280,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 scoop de Proteína en polvo (vainilla o fresa)", "100g Fresas congeladas", "1/2 Plátano", "250ml Agua o leche"],
+    "instrucciones": "Batir todos los ingredientes en una licuadora hasta que esté suave.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Perfecto para recuperación post-entrenamiento."
+  },
+  {
+    "nombre": "Tosta de Pan de Centeno con Requesón y Miel",
+    "kcal": 240,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 rebanada de Pan de centeno", "100g Requesón (o queso cottage)", "1 cucharadita de Miel", "Nueces picadas"],
+    "instrucciones": "Tostar el pan. Untar el requesón, añadir las nueces y un chorrito de miel.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Snack equilibrado entre proteína y carbohidratos."
+  },
+  {
+    "nombre": "Bowl de Arroz, Salmón y Edamame",
+    "kcal": 550,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["100g Arroz (integral o sushi)", "150g Lomo de salmón", "100g Edamame cocido", "1/2 Aguacate", "Salsa de soja"],
+    "instrucciones": "Cocer el arroz. Cocinar el salmón a la plancha. Servir en un bol el arroz como base, el salmón desmigado, el aguacate en láminas y el edamame. Aliñar con soja.",
+    "tiempoPreparacion": 25,
+    "observaciones": "Estilo 'Poke Bowl' muy completo."
+  },
+  {
+    "nombre": "Pasta Integral con Pesto y Tomates Cherry",
+    "kcal": 490,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["80g Pasta integral", "2 cucharadas de Pesto", "100g Tomates cherry", "Queso Parmesano rallado", "Pechuga de pollo (opcional)"],
+    "instrucciones": "Cocer la pasta. Escurrir (reservando un poco de agua). Mezclar la pasta con el pesto y un chorrito del agua de cocción. Añadir los tomates cherry cortados por la mitad. Servir con parmesano.",
+    "tiempoPreparacion": 20,
+    "observaciones": "Opción rápida. Añadir pollo a la plancha si se quiere más proteína."
+  },
+  {
+    "nombre": "Bacalao con Tomate y Pimientos",
+    "kcal": 380,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["200g Lomo de bacalao desalado", "1 Pimiento rojo", "1 Pimiento verde", "1 Cebolla", "400g Tomate triturado", "Aceite de oliva"],
+    "instrucciones": "Sofreír la cebolla y los pimientos. Añadir el tomate y cocinar 15 min. Añadir el bacalao y cocinar 10 minutos más a fuego lento.",
+    "tiempoPreparacion": 35,
+    "observaciones": "Pescado blanco muy sabroso y bajo en grasa."
+  },
+  {
+    "nombre": "Berenjenas Rellenas de Soja Texturizada (Vegano)",
+    "kcal": 430,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["2 Berenjenas", "100g Soja texturizada fina", "1 Cebolla", "Caldo de verduras", "Tomate frito", "Orégano"],
+    "instrucciones": "Asar las berenjenas y vaciar la pulpa. Hidratar la soja texturizada. Sofreír la cebolla, añadir la soja hidratada, la pulpa de la berenjena y el tomate. Rellenar las berenjenas y gratinar.",
+    "tiempoPreparacion": 50,
+    "observaciones": "Alto en proteína vegetal."
+  },
+  {
+    "nombre": "Mugcake de Avena y Cacao (Microondas)",
+    "kcal": 290,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["1 Huevo", "3 cdas de Avena molida", "1 cda de Cacao puro", "1/2 Plátano maduro", "Levadura (pizca)", "Leche (un chorrito)"],
+    "instrucciones": "Machacar el plátano en una taza. Añadir el huevo, avena, cacao, levadura y leche. Mezclar bien. Cocinar en el microondas 90 segundos a máxima potencia.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Desayuno súper rápido."
+  },
+  {
+    "nombre": "Ensalada Templada de Gulas y Gambas",
+    "kcal": 310,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["100g Gulas", "100g Gambas peladas", "Ajo", "Gindilla", "Mezcla de lechugas", "Vinagre de Módena"],
+    "instrucciones": "Saltear el ajo y la guindilla. Añadir las gambas y las gulas y cocinar 3 minutos. Servir caliente sobre la cama de lechugas y aliñar.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Cena ligera pero con mucho sabor."
+  },
+  {
+    "nombre": "Brochetas de Tomate Cherry y Mozzarella",
+    "kcal": 180,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["10 Tomates cherry", "10 Perlas de mozzarella", "Hojas de albahaca fresca", "Aceite de oliva"],
+    "instrucciones": "Montar brochetas alternando un tomate, una hoja de albahaca y una perla de mozzarella. Aliñar con un hilo de aceite.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Snack fresco y ligero."
+  },
+  {
+    "nombre": "Albóndigas de Pavo en Salsa de Tomate",
+    "kcal": 460,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["200g Carne picada de pavo", "Ajo", "Perejil", "1 Huevo", "400g Tomate triturado", "Cebolla", "Arroz blanco (para acompañar)"],
+    "instrucciones": "Mezclar la carne de pavo con ajo, perejil y huevo. Formar albóndigas. Sofreír cebolla, añadir el tomate y cocinar la salsa. Añadir las albóndigas y cocer 20 min. Servir con arroz.",
+    "tiempoPreparacion": 40,
+    "observaciones": "Opción más ligera que las albóndigas de ternera."
+  },
+  {
+    "nombre": "Sándwich de Huevo y Atún",
+    "kcal": 400,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["2 rebanadas de Pan integral", "2 Huevos cocidos", "1 lata de Atún al natural", "2 cdas de Yogur griego", "Mostaza", "Pimienta"],
+    "instrucciones": "Picar los huevos cocidos. Mezclar con el atún escurrido, el yogur, una pizca de mostaza y pimienta. Rellenar el sándwich.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Desayuno muy alto en proteínas."
+  },
+  {
+    "nombre": "Zumo Verde Detox",
+    "kcal": 150,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 puñado de Espinacas", "1/2 Pepino", "1 Manzana verde", "Jengibre (un trocito)", "Zumo de 1/2 limón", "Agua"],
+    "instrucciones": "Licuar (o batir y colar) todos los ingredientes.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Hidratante y lleno de vitaminas."
+  },
+  {
+    "nombre": "Lasaña de Calabacín y Ternera",
+    "kcal": 530,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["1 Calabacín grande", "250g Carne picada de ternera magra", "Tomate frito", "Cebolla", "Queso rallado light", "Bechamel ligera (opcional)"],
+    "instrucciones": "Cortar el calabacín en láminas finas (sustituye a la pasta). Hacer una boloñesa con la ternera, cebolla y tomate. Montar capas: calabacín, boloñesa, calabacín... Terminar con queso y gratinar.",
+    "tiempoPreparacion": 50,
+    "observaciones": "Opción baja en carbohidratos (low-carb)."
+  },
+  {
+    "nombre": "Salteado de Setas con Jamón",
+    "kcal": 240,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["250g Setas variadas", "100g Tacos de jamón serrano", "Ajo", "Perejil", "Aceite de oliva"],
+    "instrucciones": "Saltear un ajo en láminas. Añadir las setas y cocinar hasta que suelten el agua. Añadir los tacos de jamón y el perejil. Cocinar 2 minutos más.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Cena rápida y llena de umami."
+  },
+  {
+    "nombre": "Yogur Griego con Semillas y Frutos Rojos",
+    "kcal": 270,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 Yogur Griego natural (o Kéfir)", "1 cda de Semillas de chía", "1 cda de Pipas de calabaza", "50g Frutos rojos"],
+    "instrucciones": "Mezclar el yogur con las semillas y los frutos rojos.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Alto en probióticos y fibra."
+  },
+  {
+    "nombre": "Tortilla Francesa con Pavo y Queso",
+    "kcal": 340,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["3 Huevos", "2 lonchas de Pavo cocido", "30g Queso Havarti light", "Sal", "Aceite de oliva"],
+    "instrucciones": "Batir los huevos. Poner en la sartén. Cuando empiece a cuajar, añadir el pavo y el queso en el centro. Doblar y terminar de cocinar.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Desayuno clásico de proteína."
+  },
+  {
+    "nombre": "Gazpacho Andaluz",
+    "kcal": 160,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["1kg Tomates maduros", "1 Pepino", "1 Pimiento verde", "1/2 Cebolla", "1 diente de Ajo", "Aceite de oliva", "Vinagre de Jerez", "Sal"],
+    "instrucciones": "Triturar todas las verduras. Añadir el aliño (aceite, vinagre, sal) y volver a triturar. Colar (opcional) y servir muy frío.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Primer plato o bebida hidratante. Muy bajo en calorías."
+  },
+  {
+    "nombre": "Mejillones al Vapor con Limón",
+    "kcal": 190,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["1kg Mejillones frescos", "1/2 Limón", "Laurel", "Pimienta en grano"],
+    "instrucciones": "Limpiar bien los mejillones. Poner en una cazuela con un dedo de agua, el laurel, la pimienta y el limón. Tapar y cocer a fuego fuerte 3-4 minutos hasta que se abran.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Cena muy ligera y alta en proteína y hierro."
+  },
+  {
+    "nombre": "Edamame Salteado con Chile y Soja",
+    "kcal": 200,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["200g Edamame congelado (en vaina)", "Salsa de soja", "Escamas de chile", "Aceite de sésamo"],
+    "instrucciones": "Cocer el edamame 5 minutos. Escurrir. Saltear en una sartén con aceite de sésamo, soja y chile.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Snack adictivo y saludable."
+  },
+  {
+    "nombre": "Burrito Bowl de Pollo",
+    "kcal": 520,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["150g Pollo en tiras", "100g Arroz integral", "50g Maíz dulce", "50g Frijoles negros", "Pico de gallo (tomate, cebolla, cilantro)", "Yogur griego"],
+    "instrucciones": "Cocinar el arroz y el pollo. Servir en un bol todos los ingredientes por separado, con el yogur a modo de salsa agria.",
+    "tiempoPreparacion": 30,
+    "observaciones": "Toda la gracia de un burrito, pero más saludable."
+  },
+  {
+    "nombre": "Tacos de Lechuga con Pavo",
+    "kcal": 330,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["200g Carne picada de pavo", "Hojas grandes de Lechuga Iceberg", "Zanahoria rallada", "Cebolla", "Salsa Hoisin o soja", "Cacahuetes picados"],
+    "instrucciones": "Sofreír la cebolla y zanahoria. Añadir la carne de pavo y cocinar. Añadir la salsa. Servir la mezcla dentro de las hojas de lechuga (que actúan como tortilla).",
+    "tiempoPreparacion": 20,
+    "observaciones": "Cena divertida, 'low-carb' y crujiente."
+  },
+  {
+    "nombre": "Piña a la Plancha con Canela",
+    "kcal": 120,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["2 rodajas de Piña natural", "Canela en polvo", "Aceite de coco (opcional)"],
+    "instrucciones": "Pincelar la piña con aceite de coco (o en sartén antiadherente sin nada). Cocinar a la plancha por ambos lados hasta que caramelice. Espolvorear canela.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Postre o merienda que potencia el dulzor natural de la fruta."
+  },
+  {
+    "nombre": "Judías Verdes con Patata y Huevo Cocido",
+    "kcal": 390,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["200g Judías verdes frescas", "1 Patata mediana", "2 Huevos", "Aceite de oliva", "Sal"],
+    "instrucciones": "Cocer las judías y la patata troceada. Cocer los huevos aparte. Servir las verduras con los huevos picados y un buen chorro de aceite de oliva.",
+    "tiempoPreparacion": 25,
+    "observaciones": "Comida tradicional muy equilibrada."
+  },
+  {
+    "nombre": "Sepia a la Plancha con Ajo y Perejil",
+    "kcal": 260,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["250g Sepia limpia", "2 dientes de Ajo", "Perejil fresco", "Aceite de oliva", "Limón"],
+    "instrucciones": "Picar el ajo y el perejil y mezclar con aceite. Cocinar la sepia a la plancha a fuego muy fuerte. Servir con el aliño por encima y un chorro de limón.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Cena muy proteica y baja en grasa."
+  },
+  {
+    "nombre": "Sopa de Miso con Tofu y Algas",
+    "kcal": 140,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["1 cda de Pasta de miso", "100g Tofu sedoso", "Alga wakame deshidratada", "Cebolleta"],
+    "instrucciones": "Hidratar el alga. Calentar agua (sin que hierva) y disolver el miso. Añadir el tofu en dados y el alga. Servir con cebolleta picada.",
+    "tiempoPreparacion": 10,
+    "observaciones": "Entrante o cena muy ligera y digestiva."
+  },
+  {
+    "nombre": "Chips de Boniato al Horno",
+    "kcal": 230,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 Boniato mediano", "Aceite de oliva", "Pimentón", "Sal"],
+    "instrucciones": "Cortar el boniato en rodajas muy finas (con mandolina). Mezclar con aceite, sal y pimentón. Hornear a 180°C hasta que estén crujientes (aprox 20 min).",
+    "tiempoPreparacion": 30,
+    "observaciones": "Alternativa saludable a las patatas fritas."
+  },
+  {
+    "nombre": "Ensalada de Pollo y Mango",
+    "kcal": 430,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["150g Pechuga de pollo", "1/2 Mango", "Mezcla de lechugas", "Aguacate", "Semillas de sésamo", "Vinagreta de lima"],
+    "instrucciones": "Cocinar el pollo a la plancha y trocear. Cortar el mango y el aguacate en dados. Mezclar todo con las lechugas y aliñar con la vinagreta de lima.",
+    "tiempoPreparacion": 20,
+    "observaciones": "Ensalada tropical y muy sabrosa."
+  },
+  {
+    "nombre": "Coliflor Asada al Curry",
+    "kcal": 210,
+    "comidaDelDia": "Cena",
+    "ingredientes": ["1/2 Coliflor", "Aceite de oliva", "Curry en polvo", "Comino", "Sal"],
+    "instrucciones": "Separar la coliflor en ramilletes. Mezclar con el aceite y todas las especias. Asar al horno a 200°C durante 25-30 minutos, hasta que esté dorada.",
+    "tiempoPreparacion": 35,
+    "observaciones": "Una forma deliciosa de comer verdura."
+  },
+  {
+    "nombre": "Café con Leche y 2 Onzas de Chocolate Negro",
+    "kcal": 180,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["1 Café", "150ml Leche", "2 onzas (20g) de Chocolate negro (>85%)"],
+    "instrucciones": "Preparar el café con leche. Acompañar con el chocolate.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Merienda simple para un antojo de dulce."
+  },
+  {
+    "nombre": "Tostadas Francesas Fit",
+    "kcal": 390,
+    "comidaDelDia": "Desayuno",
+    "ingredientes": ["2 rebanadas de Pan integral", "2 Claras de huevo", "1 chorrito de Leche", "Canela", "Edulcorante (opcional)", "Yogur griego y fresas para servir"],
+    "instrucciones": "Batir las claras con la leche, canela y edulcorante. Empapar el pan en la mezcla. Cocinar en sartén antiadherente. Servir con yogur y fresas.",
+    "tiempoPreparacion": 15,
+    "observaciones": "Versión alta en proteína y baja en grasa."
+  },
+  {
+    "nombre": "Lentejas Estofadas con Verduras (Veggie)",
+    "kcal": 420,
+    "comidaDelDia": "Almuerzo",
+    "ingredientes": ["150g Lentejas pardinas (en seco)", "1 Zanahoria", "1 Pimiento verde", "1/2 Cebolla", "1 Patata", "Pimentón dulce", "Laurel"],
+    "instrucciones": "Poner todo en crudo en una olla: lentejas, verduras picadas, patata, pimentón y laurel. Cubrir de agua y cocer a fuego lento 40-50 minutos.",
+    "tiempoPreparacion": 50,
+    "observaciones": "Plato de cuchara clásico y muy nutritivo."
+  },
+  {
+    "nombre": "Rollitos de Pavo y Queso Crema",
+    "kcal": 170,
+    "comidaDelDia": "Merienda",
+    "ingredientes": ["4 lonchas de Pavo cocido", "4 cdas de Queso crema light", "Cebollino picado"],
+    "instrucciones": "Untar el queso crema sobre las lonchas de pavo. Espolvorear cebollino. Enrollar y cortar por la mitad.",
+    "tiempoPreparacion": 5,
+    "observaciones": "Snack proteico, 'keto' y 'low-carb'."
+  }
+]
