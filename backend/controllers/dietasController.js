@@ -18,83 +18,93 @@ exports.crearDieta = async (req, res) => {
  * Endpoint para OBTENER SUGERENCIAS de platos basadas en
  * las calorías objetivo del usuario.
  */
+
+async function findDishesWithFallback(mealType, targetKcal, range, limit = 7) {
+  const minKcal = Math.max(0, targetKcal - range);
+  const maxKcal = targetKcal + range;
+
+  // 1. Intenta encontrar dentro del rango ideal
+  let dishes = await Plato.find({
+    comidaDelDia: mealType,
+    kcal: { $gte: minKcal, $lte: maxKcal }
+  }).limit(limit);
+
+  // 2. Fallback: Si se encuentran muy pocos (0, 1 o 2), busca los más cercanos
+  if (dishes.length < 3 && limit > 0) {
+    console.log(`[DIETA FALLBACK] Pocos ${mealType} en rango [${minKcal.toFixed(0)}-${maxKcal.toFixed(0)}]. Buscando los más cercanos a ${targetKcal.toFixed(0)} kcal.`);
+
+    const closestDishesAggregation = await Plato.aggregate([
+      { $match: { comidaDelDia: mealType } },
+      {
+        $addFields: {
+          kcalDifference: { $abs: { $subtract: ["$kcal", targetKcal] } }
+        }
+      },
+      { $sort: { kcalDifference: 1 } }, // Ordena por la diferencia más pequeña
+      { $limit: limit }, // Coge los N más cercanos
+      { $project: { _id: 1 } } // Solo necesitamos los IDs para la siguiente consulta
+    ]);
+
+    // Extrae solo los IDs del resultado de la agregación
+    const closestIds = closestDishesAggregation.map(d => d._id);
+
+    if (closestIds.length > 0) {
+      // Busca los documentos completos usando los IDs encontrados
+      dishes = await Plato.find({ '_id': { $in: closestIds } });
+      // Opcional: Re-ordenar por diferencia si es necesario, aunque `limit` ya cogió los más cercanos.
+      // dishes.sort((a, b) => Math.abs(a.kcal - targetKcal) - Math.abs(b.kcal - targetKcal));
+    }
+  }
+
+  return dishes;
+}
+
 exports.obtenerSugerenciasDieta = async (req, res) => {
-  const { id } = req.user;
+  const { id } = req.user;
 
-  try {
-    const usuario = await Usuario.findById(id);
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
-    }
+  try {
+    const usuario = await Usuario.findById(id);
+    if (!usuario) { return res.status(404).json({ mensaje: 'Usuario no encontrado' }); }
 
-    const { kcalObjetivo } = usuario;
+    const { kcalObjetivo } = usuario;
+    const rangoKcal = 180; // Mantenemos el rango amplio
 
-    // --- CAMBIOS AQUÍ (PASO 1) ---
-    // 1. Distribuir Kcal en 4 comidas
-    const rangoKcal = 120; // Un rango un poco más ajustado
-    
-    const kcalDesayuno = kcalObjetivo * 0.25;
-    const kcalAlmuerzo = kcalObjetivo * 0.35;
-    const kcalMerienda = kcalObjetivo * 0.15; // <-- AÑADIDO
-    const kcalCena = kcalObjetivo * 0.25;
+    const kcalDesayuno = kcalObjetivo * 0.25;
+    const kcalAlmuerzo = kcalObjetivo * 0.35;
+    const kcalMerienda = kcalObjetivo * 0.15;
+    const kcalCena     = kcalObjetivo * 0.25;
 
-    // --- CAMBIOS AQUÍ (PASO 2) ---
-    // 2. Buscar platos en paralelo (4 comidas)
-    const [desayunos, almuerzos, meriendas, cenas] = await Promise.all([
-      // Buscar Desayunos
-      Plato.find({
-        comidaDelDia: 'Desayuno',
-        kcal: {
-          $gte: kcalDesayuno - rangoKcal,
-          $lte: kcalDesayuno + rangoKcal
-        }
-      }).limit(7),
+    // Logs (mantenlos para depurar si sigue fallando)
+    console.log(`[DIETA DEBUG] Buscando para ${kcalObjetivo} Kcal:`);
+    console.log(`  -> Desayuno (${(kcalDesayuno).toFixed(0)} kcal): Rango [${Math.max(0, kcalDesayuno - rangoKcal).toFixed(0)} - ${(kcalDesayuno + rangoKcal).toFixed(0)}]`);
+    console.log(`  -> Almuerzo (${(kcalAlmuerzo).toFixed(0)} kcal): Rango [${Math.max(0, kcalAlmuerzo - rangoKcal).toFixed(0)} - ${(kcalAlmuerzo + rangoKcal).toFixed(0)}]`);
+    console.log(`  -> Merienda (${(kcalMerienda).toFixed(0)} kcal): Rango [${Math.max(0, kcalMerienda - rangoKcal).toFixed(0)} - ${(kcalMerienda + rangoKcal).toFixed(0)}]`);
+    console.log(`  -> Cena     (${(kcalCena).toFixed(0)} kcal): Rango [${Math.max(0, kcalCena - rangoKcal).toFixed(0)} - ${(kcalCena + rangoKcal).toFixed(0)}]`);
 
-      // Buscar Almuerzos
-      Plato.find({
-        comidaDelDia: 'Almuerzo',
-        kcal: {
-          $gte: kcalAlmuerzo - rangoKcal,
-          $lte: kcalAlmuerzo + rangoKcal
-        }
-      }).limit(7),
+    // Usa el helper mejorado
+    const [desayunos, almuerzos, meriendas, cenas] = await Promise.all([
+      findDishesWithFallback('Desayuno', kcalDesayuno, rangoKcal),
+      findDishesWithFallback('Almuerzo', kcalAlmuerzo, rangoKcal),
+      findDishesWithFallback('Merienda', kcalMerienda, rangoKcal),
+      findDishesWithFallback('Cena', kcalCena, rangoKcal)
+    ]);
 
-      // <-- AÑADIDO -->
-      // Buscar Meriendas
-      Plato.find({
-        comidaDelDia: 'Merienda',
-        kcal: {
-          $gte: kcalMerienda - rangoKcal,
-          $lte: kcalMerienda + rangoKcal
-        }
-      }).limit(7),
+    // Logs
+    console.log(`[DIETA DEBUG] Platos encontrados (después de fallback):`);
+    console.log(`  -> Desayunos: ${desayunos.length}`);
+    console.log(`  -> Almuerzos: ${almuerzos.length}`);
+    console.log(`  -> Meriendas: ${meriendas.length}`);
+    console.log(`  -> Cenas:     ${cenas.length}`);
 
-      // Buscar Cenas
-      Plato.find({
-        comidaDelDia: 'Cena',
-        kcal: {
-          $gte: kcalCena - rangoKcal,
-          $lte: kcalCena + rangoKcal
-        }
-      }).limit(7)
-    ]);
+    res.status(200).json({
+      kcalObjetivo,
+      sugerencias: { desayunos, almuerzos, meriendas, cenas }
+    });
 
-    // --- CAMBIOS AQUÍ (PASO 3) ---
-    // 3. Devolver las sugerencias
-    res.status(200).json({
-      kcalObjetivo,
-      sugerencias: {
-        desayunos,
-        almuerzos,
-        meriendas, // <-- AÑADIDO
-        cenas
-      }
-    });
-
-  } catch (error) {
-    console.error('Error al generar sugerencias de dieta:', error);
-    res.status(500).json({ mensaje: 'Error al generar sugerencias' });
-  }
+  } catch (error) {
+    console.error('Error al generar sugerencias de dieta:', error);
+    res.status(500).json({ mensaje: 'Error al generar sugerencias' });
+  }
 };
 
 // backend/controllers/dietasController.js
