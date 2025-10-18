@@ -1,21 +1,21 @@
 const express = require('express');
 const { proteger } = require('../middleware/authMiddleware');
-const { esAdministrador } = require('../middleware/authMiddleware'); // <--- Añade esto si no lo tienes
+const { esAdministrador } = require('../middleware/authMiddleware'); 
 
 const {
-  obtenerPerfilUsuario,
-  actualizarUsuario,
-  obtenerUsuarios,
-  obtenerUsuarioPorId,
-  crearUsuario,
-  eliminarUsuario,
-  cambiarContrasena,
-  actualizarAvatar, 
-  obtenerCatalogoPrendas,
-  obtenerPrendasDesbloqueadas,
-  obtenerProgresoLogros,
-  rankingMensual,
-  actualizarDatosMetabolicos
+  obtenerPerfilUsuario,
+  actualizarUsuario,
+  obtenerUsuarios,
+  obtenerUsuarioPorId,
+  crearUsuario,
+  eliminarUsuario,
+  cambiarContrasena,
+  actualizarAvatar, 
+  obtenerCatalogoPrendas,
+  obtenerPrendasDesbloqueadas,
+  obtenerProgresoLogros,
+  rankingMensual,
+  actualizarDatosMetabolicos
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -28,17 +28,21 @@ router.put('/avatar', proteger, actualizarAvatar);
 router.get('/ranking-mensual', proteger, rankingMensual);
 
 // --- RUTAS DE LOGROS Y PRENDAS ---
-router.get('/prendas/catalogo', proteger, obtenerCatalogoPrendas); // Ver todo el catálogo
-router.get('/prendas/desbloqueadas', proteger, obtenerPrendasDesbloqueadas); // Ver prendas desbloqueadas
+router.get('/prendas/catalogo', proteger, obtenerCatalogoPrendas); 
+router.get('/prendas/desbloqueadas', proteger, obtenerPrendasDesbloqueadas); 
 router.get('/prendas/progreso', proteger, obtenerProgresoLogros);
+
+// --- *** MOVEMOS LA RUTA AQUÍ *** ---
+// Ruta calculo kcal objetivo (DEBE IR ANTES DE /:idUsuario)
+router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
+
 
 // RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
 router.get('/', proteger, esAdministrador, obtenerUsuarios);
 router.get('/:idUsuario', proteger, esAdministrador, obtenerUsuarioPorId);
 router.post('/', proteger, esAdministrador, crearUsuario);
-router.put('/:idUsuario', proteger, esAdministrador, actualizarUsuario); // <-- ¡añade esta!
+router.put('/:idUsuario', proteger, esAdministrador, actualizarUsuario); 
 router.delete('/:idUsuario', proteger, esAdministrador, eliminarUsuario);
 
-//Ruta calculo kcal objetivo
-router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
+
 module.exports = router;
