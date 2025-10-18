@@ -471,7 +471,7 @@ exports.obtenerProgresoLogros = async (req, res) => {
 };
 
 exports.actualizarDatosMetabolicos = async (req, res) => {
-  const { id } = req.user; // O req.params.id si es un admin
+  const { id } = req.user; // ID del usuario autenticado
   const { peso, altura, edad, genero, nivelActividad, objetivo } = req.body;
 
   try {
@@ -510,24 +510,27 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
     // Redondear al número entero más cercano
     kcalObjetivo = Math.round(kcalObjetivo);
 
-    // 4. Guardar los datos en el Usuario
+    // 4. Guardar TODOS los datos en el Usuario
     const usuario = await Usuario.findByIdAndUpdate(
       id,
       {
+        // --- ESTA ES LA PARTE QUE FALTABA ---
         peso,
         altura,
         edad,
         genero,
         nivelActividad,
         objetivo,
-        kcalObjetivo // <-- ¡Guardamos el resultado!
+        kcalObjetivo // <-- ¡Guardamos el resultado del cálculo!
+        // ------------------------------------
       },
-      { new: true }
+      { new: true } // {new: true} devuelve el documento actualizado
     );
 
+    // 5. Devolver la respuesta correcta a Flutter
     res.status(200).json({
       mensaje: 'Datos metabólicos actualizados',
-      kcalObjetivo: usuario.kcalObjetivo,
+      kcalObjetivo: usuario.kcalObjetivo, // Devuelve el dato guardado
       tdee: Math.round(tdee),
       tmb: Math.round(tmb)
     });
