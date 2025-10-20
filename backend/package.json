@@ -12,6 +12,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "seed:platos": "node seeder.js --importar"
+    "seed:platos": "node seeder.js --importar-platos",
+    "unseed:platos": "node seeder.js --eliminar-platos",
+    "seed:ejercicios": "node seeder.js --importar-ejercicios", 
+    "unseed:ejercicios": "node seeder.js --eliminar-ejercicios" 
   }
 }

@@ -207,7 +207,7 @@ exports.obtenerPerfilUsuario = async (req, res) => {
 
 // Crear un nuevo usuario
 exports.crearUsuario = async (req, res) => {
-  const { nombre, correo, contrasena, rol, tiposDeClases } = req.body;
+  const { nombre, correo, contrasena, rol, tiposDeClases, esPremium } = req.body;
 
   try {
     if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
@@ -252,6 +252,7 @@ exports.crearUsuario = async (req, res) => {
       contrasena,
       rol,
       tiposDeClases,
+      esPremium: esPremium || false,
       desbloqueados: desbloqueadosPorDefecto,
       avatar // 👈 avatar como { key: int }
     });
@@ -322,43 +323,64 @@ exports.obtenerUsuarioPorId = async (req, res) => {
 
 // Actualizar usuario
 exports.actualizarUsuario = async (req, res) => {
-  const { idUsuario } = req.params;
-  const { nombre, correo, rol, tiposDeClases } = req.body;
+  // 1. Determinar a quién actualizar
+  const idDelUsuarioAActualizar = req.params.idUsuario || req.user.id;
+  const esAdminEditando = req.user.rol === 'admin' && req.params.idUsuario;
+
+  // 2. Obtener datos del body
+  // Añadimos 'nuevaContrasena'. Ignoramos 'contrasenaActual' a propósito.
+  const { nombre, correo, rol, tiposDeClases, esPremium, nuevaContrasena } = req.body;
 
   try {
-    const usuario = await Usuario.findById(idUsuario);
+    const usuario = await Usuario.findById(idDelUsuarioAActualizar);
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    // Validación de los valores enviados para tiposDeClases
+    // 3. Validar tiposDeClases
     if (tiposDeClases && (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0)) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
     }
-
     const valoresValidos = ['funcional', 'pilates', 'zumba'];
     if (tiposDeClases && !tiposDeClases.every((tipo) => valoresValidos.includes(tipo))) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
 
-    // Actualización de campos
+    // 4. Actualización de campos comunes
     usuario.nombre = nombre || usuario.nombre;
     usuario.correo = correo || usuario.correo;
-    usuario.rol = rol || usuario.rol;
     if (tiposDeClases) {
       usuario.tiposDeClases = tiposDeClases;
     }
+
+    // 5. CAMPOS SOLO PARA ADMIN
+    if (esAdminEditando) {
+      usuario.rol = rol || usuario.rol;
+      
+      if (esPremium !== undefined) {
+        usuario.esPremium = esPremium;
+      }
+      
+      // Si el admin envía una NUEVA contraseña, la reseteamos.
+      // El pre-save hook en Usuario.js se encargará de hashearla.
+      if (nuevaContrasena) {
+        usuario.contrasena = nuevaContrasena;
+      }
+    }
+    // Si no es admin (es un usuario normal en /perfil),
+    // ignoramos rol, esPremium y nuevaContrasena.
 
     await usuario.save();
     res.status(200).json({ mensaje: 'Usuario actualizado exitosamente', usuario });
   } catch (error) {
     console.error('Error al actualizar el usuario:', error);
+    // Manejo de error de correo duplicado
+    if (error.code === 11000) {
+      return res.status(400).json({ mensaje: 'El correo electrónico ya está en uso' });
+    }
     res.status(500).json({ mensaje: 'Error al actualizar el usuario', error });
   }
 };
-
-
-// Eliminar un usuario
 
 // Eliminar un usuario
 exports.eliminarUsuario = async (req, res) => {

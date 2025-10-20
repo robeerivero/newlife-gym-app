@@ -133,7 +133,47 @@ exports.obtenerRutinaPorId = async (req, res) => {
       res.status(500).json({ mensaje: 'Error al obtener rutinas', error });
     }
   };
-  
+exports.obtenerRutinaDelDia = async (req, res) => {
+  try {
+    const usuarioId = req.user.id;
+    const { fecha } = req.query; // ¡NUEVO! Ej: '2025-10-24'
+
+    // 1. Verifica si el usuario es premium
+    const usuario = await Usuario.findById(usuarioId);
+    if (!usuario || !usuario.esPremium) {
+      return res.status(403).json({ mensaje: 'Acceso denegado. Funcionalidad Premium requerida.' });
+    }
+
+    // 2. Determina el día de la semana de la fecha RECIBIDA
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    
+    // Si no se envía fecha, usa 'hoy' por defecto. Si se envía, usa esa fecha.
+    const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
+    
+    // Asegurarse de que la fecha es interpretada correctamente (opcional pero recomendado)
+    // Esto es importante si las fechas vienen sin zona horaria
+    const fechaUtc = new Date(fechaSeleccionada.valueOf() + fechaSeleccionada.getTimezoneOffset() * 60000);
+
+    const diaSemanaSeleccionado = dias[fechaUtc.getUTCDay()]; // Usar getUTCDay() para consistencia
+
+    // 3. Busca la rutina asignada a ESE usuario para ESE día
+    const rutinaDelDia = await Rutina.findOne({
+      usuario: usuarioId,
+      diaSemana: diaSemanaSeleccionado // Busca la rutina para el día de la semana seleccionado
+    }).populate('ejercicios.ejercicio'); 
+
+    if (!rutinaDelDia) {
+      return res.status(404).json({ mensaje: `Día de descanso.` });
+    }
+
+    // 4. Devuelve la rutina encontrada
+    res.status(200).json(rutinaDelDia);
+
+  } catch (error) {
+    console.error('Error al obtener rutina premium del día:', error);
+    res.status(500).json({ mensaje: 'Error al obtener la rutina del día' });
+  }
+};
   
   exports.eliminarRutina = async (req, res) => {
     const { idRutina } = req.params;

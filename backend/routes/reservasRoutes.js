@@ -6,6 +6,7 @@ const {
   reservarClase,
   registrarAsistencia,
   obtenerAsistenciasPorUsuario,
+  obtenerMisReservasPorRango,
   // Admin
   asignarUsuarioAClase,
   desasignarUsuarioDeClase,
@@ -28,7 +29,7 @@ router.delete('/cancelar', proteger, cancelarClase);
 router.post('/asistencia', proteger, registrarAsistencia);
 
 router.get('/asistencias/:idUsuario', proteger, obtenerAsistenciasPorUsuario);
-
+router.get('/mis-reservas', proteger, obtenerMisReservasPorRango);
 /* ========= RUTAS SOLO PARA ADMINISTRADORES ========= */
 
 // Asignar usuario a una clase

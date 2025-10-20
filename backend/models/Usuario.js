@@ -6,6 +6,7 @@ const esquemaUsuario = new mongoose.Schema({
   correo: { type: String, required: true, unique: true, trim: true },
   contrasena: { type: String, required: true },
   rol: { type: String, enum: ['admin', 'cliente', 'online'], default: 'cliente' },
+  esPremium: { type: Boolean, default: false },
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },

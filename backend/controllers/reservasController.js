@@ -106,7 +106,45 @@ exports.obtenerUsuariosConAsistencia = async (req, res) => {
   }
 };
 
+exports.obtenerMisReservasPorRango = async (req, res) => {
+  const idUsuario = req.user._id;
+  const { fechaInicio, fechaFin } = req.query; // Ej: '2025-10-01' y '2025-10-31'
 
+  if (!fechaInicio || !fechaFin) {
+    return res.status(400).json({ mensaje: 'Se requieren fechaInicio y fechaFin' });
+  }
+
+  try {
+    // 1. Convertir fechas a objetos Date (asegurando que cubran todo el día)
+    const inicio = new Date(fechaInicio);
+    inicio.setUTCHours(0, 0, 0, 0);
+
+    const fin = new Date(fechaFin);
+    fin.setUTCHours(23, 59, 59, 999);
+
+    // 2. Encontrar las IDs de las clases que caen en ese rango de fechas
+    const clasesEnRango = await Clase.find({
+      fecha: { $gte: inicio, $lte: fin }
+    }).select('_id'); // Solo nos interesan sus IDs
+
+    const idsClasesEnRango = clasesEnRango.map(c => c._id);
+
+    // 3. Buscar las reservas del usuario que coincidan con esas IDs de clases
+    const reservas = await Reserva.find({
+      usuario: idUsuario,
+      clase: { $in: idsClasesEnRango }
+    }).populate({
+      path: 'clase', // Rellenar los detalles de la clase
+      select: 'nombre dia horaInicio horaFin fecha' // Seleccionar solo campos útiles
+    });
+
+    res.status(200).json(reservas);
+
+  } catch (error) {
+    console.error('Error al obtener mis reservas por rango:', error);
+    res.status(500).json({ mensaje: 'Error al obtener las reservas' });
+  }
+};
 
 exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {
   const { idUsuario, dia, horaInicio } = req.body;

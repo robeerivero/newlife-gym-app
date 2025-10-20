@@ -6,7 +6,7 @@ const connectDB = require('./config/db'); // Importa tu función de conexión
 // Importa los modelos que quieras poblar
 const Plato = require('./models/Plato'); 
 // Podrías añadir también Ejercicio, Video, etc.
-
+const Ejercicio = require('./models/Ejercicio');
 // Configurar variables de entorno
 dotenv.config();
 
@@ -16,6 +16,9 @@ connectDB();
 // Leer el archivo JSON
 const platos = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'data', 'platos.json'), 'utf-8')
+);
+const ejercicios = JSON.parse( 
+  fs.readFileSync(path.join(__dirname, 'data', 'ejercicios.json'), 'utf-8')
 );
 
 // Función para importar/actualizar los platos
@@ -70,13 +73,54 @@ const eliminarPlatos = async () => {
   }
 };
 
+const importarEjercicios = async () => {
+  try {
+    let contadorCreados = 0;
+    let contadorActualizados = 0;
+    const operaciones = ejercicios.map(ejercicio => {
+      return Ejercicio.updateOne(
+        { nombre: ejercicio.nombre }, // Busca por nombre
+        { $set: ejercicio },
+        { upsert: true }
+      ).then(resultado => {
+        if (resultado.upsertedCount > 0) contadorCreados++;
+        else if (resultado.modifiedCount > 0) contadorActualizados++;
+      });
+    });
+    await Promise.all(operaciones);
+    console.log('--- 💪 Sincronización de Ejercicios Completada ---');
+    console.log(`✅ ${contadorCreados} ejercicios nuevos creados.`);
+    console.log(`🔄 ${contadorActualizados} ejercicios existentes actualizados.`);
+    console.log('-------------------------------------------');
+    process.exit();
+  } catch (error) {
+    console.error('❌ Error al importar ejercicios:', error);
+    process.exit(1);
+  }
+};
+
+const eliminarEjercicios = async () => {
+  try {
+    await Ejercicio.deleteMany();
+    console.log('--- 🗑️ Ejercicios Eliminados ---');
+    process.exit();
+  } catch (error) {
+    console.error('❌ Error al eliminar ejercicios:', error);
+    process.exit(1);
+  }
+};
+// --- FIN NUEVAS Funciones ---
+
 // Lógica para ejecutar desde la terminal
-// process.argv[2] es el argumento que le pasamos (ej: --importar)
-if (process.argv[2] === '--importar') {
+if (process.argv[2] === '--importar-platos') {
   importarPlatos();
-} else if (process.argv[2] === '--eliminar') {
+} else if (process.argv[2] === '--eliminar-platos') {
   eliminarPlatos();
+} else if (process.argv[2] === '--importar-ejercicios') { // <-- AÑADIR
+  importarEjercicios();
+} else if (process.argv[2] === '--eliminar-ejercicios') { // <-- AÑADIR
+  eliminarEjercicios();
 } else {
-  console.log('Por favor, usa --importar o --eliminar');
+  console.log('Usa: --importar-platos, --eliminar-platos, --importar-ejercicios, --eliminar-ejercicios');
   process.exit();
 }

@@ -6,12 +6,13 @@ const {
   obtenerRutinasPorUsuario,
   obtenerRutinaPorId,
   obtenerRutinas,
+  obtenerRutinaDelDia,
   eliminarRutina,
   eliminarRutinasPorUsuario,
 } = require('../controllers/rutinasController');
 
 const router = express.Router();
-
+router.get('/premium/dia', proteger, obtenerRutinaDelDia);
 router.post('/', proteger, esAdministrador, crearRutina); // Crear una rutina
 router.get('/usuario', proteger, obtenerRutinasPorUsuario); // Obtener rutinas por usuario
 router.get('/:idRutina', proteger, obtenerRutinaPorId);
