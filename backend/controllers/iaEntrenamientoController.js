@@ -1,8 +1,11 @@
 // controllers/iaEntrenamientoController.js
+// ¡ESTE ARCHIVO YA ERA CORRECTO!
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const PlanEntrenamiento = require('../models/PlanEntrenamiento');
 const Usuario = require('../models/Usuario');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const mongoose = require('mongoose'); // Añadido para los IDs simulados
 
 // Obtiene el mes actual en formato "YYYY-MM"
 const getMesActual = () => new Date().toISOString().slice(0, 7);
@@ -56,7 +59,9 @@ exports.generarBorradorIA = async (req, res) => {
   try {
     const { idPlan } = req.params;
     const plan = await PlanEntrenamiento.findById(idPlan);
-    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    if (!plan) {
+      return console.error(`[IA Entren] Plan con ID ${idPlan} no encontrado.`);
+    }
 
     const { inputsUsuario } = plan;
     const masterPrompt = `
@@ -96,6 +101,7 @@ exports.generarBorradorIA = async (req, res) => {
 
     if (res) res.status(200).json(plan);
   } catch (error) {
+    // ¡TU CATCH ESTÁ BIEN! No lo cambies.
     console.error('Error en IA Entrenamiento:', error);
     if (res) res.status(500).json({ mensaje: 'Error en IA', error: error.message });
   }
@@ -110,7 +116,7 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
     mes: getMesActual() 
   });
   if (!plan) {
-    return res.status(404).json({ estado: 'pendiente_solicitud' });
+    return res.status(200).json({ estado: 'pendiente_solicitud' }); // 200 ok
   }
   res.status(200).json({ estado: plan.estado });
 };
@@ -138,13 +144,15 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
   // Asigna "Dia 1" o "Dia 2"
   let rutinaDelDia;
   const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
-  if (indiceDia === 0 && planAprobado.planGenerado[0]) {
-    rutinaDelDia = planAprobado.planGenerado[0];
-  } else if (indiceDia === 1 && planAprobado.planGenerado[1]) {
-    rutinaDelDia = planAprobado.planGenerado[1];
+  
+  if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
+     rutinaDelDia = planAprobado.planGenerado[indiceDia];
+  } else if (planAprobado.planGenerado.length > 0) {
+     rutinaDelDia = planAprobado.planGenerado[0]; // Fallback al primero
   } else {
-    rutinaDelDia = planAprobado.planGenerado[0]; // Fallback
+     return res.status(404).json({ mensaje: 'Error de plan.' });
   }
+
 
   if (!rutinaDelDia) return res.status(404).json({ mensaje: 'Error de plan.' });
 

@@ -1,4 +1,6 @@
 // controllers/iaDietaController.js
+// ¡¡ACTUALIZADO!!
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const PlanDieta = require('../models/PlanDieta');
 const Usuario = require('../models/Usuario');
@@ -6,51 +8,98 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const getMesActual = () => new Date().toISOString().slice(0, 7);
 
+// --- ¡NUEVO! Función Helper para calcular Kcal ---
+// (Copiada de tu usuariosController.js)
+function calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo) {
+  let tmb;
+  if (genero === 'masculino') {
+    tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5;
+  } else { // Asume femenino
+    tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
+  }
+  
+  const factores = { 'sedentario': 1.2, 'ligero': 1.375, 'moderado': 1.55, 'activo': 1.725, 'muy_activo': 1.9 };
+  const tdee = tmb * (factores[nivelActividad] || 1.2);
+
+  let kcalObjetivo;
+  switch (objetivo) {
+    case 'perder': kcalObjetivo = tdee - 500; break;
+    case 'ganar': kcalObjetivo = tdee + 500; break;
+    default: kcalObjetivo = tdee; // 'mantener'
+  }
+  return Math.round(kcalObjetivo);
+}
+// --- Fin del Helper ---
+
 /**
- * [CLIENTE] Solicita un plan (rellena el formulario de metas)
+ * [CLIENTE] Solicita un plan (¡NUEVA VERSIÓN UNIFICADA!)
  */
 exports.solicitarPlanDieta = async (req, res) => {
-  const { dietaAlergias, dietaPreferencias, dietaComidas } = req.body;
+  // 1. Recibimos TODOS los datos del formulario unificado
+  const { 
+    dietaAlergias, dietaPreferencias, dietaComidas,
+    peso, altura, edad, genero, nivelActividad, objetivo 
+  } = req.body;
+  
   const usuarioId = req.user.id;
 
   try {
+    // 2. Validamos y calculamos las Kcal AHORA
+    if (!peso || !altura || !edad || !genero || !nivelActividad || !objetivo) {
+      return res.status(400).json({ mensaje: 'Faltan datos metabólicos.' });
+    }
+    const kcalCalculadas = calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo);
+
+    // 3. Actualizamos el modelo Usuario (para futuros usos)
+    // Usamos $set para actualizar solo los campos que llegan
     const usuario = await Usuario.findByIdAndUpdate(
       usuarioId,
-      { dietaAlergias, dietaPreferencias, dietaComidas },
+      { 
+        $set: {
+          dietaAlergias, dietaPreferencias, dietaComidas,
+          peso, altura, edad, genero, nivelActividad, objetivo,
+          kcalObjetivo: kcalCalculadas // Guardamos el cálculo
+        }
+      },
       { new: true }
     );
+    
     if (!usuario.esPremium || !usuario.incluyePlanDieta) {
       return res.status(403).json({ mensaje: 'Servicio no incluido.' });
     }
 
+    // 4. Creamos el Plan (Snapshot) con los datos 100% correctos
     const mesActual = getMesActual();
     const plan = await PlanDieta.findOneAndUpdate(
       { usuario: usuarioId, mes: mesActual },
       { 
-        inputsUsuario: {
+        inputsUsuario: { // Creamos el snapshot con los datos frescos
           objetivo: usuario.objetivo,
           kcalObjetivo: usuario.kcalObjetivo,
           dietaAlergias: usuario.dietaAlergias,
           dietaPreferencias: usuario.dietaPreferencias,
           dietaComidas: usuario.dietaComidas
         },
-        estado: 'pendiente_ia',
-        planGenerado: []
+        estado: 'pendiente_ia', // ¡Listo para la IA!
+        planGenerado: [] // Limpiamos el plan anterior si existía
       },
-      { upsert: true, new: true }
+      { new: true, upsert: true }
     );
 
-    // Dispara la IA en segundo plano
+    // 5. Disparamos el fetch (que ahora SÍ funcionará bien)
     const token = req.headers.authorization.split(' ')[1];
     const url = `${req.protocol}://${req.get('host')}/api/dietas/admin/generar-ia/${plan._id}`;
+    
     fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     }).catch(err => console.error('Error al disparar IA de Dieta:', err.message));
 
-    res.status(200).json({ mensaje: 'Preferencias guardadas. Tu nutricionista revisará tu plan pronto.' });
+    res.status(200).json({ mensaje: 'Solicitud recibida. Tu nutricionista la revisará.' });
+
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al solicitar plan', error: error.message });
+    console.error('Error en solicitarPlanDieta:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
   }
 };
 
@@ -61,7 +110,10 @@ exports.generarBorradorIA = async (req, res) => {
   try {
     const { idPlan } = req.params;
     const plan = await PlanDieta.findById(idPlan);
-    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    if (!plan) {
+      // Si el plan no se encuentra, simplemente termina. No envíes respuesta (fetch).
+      return console.error(`[IA Dieta] Plan con ID ${idPlan} no encontrado.`);
+    }
 
     const { inputsUsuario } = plan;
     const masterPrompt = `
@@ -105,12 +157,15 @@ exports.generarBorradorIA = async (req, res) => {
     const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '');
     const jsonResponse = JSON.parse(jsonText);
 
-    plan.planGenerado = jsonResponse;
+    plan.planGenerado = jsonResponse; // Guardamos el array directamente
     plan.estado = 'pendiente_revision';
     await plan.save();
 
+    // No hay 'res' que enviar si es llamado por fetch, pero si es admin, sí.
     if (res) res.status(200).json(plan);
   } catch (error) {
+    // ¡TU CATCH ESTÁ BIEN! No lo cambies.
+    // No revierte el estado, lo cual es correcto.
     console.error('Error en IA Dieta:', error);
     if (res) res.status(500).json({ mensaje: 'Error en IA', error: error.message });
   }
@@ -125,7 +180,7 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
     mes: getMesActual() 
   });
   if (!plan) {
-    return res.status(404).json({ estado: 'pendiente_solicitud' });
+    return res.status(200).json({ estado: 'pendiente_solicitud' }); // 200 ok, estado 'pendiente_solicitud'
   }
   res.status(200).json({ estado: plan.estado });
 };
@@ -145,7 +200,7 @@ exports.obtenerMiDietaDelDia = async (req, res) => {
     estado: 'aprobado'
   });
 
-  if (!planAprobado) {
+  if (!planAprobado || !planAprobado.planGenerado || planAprobado.planGenerado.length === 0) {
     return res.status(404).json({ mensaje: `No tienes una dieta aprobada para ${mesActual}.` });
   }
   
@@ -153,10 +208,16 @@ exports.obtenerMiDietaDelDia = async (req, res) => {
   let dietaDelDia;
   const esFinDeSemana = (dia === 0 || dia === 6);
   
-  if (esFinDeSemana && planAprobado.planGenerado.length > 1) {
-    dietaDelDia = planAprobado.planGenerado[1]; // Asume que el índice 1 es "Fin de Semana"
+  // Lógica más robusta para encontrar el día
+  const diaFinde = planAprobado.planGenerado.find(d => d.nombreDia.toLowerCase().includes('fin de semana'));
+  const diaSemana = planAprobado.planGenerado.find(d => d.nombreDia.toLowerCase().includes('lunes'));
+  
+  if (esFinDeSemana && diaFinde) {
+    dietaDelDia = diaFinde;
+  } else if (diaSemana) {
+    dietaDelDia = diaSemana;
   } else {
-    dietaDelDia = planAprobado.planGenerado[0]; // Asume que el índice 0 es "L-V"
+     dietaDelDia = planAprobado.planGenerado[0]; // Fallback al primero
   }
 
   if (!dietaDelDia) return res.status(404).json({ mensaje: 'Error de plan de dieta.' });
