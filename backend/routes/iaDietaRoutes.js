@@ -20,6 +20,6 @@ router.get('/mi-dieta-del-dia', proteger, obtenerMiDietaDelDia);
 // --- ADMIN ---
 router.get('/admin/planes-pendientes', proteger, esAdministrador, obtenerPlanesPendientes);
 router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, aprobarPlan);
-router.post('/admin/generar-ia/:idPlan', proteger, esAdministrador, generarBorradorIA);
+router.post('/admin/generar-ia/:idPlan', proteger, generarBorradorIA);
 
 module.exports = router;
