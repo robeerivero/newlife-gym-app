@@ -11,7 +11,6 @@ const saludRouter = require('./routes/saludRoutes');
 const videoRoutes = require('./routes/videoRoutes'); // Importar rutas de videos
 const cron = require('node-cron');
 const Salud = require('./models/Salud');
-const Dieta = require('./models/Dieta'); // <--- 1. IMPORTA EL MODELO DIETA
 const Clase = require('./models/Clase'); // <--- (Lo usaremos en la Propuesta 2)
 const Reserva = require('./models/Reserva'); // <--- (Lo usaremos en la Propuesta 2)
 const cors = require('cors');
@@ -39,11 +38,6 @@ cron.schedule('0 0 1 * *', async () => {
     });
     console.log(`✅ [Limpieza Mensual] Se eliminaron ${resultadoSalud.deletedCount} registros antiguos de salud.`);
 
-    // 2. BORRAR DATOS DE DIETA <--- 2. AÑADE ESTE BLOQUE
-    const resultadoDieta = await Dieta.deleteMany({
-      fecha: { $lt: inicioDeEsteMes } 
-    });
-    console.log(`✅ [Limpieza Mensual] Se eliminaron ${resultadoDieta.deletedCount} registros antiguos de dietas.`);
 
   } catch (error) {
     console.error('❌ [Limpieza Mensual] Error al eliminar datos antiguos:', error);
