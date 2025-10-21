@@ -191,31 +191,36 @@ exports.cancelarClase = async (req, res) => {
       return res.status(404).json({ mensaje: 'No tienes reserva para esta clase' });
     }
 
-    // Calcular penalización: si cancela con +3h antelación, suma cancelaciones
-    const ahora = new Date();
-    const fechaClase = new Date(clase.fecha);
-    const [hora, minutos] = clase.horaInicio.split(':').map(Number);
-    fechaClase.setHours(hora, minutos);
-    const diferenciaHoras = (fechaClase - ahora) / (1000 * 60 * 60);
+    // --- ¡LÓGICA CORREGIDA! ---
+    const ahora = new Date(); // Hora actual (UTC)
+    const fechaClase = new Date(clase.fecha); // Hora de inicio de la clase (ya en UTC)
+
+    // Calcula la diferencia en milisegundos y luego en horas
+    const diferenciaMilisegundos = fechaClase - ahora;
+    const diferenciaHoras = diferenciaMilisegundos / (1000 * 60 * 60);
+
+    // Si la clase aún no ha pasado Y la cancela con 3 o más horas de antelación
     if (diferenciaHoras >= 3) {
       const usuario = await Usuario.findById(idUsuario);
-      usuario.cancelaciones += 1;
+      usuario.cancelaciones += 1; // Devuelve el crédito de cancelación
       await usuario.save();
     }
+    // --- FIN DE LA LÓGICA CORREGIDA ---
 
     clase.cuposDisponibles += 1;
 
     // Gestiona lista de espera: si hay usuarios esperando, mete al primero
     if (clase.listaEspera && clase.listaEspera.length > 0) {
-      const siguienteUsuarioId = clase.listaEspera.shift();
+      const siguienteUsuarioId = clase.listaEspera.shift(); 
       await Reserva.create({ usuario: siguienteUsuarioId, clase: idClase });
-      clase.cuposDisponibles -= 1;
+      clase.cuposDisponibles -= 1; 
     }
 
     await clase.save();
 
     res.status(200).json({ mensaje: 'Clase cancelada con éxito' });
   } catch (error) {
+    console.error('Error al cancelar la clase:', error);
     res.status(500).json({ mensaje: 'Error al cancelar la clase', error });
   }
 };

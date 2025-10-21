@@ -11,6 +11,27 @@ const esquemaUsuario = new mongoose.Schema({
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
   desbloqueados: { type: [Object], default: [] },
+  // --- CAMPOS DE SERVICIO PREMIUM ---
+  esPremium: { type: Boolean, default: false },
+  // Banderas de control del Admin
+  incluyePlanDieta: { type: Boolean, default: false },
+  incluyePlanEntrenamiento: { type: Boolean, default: false },
+  
+  // --- Inputs de Dieta ---
+  dietaAlergias: { type: String, default: 'Ninguna' },
+  dietaPreferencias: { type: String, default: 'Omnívoro, me gusta todo' },
+  dietaComidas: { type: Number, default: 4 }, // Num comidas al día
+
+  // --- Inputs de Entrenamiento ---
+  premiumMeta: { type: String, default: 'Quiero ganar fuerza y definir.' },
+  premiumFoco: { type: String, default: 'Pecho, espalda y piernas' },
+  premiumEquipamiento: {
+    type: String,
+    enum: ['solo_cuerpo', 'mancuernas_basico', 'gym_completo'],
+    default: 'solo_cuerpo'
+  },
+  premiumTiempo: { type: Number, default: 45 },
+  // --- Datos Metabólicos ---
   genero: {
     type: String,
     enum: ['masculino', 'femenino'],
@@ -47,6 +68,7 @@ const esquemaUsuario = new mongoose.Schema({
     type: Number,
     default: 2000
   },
+  
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla

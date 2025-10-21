@@ -92,24 +92,39 @@ exports.obtenerClases = async (req, res) => {
     const reservasUsuario = await Reserva.find({ usuario: userId });
     const clasesReservadasIds = reservasUsuario.map(r => r.clase.toString());
 
-    // Filtro base
+    // --- ¡LÓGICA DE FILTRO MEJORADA! ---
     let filtro = { nombre: { $in: tiposDeClases } };
+    const ahora = new Date();
 
     if (fecha) {
       const fechaSeleccionada = new Date(fecha);
       fechaSeleccionada.setUTCHours(0, 0, 0, 0);
+
+      // Define el rango del día seleccionado
+      const inicioDelDia = fechaSeleccionada;
+      const finDelDia = new Date(fechaSeleccionada.getTime() + 24 * 60 * 60 * 1000);
+      
       filtro.fecha = {
-        $gte: fechaSeleccionada,
-        $lt: new Date(fechaSeleccionada.getTime() + 24 * 60 * 60 * 1000),
+        $lt: finDelDia,
       };
+
+      // Compara el inicio del día con 'ahora'.
+      // Si el día seleccionado es 'hoy', filtra desde 'ahora' (no mostrar clases pasadas de hoy).
+      // Si el día seleccionado es futuro, filtra desde el 'inicioDelDia'.
+      filtro.fecha.$gte = new Date(Math.max(ahora, inicioDelDia));
+
+    } else {
+      // Fallback si no se envía fecha (solo mostrar clases futuras)
+      filtro.fecha = { $gte: ahora };
     }
+    // --- FIN DE LA LÓGICA MEJORADA ---
 
     // Excluir clases ya reservadas por el usuario
     if (clasesReservadasIds.length > 0) {
       filtro._id = { $nin: clasesReservadasIds };
     }
 
-    const clases = await Clase.find(filtro);
+    const clases = await Clase.find(filtro).sort({ fecha: 1 }); // Ordena por fecha
     res.status(200).json(clases);
 
   } catch (error) {

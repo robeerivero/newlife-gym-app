@@ -323,13 +323,17 @@ exports.obtenerUsuarioPorId = async (req, res) => {
 
 // Actualizar usuario
 exports.actualizarUsuario = async (req, res) => {
-  // 1. Determinar a quién actualizar
+  // 1. Determinar a quién actualizar y quién hace la petición
   const idDelUsuarioAActualizar = req.params.idUsuario || req.user.id;
-  const esAdminEditando = req.user.rol === 'admin' && req.params.idUsuario;
+  const esPeticionDeAdmin = req.user.rol === 'admin';
+  const esAdminEditandoAOtro = esPeticionDeAdmin && req.params.idUsuario;
 
-  // 2. Obtener datos del body
-  // Añadimos 'nuevaContrasena'. Ignoramos 'contrasenaActual' a propósito.
-  const { nombre, correo, rol, tiposDeClases, esPremium, nuevaContrasena } = req.body;
+  // 2. Obtener todos los posibles datos del body
+  const { 
+    nombre, correo, rol, tiposDeClases, esPremium, 
+    incluyePlanDieta, incluyePlanEntrenamiento, 
+    nuevaContrasena 
+  } = req.body;
 
   try {
     const usuario = await Usuario.findById(idDelUsuarioAActualizar);
@@ -337,48 +341,53 @@ exports.actualizarUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    // 3. Validar tiposDeClases
-    if (tiposDeClases && (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0)) {
-      return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
-    }
-    const valoresValidos = ['funcional', 'pilates', 'zumba'];
-    if (tiposDeClases && !tiposDeClases.every((tipo) => valoresValidos.includes(tipo))) {
-      return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
-    }
-
-    // 4. Actualización de campos comunes
+    // --- Campos que CUALQUIERA (Admin o Cliente) puede intentar actualizar ---
     usuario.nombre = nombre || usuario.nombre;
-    usuario.correo = correo || usuario.correo;
-    if (tiposDeClases) {
-      usuario.tiposDeClases = tiposDeClases;
+    usuario.correo = correo || usuario.correo; // El 'save' validará si el correo ya existe
+
+    // --- Campo que SÓLO el CLIENTE puede actualizar en su perfil ---
+    // (Un admin podría tener otra ruta/lógica si necesita cambiar esto)
+    if (!esPeticionDeAdmin && tiposDeClases) {
+        // Validación de tiposDeClases (como la tenías)
+        if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0 || !tiposDeClases.every(tipo => ['funcional', 'pilates', 'zumba'].includes(tipo))) {
+           return res.status(400).json({ mensaje: 'Tipos de clases inválidos.' });
+        }
+        usuario.tiposDeClases = tiposDeClases;
     }
 
-    // 5. CAMPOS SOLO PARA ADMIN
-    if (esAdminEditando) {
+    // --- Campos que SÓLO el ADMIN puede actualizar ---
+    if (esAdminEditandoAOtro) {
       usuario.rol = rol || usuario.rol;
       
+      // Actualiza booleans solo si vienen explícitamente en la petición
       if (esPremium !== undefined) {
         usuario.esPremium = esPremium;
       }
+      if (incluyePlanDieta !== undefined) {
+        usuario.incluyePlanDieta = incluyePlanDieta;
+      }
+      if (incluyePlanEntrenamiento !== undefined) {
+        usuario.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
+      }
       
-      // Si el admin envía una NUEVA contraseña, la reseteamos.
-      // El pre-save hook en Usuario.js se encargará de hashearla.
+      // Admin puede resetear contraseña directamente
       if (nuevaContrasena) {
-        usuario.contrasena = nuevaContrasena;
+        usuario.contrasena = nuevaContrasena; // El pre-save hook hará el hash
       }
     }
-    // Si no es admin (es un usuario normal en /perfil),
-    // ignoramos rol, esPremium y nuevaContrasena.
+
+    // Si es un cliente actualizando su perfil (/perfil), 
+    // se ignorarán rol, esPremium, incluyePlan..., nuevaContrasena, etc. aunque los envíe.
 
     await usuario.save();
     res.status(200).json({ mensaje: 'Usuario actualizado exitosamente', usuario });
+
   } catch (error) {
     console.error('Error al actualizar el usuario:', error);
-    // Manejo de error de correo duplicado
-    if (error.code === 11000) {
-      return res.status(400).json({ mensaje: 'El correo electrónico ya está en uso' });
+    if (error.code === 11000) { // Error de índice único (correo duplicado)
+      return res.status(400).json({ mensaje: 'El correo electrónico ya está en uso por otro usuario.' });
     }
-    res.status(500).json({ mensaje: 'Error al actualizar el usuario', error });
+    res.status(500).json({ mensaje: 'Error interno al actualizar el usuario', error: error.message });
   }
 };
 

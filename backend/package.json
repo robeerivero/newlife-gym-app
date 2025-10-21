@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
@@ -14,7 +16,7 @@
     "start": "node server.js",
     "seed:platos": "node seeder.js --importar-platos",
     "unseed:platos": "node seeder.js --eliminar-platos",
-    "seed:ejercicios": "node seeder.js --importar-ejercicios", 
-    "unseed:ejercicios": "node seeder.js --eliminar-ejercicios" 
+    "seed:ejercicios": "node seeder.js --importar-ejercicios",
+    "unseed:ejercicios": "node seeder.js --eliminar-ejercicios"
   }
 }

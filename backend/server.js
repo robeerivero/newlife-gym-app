@@ -5,10 +5,8 @@ const authRoutes = require('./routes/authRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
 const clasesRoutes = require('./routes/clasesRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
-const dietasRoutes = require('./routes/dietasRoutes');
-const platosRoutes = require('./routes/platosRoutes');
-const ejerciciosRoutes = require('./routes/ejerciciosRoutes');
-const rutinasRoutes = require('./routes/rutinasRoutes');
+const iaEntrenamientoRoutes = require('./routes/iaEntrenamientoRoutes');
+const iaDietaRoutes = require('./routes/iaDietaRoutes');
 const saludRouter = require('./routes/saludRoutes');
 const videoRoutes = require('./routes/videoRoutes'); // Importar rutas de videos
 const cron = require('node-cron');
@@ -101,10 +99,8 @@ app.use('/api/auth', authRoutes);             // Autenticación
 app.use('/api/usuarios', usuariosRoutes);         // Usuarios
 app.use('/api/clases', clasesRoutes);          // Clases 
 app.use('/api/reservas', reservasRoutes);  // Reservas
-app.use('/api/dietas', dietasRoutes);
-app.use('/api/platos', platosRoutes);
-app.use('/api/ejercicios', ejerciciosRoutes);
-app.use('/api/rutinas', rutinasRoutes);
+app.use('/api/entrenamiento', iaEntrenamientoRoutes);
+app.use('/api/dietas', iaDietaRoutes);
 app.use('/api/salud', saludRouter);
 app.use('/api/videos', videoRoutes); // Rutas de videos
 
