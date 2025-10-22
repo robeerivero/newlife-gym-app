@@ -16,6 +16,6 @@ router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaEntrenamientoC
 // --- NUEVA RUTA ---
 router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaEntrenamientoController.obtenerPromptParaRevision);
 // --- RUTA ELIMINADA ---
-// router.post('/admin/generar-ia/:idPlan', proteger, iaEntrenamientoController.generarBorradorIA); // Ya no se usa
+// router.post('/admin/generar-ia/:idPlan', ... );
 
 module.exports = router;

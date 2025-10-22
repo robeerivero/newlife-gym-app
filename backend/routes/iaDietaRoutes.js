@@ -14,8 +14,8 @@ router.get('/mi-dieta-del-dia', proteger, iaDietaController.obtenerMiDietaDelDia
 router.get('/admin/planes-pendientes', proteger, esAdministrador, iaDietaController.obtenerPlanesPendientes);
 router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaDietaController.aprobarPlan);
 // --- NUEVA RUTA ---
-router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaDietaController.obtenerPromptParaRevision); 
+router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaDietaController.obtenerPromptParaRevision);
 // --- RUTA ELIMINADA ---
-// router.post('/admin/generar-ia/:idPlan', proteger, iaDietaController.generarBorradorIA); // Ya no se usa
+// router.post('/admin/generar-ia/:idPlan', ... );
 
 module.exports = router;
