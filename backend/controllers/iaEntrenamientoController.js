@@ -89,7 +89,7 @@ exports.generarBorradorIA = async (req, res) => {
       ]
     `;
     
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     const result = await model.generateContent(masterPrompt);
     const response = await result.response;
     const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '');
