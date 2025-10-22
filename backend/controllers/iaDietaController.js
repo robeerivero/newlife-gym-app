@@ -130,7 +130,7 @@ exports.generarBorradorIA = async (req, res) => {
     // --- LOG 2: ¿EL PROMPT SE CONSTRUYE BIEN? ---
     console.log(`[IA Dieta] PROMPT: Generando contenido para ${inputsUsuario.kcalObjetivo} kcal...`);
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     const result = await model.generateContent(masterPrompt);
     
     // --- LOG 3: ¿GOOGLE HA RESPONDIDO ALGO? ---
