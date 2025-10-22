@@ -25,18 +25,73 @@ exports.solicitarPlanEntrenamiento = async (req, res) => {
   } catch (error) { console.error('Error al solicitar plan entrenamiento:', error); res.status(500).json({ mensaje: 'Error al solicitar plan', error: error.message }); }
 };
 
+// =================================================================
+//                 FUNCIÓN CORREGIDA
+// =================================================================
 /**
  * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
  */
 function generarPromptParaPlan(inputsUsuario) {
+  // --- PROMPT CORREGIDO Y DETALLADO ---
   const masterPrompt = `
-      Eres un entrenador personal. Cliente ya entrena 3 días (L-M-V) con "Funcional".
-      Genera un plan complementario para 2 días libres (ej. Martes y Jueves).
-      DATOS: ... (Asegúrate de que tu prompt completo esté aquí) ...
-      RESPUESTA (Solo JSON): ... (Asegúrate de que tu prompt completo esté aquí) ...
-      [ { "nombreDia": "Dia 1...", "ejercicios": [...] }, { "nombreDia": "Dia 2...", "ejercicios": [...] } ]`;
+      Eres un entrenador personal experto. 
+      Genera un plan de entrenamiento complementario para un usuario.
+      
+      DATOS DEL USUARIO:
+      - Objetivo: ${inputsUsuario.premiumMeta}
+      - Foco principal: ${inputsUsuario.premiumFoco}
+      - Equipamiento disponible: ${inputsUsuario.premiumEquipamiento}
+      - Tiempo por sesión: ${inputsUsuario.premiumTiempo} minutos
+      
+      INSTRUCCIONES:
+      - Genera un plan para 2 días de entrenamiento.
+      - El formato de respuesta debe ser EXCLUSIVAMENTE un array JSON.
+      - Sigue la estructura JSON de ejemplo al pie de la letra.
+
+      ESTRUCTURA JSON DE RESPUESTA OBLIGATORIA:
+      [
+        {
+          "nombreDia": "Día 1: [Enfoque del día, ej: Tren Superior]",
+          "ejercicios": [
+            {
+              "nombre": "Nombre del Ejercicio 1",
+              "series": "3",
+              "repeticiones": "10-12",
+              "descansoSeries": "60 seg",
+              "descansoEjercicios": "2 min",
+              "descripcion": "Breve descripción de la técnica."
+            },
+            {
+              "nombre": "Nombre del Ejercicio 2",
+              "series": "4",
+              "repeticiones": "8-10",
+              "descansoSeries": "90 seg",
+              "descansoEjercicios": "2 min",
+              "descripcion": "Breve descripción de la técnica."
+            }
+          ]
+        },
+        {
+          "nombreDia": "Día 2: [Enfoque del día, ej: Tren Inferior y Core]",
+          "ejercicios": [
+             {
+              "nombre": "Nombre del Ejercicio 3",
+              "series": "3",
+              "repeticiones": "12-15",
+              "descansoSeries": "60 seg",
+              "descansoEjercicios": "2 min",
+              "descripcion": "Breve descripción de la técnica."
+            }
+          ]
+        }
+      ]
+  `;
+  // --- FIN PROMPT CORREGIDO ---
   return masterPrompt;
 }
+// =================================================================
+//                 FIN DE LA CORRECCIÓN
+// =================================================================
 
 /**
  * [ADMIN] Obtiene el prompt para un plan específico.

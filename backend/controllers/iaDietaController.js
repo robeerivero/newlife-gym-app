@@ -47,14 +47,39 @@ exports.solicitarPlanDieta = async (req, res) => {
  */
 function generarPromptParaPlan(inputsUsuario) {
   const masterPrompt = `
-      Eres un nutricionista experto. Genera un plan de comidas semanal.
+      Eres un nutricionista experto. Genera un plan de comidas semanal detallado
+      con ${inputsUsuario.dietaComidas} comidas por día.
+      
       DATOS:
       - Objetivo: ${inputsUsuario.objetivo} (aprox ${inputsUsuario.kcalObjetivo} kcal/día)
       - Alergias/Restricciones: "${inputsUsuario.dietaAlergias}"
       - Preferencias: "${inputsUsuario.dietaPreferencias}"
       - Comidas por día: ${inputsUsuario.dietaComidas}
-      RESPUESTA (Solo JSON): ... (Asegúrate de que tu prompt completo esté aquí) ...
-      [ { "nombreDia": "Lunes a Viernes", ... }, { "nombreDia": "Fin de Semana", ... } ]`;
+
+      RESPUESTA (Solo JSON):
+      Genera un array JSON con 7 objetos. Cada objeto debe representar un día de la semana,
+      empezando por "Lunes" y terminando en "Domingo".
+      
+      Formato esperado:
+      [
+        { 
+          "nombreDia": "Lunes", 
+          "kcalDiaAprox": ${inputsUsuario.kcalObjetivo},
+          "comidas": [
+            { "nombreComida": "Desayuno", "opciones": [ { "nombrePlato": "...", "kcalAprox": ..., "ingredientes": "...", "receta": "..." } ] },
+            { "nombreComida": "Almuerzo", "opciones": [ ... ] },
+            // ... (resto de comidas)
+          ]
+        },
+        { "nombreDia": "Martes", ... },
+        { "nombreDia": "Miércoles", ... },
+        { "nombreDia": "Jueves", ... },
+        { "nombreDia": "Viernes", ... },
+        { "nombreDia": "Sábado", ... },
+        { "nombreDia": "Domingo", ... }
+      ]
+  `;
+  // --- FIN PROMPT MODIFICADO ---
   return masterPrompt;
 }
 
@@ -117,7 +142,13 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
 exports.obtenerMiDietaDelDia = async (req, res) => {
   const { fecha } = req.query;
   const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
-  const dia = fechaSeleccionada.getUTCDay();
+  
+  // --- LÓGICA MODIFICADA ---
+  
+  // Mapeo de getUTCDay() a los nombres exactos que pedimos en el prompt
+  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()]; // Ej: "Miércoles"
+  
   const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
 
   const planAprobado = await PlanDieta.findOne({
@@ -130,19 +161,23 @@ exports.obtenerMiDietaDelDia = async (req, res) => {
     return res.status(404).json({ mensaje: `No tienes una dieta aprobada para ${mesActual}.` });
   }
   
-  let dietaDelDia;
-  const esFinDeSemana = (dia === 0 || dia === 6);
-  const diaFinde = planAprobado.planGenerado.find(d => d.nombreDia.toLowerCase().includes('fin de semana'));
-  const diaSemana = planAprobado.planGenerado.find(d => d.nombreDia.toLowerCase().includes('lunes'));
+  // Buscar el día exacto en el array
+  // Usamos 'find' para buscar el objeto cuyo 'nombreDia' coincida exactamente.
+  let dietaDelDia = planAprobado.planGenerado.find(
+    d => d.nombreDia === diaSemanaSeleccionado
+  );
   
-  if (esFinDeSemana && diaFinde) {
-    dietaDelDia = diaFinde;
-  } else if (diaSemana) {
-    dietaDelDia = diaSemana;
-  } else {
+  // Fallback: Si por alguna razón la IA no generó el día (ej. "Miércoles" no existe)
+  // o el array no tiene 7 días, simplemente devolvemos el primer día disponible.
+  if (!dietaDelDia && planAprobado.planGenerado.length > 0) {
+     console.warn(`Fallback: No se encontró el plan para '${diaSemanaSeleccionado}'. Usando el primer plan disponible.`);
      dietaDelDia = planAprobado.planGenerado[0];
   }
+  // --- FIN LÓGICA MODIFICADA ---
 
-  if (!dietaDelDia) return res.status(404).json({ mensaje: 'Error de plan de dieta.' });
+  if (!dietaDelDia) {
+    return res.status(404).json({ mensaje: 'Error de plan de dieta.' });
+  }
+  
   res.status(200).json(dietaDelDia);
 };
