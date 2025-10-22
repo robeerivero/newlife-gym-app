@@ -1,14 +1,14 @@
 // controllers/iaDietaController.js
-// ¡¡ACTUALIZADO CON LOGS DE DEPURACIÓN!!
+// ¡¡MODIFICADO PARA FLUJO MANUAL ADMIN-IN-THE-LOOP!!
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// const { GoogleGenerativeAI } = require('@google/generative-ai'); // <-- Ya no se necesita
 const PlanDieta = require('../models/PlanDieta');
 const Usuario = require('../models/Usuario');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // <-- Ya no se necesita
 
 const getMesActual = () => new Date().toISOString().slice(0, 7);
 
-// --- Función Helper para calcular Kcal ---
+// --- Función Helper para calcular Kcal (sin cambios) ---
 function calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo) {
   let tmb;
   if (genero === 'masculino') {
@@ -28,10 +28,9 @@ function calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo) {
 }
 
 /**
- * [CLIENTE] Solicita un plan (Versión unificada)
+ * [CLIENTE] Solicita un plan (Versión unificada, flujo manual)
  */
 exports.solicitarPlanDieta = async (req, res) => {
-  // 1. Recibimos TODOS los datos del formulario unificado
   const { 
     dietaAlergias, dietaPreferencias, dietaComidas,
     peso, altura, edad, genero, nivelActividad, objetivo 
@@ -39,13 +38,11 @@ exports.solicitarPlanDieta = async (req, res) => {
   const usuarioId = req.user.id;
 
   try {
-    // 2. Validamos y calculamos las Kcal AHORA
     if (!peso || !altura || !edad || !genero || !nivelActividad || !objetivo) {
       return res.status(400).json({ mensaje: 'Faltan datos metabólicos.' });
     }
     const kcalCalculadas = calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo);
 
-    // 3. Actualizamos el modelo Usuario
     const usuario = await Usuario.findByIdAndUpdate(
       usuarioId,
       { 
@@ -62,9 +59,8 @@ exports.solicitarPlanDieta = async (req, res) => {
       return res.status(403).json({ mensaje: 'Servicio no incluido.' });
     }
 
-    // 4. Creamos el Plan (Snapshot)
     const mesActual = getMesActual();
-    const plan = await PlanDieta.findOneAndUpdate(
+    await PlanDieta.findOneAndUpdate( // No necesitamos guardar la variable 'plan'
       { usuario: usuarioId, mes: mesActual },
       { 
         inputsUsuario: {
@@ -74,33 +70,22 @@ exports.solicitarPlanDieta = async (req, res) => {
           dietaPreferencias: usuario.dietaPreferencias,
           dietaComidas: usuario.dietaComidas
         },
-        estado: 'pendiente_ia',
-        planGenerado: []
+        // --- CAMBIO CLAVE: Directo a revisión ---
+        estado: 'pendiente_revision', 
+        planGenerado: [] 
       },
       { new: true, upsert: true }
     );
 
-    // 5. Disparamos el fetch
+    // --- ELIMINADO: Ya no disparamos el fetch ---
+    /*
     const token = req.headers.authorization.split(' ')[1];
-   // ... dentro de solicitarPlanDieta / solicitarPlanEntrenamiento ...
-    
-    // 1. Determina el puerto interno. Render lo pone en process.env.PORT
-    //    Si estás en local, puede ser 3000, 5000, etc. (ajusta si es necesario)
-    const internalPort = process.env.PORT || 3000; // Usa el puerto de Render o 3000 como fallback local
-    
-    // 2. Construye la URL usando localhost y el puerto interno
+    const internalPort = process.env.PORT || 5000; 
     const url = `http://localhost:${internalPort}/api/dietas/admin/generar-ia/${plan._id}`; 
-    //   ¡Asegúrate de cambiar '/api/dietas/' por '/api/entrenamiento/' en el otro controlador!
-
-    
-    // --- ¡¡AÑADE ESTE LOG!! ---
     console.log(`[IA Dieta] Fetch URL completa: ${url}`);
-    console.log(`[IA Dieta] Disparando fetch interno para Plan ID: ${plan._id}`); // <-- LOG AÑADIDO
-    
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).catch(err => console.error('Error al disparar IA de Dieta (Fetch):', err.message)); // <-- ESTE ES OTRO POSIBLE ERROR
+    console.log(`[IA Dieta] Disparando fetch interno para Plan ID: ${plan._id}`); 
+    fetch(url, { ... }).catch(err => ...);
+    */
 
     res.status(200).json({ mensaje: 'Solicitud recibida. Tu nutricionista la revisará.' });
 
@@ -111,58 +96,135 @@ exports.solicitarPlanDieta = async (req, res) => {
 };
 
 /**
- * [SISTEMA/ADMIN] Genera el borrador de IA
+ * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
  */
-exports.generarBorradorIA = async (req, res) => {
-  // --- LOG 1: ¿SE ESTÁ LLAMANDO LA FUNCIÓN? ---
-  console.log(`[IA Dieta] INICIO: generando borrador para Plan ID: ${req.params.idPlan}`);
-  
+function generarPromptParaPlan(inputsUsuario) {
+  // La misma lógica que tenías en generarBorradorIA
+  const masterPrompt = `
+      Eres un nutricionista experto. Genera un plan de comidas semanal.
+      DATOS:
+      - Objetivo: ${inputsUsuario.objetivo} (aprox ${inputsUsuario.kcalObjetivo} kcal/día)
+      - Alergias/Restricciones: "${inputsUsuario.dietaAlergias}"
+      - Preferencias: "${inputsUsuario.dietaPreferencias}"
+      - Comidas por día: ${inputsUsuario.dietaComidas}
+
+      RESPUESTA (Solo JSON):
+      Genera 2 planes (uno "Lunes a Viernes", otro "Fin de Semana").
+      Para cada comida ("Desayuno", "Almuerzo", "Cena", etc.), da 2 opciones de plato.
+      Para cada plato, incluye "nombrePlato", "kcalAprox", "ingredientes" (string simple), y "receta" (string simple).
+      Asegúrate de que el JSON resultante sea un array válido que contenga dos objetos, uno para cada plan (L-V y Fin de Semana). No incluyas comentarios ni markdown \`\`\`json\`\`\`.
+
+      Ejemplo de estructura JSON esperada:
+      [
+        {
+          "nombreDia": "Lunes a Viernes",
+          "kcalDiaAprox": ${inputsUsuario.kcalObjetivo},
+          "comidas": [
+            {
+              "nombreComida": "Desayuno",
+              "opciones": [
+                { "nombrePlato": "...", "kcalAprox": ..., "ingredientes": "...", "receta": "..." },
+                { "nombrePlato": "...", "kcalAprox": ..., "ingredientes": "...", "receta": "..." }
+              ]
+            }, 
+            { "nombreComida": "Almuerzo", "opciones": [...] },
+            { "nombreComida": "Cena", "opciones": [...] }
+            // Añadir más comidas si inputsUsuario.dietaComidas > 3
+          ]
+        },
+        {
+          "nombreDia": "Fin de Semana",
+          "kcalDiaAprox": ${Math.round(inputsUsuario.kcalObjetivo * 1.1)},
+          "comidas": [ ... ] // Similar estructura
+        }
+      ]
+    `;
+  return masterPrompt;
+}
+
+/**
+ * [ADMIN] Obtiene el prompt para un plan específico.
+ */
+exports.obtenerPromptParaRevision = async (req, res) => {
   try {
     const { idPlan } = req.params;
     const plan = await PlanDieta.findById(idPlan);
     if (!plan) {
-      return console.error(`[IA Dieta] ERROR: Plan con ID ${idPlan} no encontrado.`);
+      return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    }
+    if (!plan.inputsUsuario) {
+        return res.status(400).json({ mensaje: 'Los datos de entrada del usuario no están disponibles para este plan.' });
     }
 
-    const { inputsUsuario } = plan;
-    const masterPrompt = `... (Tu prompt de dieta) ...`; // (No lo pego para abreviar)
-    
-    // --- LOG 2: ¿EL PROMPT SE CONSTRUYE BIEN? ---
-    console.log(`[IA Dieta] PROMPT: Generando contenido para ${inputsUsuario.kcalObjetivo} kcal...`);
+    const prompt = generarPromptParaPlan(plan.inputsUsuario);
+    res.status(200).json({ prompt: prompt }); // Devuelve el prompt como JSON
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-    const result = await model.generateContent(masterPrompt);
-    
-    // --- LOG 3: ¿GOOGLE HA RESPONDIDO ALGO? ---
-    console.log(`[IA Dieta] RESPUESTA GOOGLE: Recibida. Procesando texto...`);
-
-    const response = await result.response;
-    const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '');
-    const jsonResponse = JSON.parse(jsonText);
-    
-    // --- LOG 4: ¿EL JSON SE HA PARSEADO BIEN? ---
-    console.log(`[IA Dieta] PARSEADO: JSON parseado correctamente.`);
-
-    plan.planGenerado = jsonResponse;
-    plan.estado = 'pendiente_revision';
-    await plan.save();
-
-    // --- LOG 5: ¿SE HA GUARDADO EN LA BD? ---
-    console.log(`[IA Dieta] ÉXITO: Plan ${idPlan} guardado. Estado: pendiente_revision.`);
-
-    if (res) res.status(200).json(plan);
-    
   } catch (error) {
-    // --- LOG DE ERROR MEJORADO: MUESTRA EL ERROR COMPLETO ---
-    console.error('--- ERROR GRAVE EN IA DIETA ---');
-    console.error(error); // ¡¡ESTO NOS DARÁ EL ERROR COMPLETO!!
-    console.error('---------------------------------');
-    if (res) res.status(500).json({ mensaje: 'Error en IA', error: error.message });
+    console.error('Error al obtener prompt para revisión:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
   }
 };
 
-// ... (El resto de funciones: obtenerMiPlanDelMes, obtenerMiDietaDelDia, etc., siguen igual)
-// ... (Copio las tuyas para que esté completo)
+
+/**
+ * [ADMIN] Obtiene planes para revisar (SOLO 'pendiente_revision')
+ */
+exports.obtenerPlanesPendientes = async (req, res) => {
+  try {
+    const planes = await PlanDieta.find({ 
+      // --- CAMBIO: Ya no buscamos 'pendiente_ia' ---
+      estado: 'pendiente_revision' 
+    }).populate('usuario', 'nombre correo');
+    res.status(200).json(planes);
+  } catch(error){
+      console.error('Error al obtener planes pendientes (dieta):', error);
+      res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * [ADMIN] Aprueba un plan recibiendo el JSON como string.
+ */
+exports.aprobarPlan = async (req, res) => {
+  const { idPlan } = req.params;
+  // --- CAMBIO: Esperamos un string con el JSON ---
+  const { jsonString } = req.body; 
+
+  if (!jsonString) {
+    return res.status(400).json({ mensaje: 'Falta el JSON generado (jsonString).' });
+  }
+
+  let planGeneradoParseado;
+  try {
+    // --- CAMBIO: Parseamos el string ---
+    planGeneradoParseado = JSON.parse(jsonString);
+    // Validación básica (debe ser un array)
+    if (!Array.isArray(planGeneradoParseado)) {
+        throw new Error('El JSON proporcionado no es un array válido.');
+    }
+  } catch (error) {
+    console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message);
+    // Devuelve un error específico si el JSON está mal formado
+    return res.status(400).json({ mensaje: 'El JSON pegado no es válido.', error: error.message });
+  }
+
+  try {
+    const plan = await PlanDieta.findByIdAndUpdate(
+      idPlan,
+      {
+        // --- CAMBIO: Guardamos el objeto parseado ---
+        planGenerado: planGeneradoParseado, 
+        estado: 'aprobado'
+      },
+      { new: true }
+    );
+    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    res.status(200).json({ mensaje: 'Plan de dieta aprobado.', plan });
+  } catch(error){
+     console.error(`Error al aprobar plan de dieta ${idPlan}:`, error);
+     res.status(500).json({ mensaje: 'Error interno al guardar el plan.' });
+  }
+};
 
 exports.obtenerMiPlanDelMes = async (req, res) => {
   const plan = await PlanDieta.findOne({ 

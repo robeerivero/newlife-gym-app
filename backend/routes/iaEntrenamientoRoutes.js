@@ -1,25 +1,21 @@
 // routes/iaEntrenamientoRoutes.js
 const express = require('express');
 const { proteger, esAdministrador } = require('../middleware/authMiddleware');
-const {
-  solicitarPlanEntrenamiento,
-  generarBorradorIA,
-  obtenerPlanesPendientes,
-  aprobarPlan,
-  obtenerMiRutinaDelDia,
-  obtenerMiPlanDelMes
-} = require('../controllers/iaEntrenamientoController');
+const iaEntrenamientoController = require('../controllers/iaEntrenamientoController');
 
 const router = express.Router();
 
 // --- CLIENTE ---
-router.put('/solicitud', proteger, solicitarPlanEntrenamiento);
-router.get('/mi-plan-del-mes', proteger, obtenerMiPlanDelMes);
-router.get('/mi-rutina-del-dia', proteger, obtenerMiRutinaDelDia);
+router.put('/solicitud', proteger, iaEntrenamientoController.solicitarPlanEntrenamiento);
+router.get('/mi-plan-del-mes', proteger, iaEntrenamientoController.obtenerMiPlanDelMes);
+router.get('/mi-rutina-del-dia', proteger, iaEntrenamientoController.obtenerMiRutinaDelDia);
 
 // --- ADMIN ---
-router.get('/admin/planes-pendientes', proteger, esAdministrador, obtenerPlanesPendientes);
-router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, aprobarPlan);
-router.post('/admin/generar-ia/:idPlan', proteger, generarBorradorIA); // Admin puede re-generar
+router.get('/admin/planes-pendientes', proteger, esAdministrador, iaEntrenamientoController.obtenerPlanesPendientes);
+router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaEntrenamientoController.aprobarPlan);
+// --- NUEVA RUTA ---
+router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaEntrenamientoController.obtenerPromptParaRevision);
+// --- RUTA ELIMINADA ---
+// router.post('/admin/generar-ia/:idPlan', proteger, iaEntrenamientoController.generarBorradorIA); // Ya no se usa
 
 module.exports = router;

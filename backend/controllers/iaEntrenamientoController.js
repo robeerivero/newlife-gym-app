@@ -1,17 +1,16 @@
 // controllers/iaEntrenamientoController.js
-// ¡ESTE ARCHIVO YA ERA CORRECTO!
+// ¡¡MODIFICADO PARA FLUJO MANUAL ADMIN-IN-THE-LOOP!!
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// const { GoogleGenerativeAI } = require('@google/generative-ai'); // <-- Ya no se necesita
 const PlanEntrenamiento = require('../models/PlanEntrenamiento');
 const Usuario = require('../models/Usuario');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const mongoose = require('mongoose'); // Añadido para los IDs simulados
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // <-- Ya no se necesita
+const mongoose = require('mongoose');
 
-// Obtiene el mes actual en formato "YYYY-MM"
 const getMesActual = () => new Date().toISOString().slice(0, 7);
 
 /**
- * [CLIENTE] Solicita un plan (rellena el formulario de metas)
+ * [CLIENTE] Solicita un plan (flujo manual)
  */
 exports.solicitarPlanEntrenamiento = async (req, res) => {
   const { premiumMeta, premiumFoco, premiumEquipamiento, premiumTiempo } = req.body;
@@ -28,43 +27,40 @@ exports.solicitarPlanEntrenamiento = async (req, res) => {
     }
 
     const mesActual = getMesActual();
-    const plan = await PlanEntrenamiento.findOneAndUpdate(
+    await PlanEntrenamiento.findOneAndUpdate( // No necesitamos guardar la variable 'plan'
       { usuario: usuarioId, mes: mesActual },
       { 
         inputsUsuario: req.body,
-        estado: 'pendiente_ia',
+        // --- CAMBIO CLAVE: Directo a revisión ---
+        estado: 'pendiente_revision', 
         planGenerado: [], diasAsignados: []
       },
       { upsert: true, new: true }
     );
 
-    // Dispara la IA en segundo plano
+    // --- ELIMINADO: Ya no disparamos el fetch ---
+    /*
     const token = req.headers.authorization.split(' ')[1];
-    const url = `${req.protocol}://${req.get('host')}/api/entrenamiento/admin/generar-ia/${plan._id}`;
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).catch(err => console.error('Error al disparar IA de Entrenamiento:', err.message));
+    const internalPort = process.env.PORT || 5000;
+    const url = `http://localhost:${internalPort}/api/entrenamiento/admin/generar-ia/${plan._id}`;
+    console.log(`[IA Entren] Fetch URL completa: ${url}`);
+    console.log(`[IA Entren] Disparando fetch interno para Plan ID: ${plan._id}`);
+    fetch(url, { ... }).catch(err => ...);
+    */
 
     res.status(200).json({ mensaje: 'Preferencias guardadas. Tu entrenador revisará tu plan pronto.' });
   } catch (error) {
+    console.error('Error al solicitar plan entrenamiento:', error);
     res.status(500).json({ mensaje: 'Error al solicitar plan', error: error.message });
   }
 };
 
 /**
- * [SISTEMA/ADMIN] Genera el borrador de IA
+ * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
  */
-exports.generarBorradorIA = async (req, res) => {
-  try {
-    const { idPlan } = req.params;
-    const plan = await PlanEntrenamiento.findById(idPlan);
-    if (!plan) {
-      return console.error(`[IA Entren] Plan con ID ${idPlan} no encontrado.`);
-    }
-
-    const { inputsUsuario } = plan;
-    const masterPrompt = `
+function generarPromptParaPlan(inputsUsuario) {
+  // La misma lógica que tenías en generarBorradorIA
+  const masterPrompt = `
       Eres un entrenador personal. Cliente ya entrena 3 días (L-M-V) con "Funcional".
       Genera un plan complementario para 2 días libres (ej. Martes y Jueves).
       DATOS:
@@ -72,38 +68,112 @@ exports.generarBorradorIA = async (req, res) => {
       - Foco: "${inputsUsuario.premiumFoco}"
       - Equipamiento: "${inputsUsuario.premiumEquipamiento}"
       - Tiempo: ${inputsUsuario.premiumTiempo} min.
+      
       RESPUESTA (Solo JSON):
+      Genera un array JSON con 2 objetos, uno para cada día de entrenamiento.
+      Cada objeto debe tener "nombreDia" (String) y "ejercicios" (Array).
+      Cada elemento en "ejercicios" debe ser un objeto con: "nombre" (String), "series" (String), "repeticiones" (String), "descansoSeries" (String), "descansoEjercicios" (String), "descripcion" (String).
+      Asegúrate de que el JSON sea válido y no incluya comentarios ni markdown \`\`\`json\`\`\`.
+
+      Ejemplo de estructura JSON esperada:
       [
         {
-          "nombreDia": "Dia 1 (Enfoque: ${inputsUsuario.premiumFoco})",
+          "nombreDia": "Dia 1 (Enfoque: ${inputsUsuario.premiumFoco || 'Principal'})",
           "ejercicios": [
-            { "nombre": "...", "series": "3", "repeticiones": "8-12", "descansoSeries": "90 seg", "descansoEjercicios": "3 min", "descripcion": "..." }
+            { "nombre": "...", "series": "3", "repeticiones": "8-12", "descansoSeries": "90 seg", "descansoEjercicios": "3 min", "descripcion": "..." },
+            { "nombre": "...", "series": "...", "repeticiones": "...", "descansoSeries": "...", "descansoEjercicios": "...", "descripcion": "..." }
           ]
         },
         {
           "nombreDia": "Dia 2 (Enfoque: Complementario)",
-          "ejercicios": [
-            { "nombre": "...", "series": "4", "repeticiones": "10-15", "descansoSeries": "60 seg", "descansoEjercicios": "2 min", "descripcion": "..." }
-          ]
+          "ejercicios": [ ... ] // Similar estructura
         }
       ]
     `;
-    
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-    const result = await model.generateContent(masterPrompt);
-    const response = await result.response;
-    const jsonText = response.text().replace(/```json/g, '').replace(/```/g, '');
-    const jsonResponse = JSON.parse(jsonText);
+    return masterPrompt;
+}
 
-    plan.planGenerado = jsonResponse;
-    plan.estado = 'pendiente_revision';
-    await plan.save();
+/**
+ * [ADMIN] Obtiene el prompt para un plan específico.
+ */
+exports.obtenerPromptParaRevision = async (req, res) => {
+  try {
+    const { idPlan } = req.params;
+    const plan = await PlanEntrenamiento.findById(idPlan);
+    if (!plan) {
+      return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    }
+     if (!plan.inputsUsuario) {
+        return res.status(400).json({ mensaje: 'Los datos de entrada del usuario no están disponibles para este plan.' });
+    }
 
-    if (res) res.status(200).json(plan);
+    const prompt = generarPromptParaPlan(plan.inputsUsuario);
+    res.status(200).json({ prompt: prompt }); // Devuelve el prompt como JSON
+
   } catch (error) {
-    // ¡TU CATCH ESTÁ BIEN! No lo cambies.
-    console.error('Error en IA Entrenamiento:', error);
-    if (res) res.status(500).json({ mensaje: 'Error en IA', error: error.message });
+    console.error('Error al obtener prompt para revisión (entrenamiento):', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+
+/**
+ * [ADMIN] Obtiene planes para revisar (SOLO 'pendiente_revision')
+ */
+exports.obtenerPlanesPendientes = async (req, res) => {
+ try {
+    const planes = await PlanEntrenamiento.find({ 
+      // --- CAMBIO: Ya no buscamos 'pendiente_ia' ---
+      estado: 'pendiente_revision' 
+    }).populate('usuario', 'nombre correo');
+    res.status(200).json(planes);
+ } catch(error){
+      console.error('Error al obtener planes pendientes (entrenamiento):', error);
+      res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * [ADMIN] Aprueba un plan recibiendo el JSON como string y los días.
+ */
+exports.aprobarPlan = async (req, res) => {
+  const { idPlan } = req.params;
+  // --- CAMBIO: Esperamos jsonString y diasAsignados ---
+  const { jsonString, diasAsignados } = req.body; 
+
+  if (!jsonString || !diasAsignados || !Array.isArray(diasAsignados) || diasAsignados.length === 0) {
+    return res.status(400).json({ mensaje: 'Faltan el JSON generado (jsonString) o los días asignados (diasAsignados).' });
+  }
+
+  let planGeneradoParseado;
+  try {
+    // --- CAMBIO: Parseamos el string ---
+    planGeneradoParseado = JSON.parse(jsonString);
+     // Validación básica (debe ser un array)
+    if (!Array.isArray(planGeneradoParseado)) {
+        throw new Error('El JSON proporcionado no es un array válido.');
+    }
+  } catch (error) {
+    console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message);
+    return res.status(400).json({ mensaje: 'El JSON pegado no es válido.', error: error.message });
+  }
+
+  try {
+    const plan = await PlanEntrenamiento.findByIdAndUpdate(
+      idPlan,
+      {
+        // --- CAMBIO: Guardamos el objeto parseado ---
+        planGenerado: planGeneradoParseado, 
+        diasAsignados: diasAsignados,
+        estado: 'aprobado'
+      },
+      { new: true }
+    );
+    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    res.status(200).json({ mensaje: 'Plan de entrenamiento aprobado.', plan });
+  } catch(error){
+      console.error(`Error al aprobar plan de entrenamiento ${idPlan}:`, error);
+      res.status(500).json({ mensaje: 'Error interno al guardar el plan.' });
   }
 };
 
@@ -173,38 +243,4 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
       descansoEjercicios: e.descansoEjercicios
     }))
   });
-};
-
-/**
- * [ADMIN] Obtiene planes para revisar
- */
-exports.obtenerPlanesPendientes = async (req, res) => {
-  const planes = await PlanEntrenamiento.find({ 
-    estado: { $in: ['pendiente_ia', 'pendiente_revision'] } 
-  }).populate('usuario', 'nombre correo');
-  res.status(200).json(planes);
-};
-
-/**
- * [ADMIN] Aprueba, edita y asigna días
- */
-exports.aprobarPlan = async (req, res) => {
-  const { idPlan } = req.params;
-  const { planEditado, diasAsignados } = req.body;
-
-  if (!planEditado || !diasAsignados || diasAsignados.length === 0) {
-    return res.status(400).json({ mensaje: 'Faltan el plan editado o los días.' });
-  }
-
-  const plan = await PlanEntrenamiento.findByIdAndUpdate(
-    idPlan,
-    {
-      planGenerado: planEditado,
-      diasAsignados: diasAsignados,
-      estado: 'aprobado'
-    },
-    { new: true }
-  );
-  if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
-  res.status(200).json({ mensaje: 'Plan de entrenamiento aprobado.', plan });
 };
