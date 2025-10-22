@@ -82,7 +82,17 @@ exports.solicitarPlanDieta = async (req, res) => {
 
     // 5. Disparamos el fetch
     const token = req.headers.authorization.split(' ')[1];
-    const url = `${req.protocol}://${req.get('host')}/api/dietas/admin/generar-ia/${plan._id}`;
+   // ... dentro de solicitarPlanDieta / solicitarPlanEntrenamiento ...
+    
+    // 1. Determina el puerto interno. Render lo pone en process.env.PORT
+    //    Si estás en local, puede ser 3000, 5000, etc. (ajusta si es necesario)
+    const internalPort = process.env.PORT || 3000; // Usa el puerto de Render o 3000 como fallback local
+    
+    // 2. Construye la URL usando localhost y el puerto interno
+    const url = `http://localhost:${internalPort}/api/dietas/admin/generar-ia/${plan._id}`; 
+    //   ¡Asegúrate de cambiar '/api/dietas/' por '/api/entrenamiento/' en el otro controlador!
+
+    
     // --- ¡¡AÑADE ESTE LOG!! ---
     console.log(`[IA Dieta] Fetch URL completa: ${url}`);
     console.log(`[IA Dieta] Disparando fetch interno para Plan ID: ${plan._id}`); // <-- LOG AÑADIDO
