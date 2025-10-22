@@ -83,7 +83,8 @@ exports.solicitarPlanDieta = async (req, res) => {
     // 5. Disparamos el fetch
     const token = req.headers.authorization.split(' ')[1];
     const url = `${req.protocol}://${req.get('host')}/api/dietas/admin/generar-ia/${plan._id}`;
-    
+    // --- ¡¡AÑADE ESTE LOG!! ---
+    console.log(`[IA Dieta] Fetch URL completa: ${url}`);
     console.log(`[IA Dieta] Disparando fetch interno para Plan ID: ${plan._id}`); // <-- LOG AÑADIDO
     
     fetch(url, {
