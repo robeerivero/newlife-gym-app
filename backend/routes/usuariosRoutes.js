@@ -15,7 +15,8 @@ const {
   obtenerPrendasDesbloqueadas,
   obtenerProgresoLogros,
   rankingMensual,
-  actualizarDatosMetabolicos
+  actualizarDatosMetabolicos,
+  actualizarDatosAdmin,
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -41,7 +42,7 @@ router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
 router.get('/', proteger, esAdministrador, obtenerUsuarios);
 router.get('/:idUsuario', proteger, esAdministrador, obtenerUsuarioPorId);
 router.post('/', proteger, esAdministrador, crearUsuario);
-router.put('/:idUsuario', proteger, esAdministrador, actualizarUsuario); 
+router.put('/:idUsuario', proteger, esAdministrador, actualizarDatosAdmin); 
 router.delete('/:idUsuario', proteger, esAdministrador, eliminarUsuario);
 
 

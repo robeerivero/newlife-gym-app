@@ -297,12 +297,76 @@ exports.cambiarContrasena = async (req, res) => {
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    console.log('Accediendo a obtenerUsuarios');
-    const usuarios = await Usuario.find();
-    res.status(200).json(usuarios);
+    const { sortBy, haPagado, rol } = req.query;
+
+    let filterOptions = {};
+    let sortOptions = {};
+
+    // 1. Filtrado
+    if (haPagado) {
+      // Filtra por 'true' o 'false'
+      filterOptions.haPagado = haPagado === 'true';
+    }
+    if (rol) {
+      filterOptions.rol = rol;
+    }
+
+    // 2. Ordenación
+    if (sortBy === 'nombreGrupo') {
+      // Ordena por nombreGrupo (A-Z) y luego por nombre (A-Z)
+      sortOptions = { nombreGrupo: 1, nombre: 1 };
+    } else {
+      // Orden por defecto: los no pagados primero, luego por nombre
+      sortOptions = { haPagado: 1, nombre: 1 };
+    }
+
+    // 3. Ejecutar consulta
+    const usuarios = await Usuario.find(filterOptions)
+                                  .sort(sortOptions)
+                                  .select('-contrasena'); // No envíes la contraseña
+
+    res.json(usuarios);
+
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
-    res.status(500).json({ mensaje: 'Error al obtener usuarios', error });
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+exports.actualizarDatosAdmin = async (req, res) => {
+  const { idUsuario } = req.params;
+  const { nombreGrupo, haPagado } = req.body;
+
+  try {
+    let fieldsToUpdate = {};
+
+    // Solo añadimos los campos si se enviaron en el body
+    if (nombreGrupo !== undefined) {
+      fieldsToUpdate.nombreGrupo = nombreGrupo;
+    }
+    if (haPagado !== undefined) {
+      fieldsToUpdate.haPagado = haPagado;
+    }
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return res.status(400).json({ msg: 'No se enviaron datos para actualizar' });
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      idUsuario,
+      { $set: fieldsToUpdate },
+      { new: true }
+    ).select('-contrasena');
+
+    if (!usuario) {
+      return res.status(404).json({ msg: 'Usuario no encontrado' });
+    }
+
+    res.json(usuario);
+
+  } catch (error) {
+    console.error('Error al actualizar datos de admin:', error);
+    res.status(500).send('Error en el servidor');
   }
 };
 
@@ -393,47 +457,24 @@ exports.actualizarUsuario = async (req, res) => {
 
 // Eliminar un usuario
 exports.eliminarUsuario = async (req, res) => {
-  const { idUsuario } = req.params;
-
   try {
-    const usuario = await Usuario.findById(idUsuario);
+    // 1. Buscamos al usuario por su ID
+    const usuario = await Usuario.findById(req.params.idUsuario); // Asumiendo que el ID viene en la URL
+
     if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+      return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    const reservas = await Reserva.find({ usuario: idUsuario });
+    // 2. ¡Usamos .remove()!
+    // Esto activará el 'pre-remove' hook que definimos en el modelo Usuario.js
+    // y borrará todos los datos asociados.
+    await usuario.remove();
 
-    for (const reserva of reservas) {
-      const clase = await Clase.findById(reserva.clase);
+    res.json({ msg: 'Usuario y todos sus datos relacionados eliminados correctamente' });
 
-      if (clase) {
-        clase.cuposDisponibles += 1;
-
-        // Procesar lista de espera
-        if (clase.listaDeEspera.length > 0) {
-          const siguienteUsuarioId = clase.listaDeEspera.shift();
-
-          await Reserva.create({
-            usuario: siguienteUsuarioId,
-            clase: clase._id,
-            fecha: clase.fecha,
-          });
-
-          clase.cuposDisponibles -= 1; // porque se reasigna el cupo
-        }
-
-        await clase.save();
-      }
-
-      await reserva.deleteOne();
-    }
-
-    await usuario.deleteOne();
-
-    res.status(200).json({ mensaje: 'Usuario, reservas y cupos actualizados correctamente' });
   } catch (error) {
-    console.error('Error al eliminar el usuario y procesar reservas:', error);
-    res.status(500).json({ mensaje: 'Error interno al eliminar usuario', error });
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).send('Error en el servidor');
   }
 };
 

@@ -11,9 +11,9 @@ const saludRouter = require('./routes/saludRoutes');
 const videoRoutes = require('./routes/videoRoutes'); // Importar rutas de videos
 const cron = require('node-cron');
 const Salud = require('./models/Salud');
-const Clase = require('./models/Clase'); // <--- (Lo usaremos en la Propuesta 2)
-const Reserva = require('./models/Reserva'); // <--- (Lo usaremos en la Propuesta 2)
-const cors = require('cors');
+const Clase = require('./models/Clase'); 
+const Reserva = require('./models/Reserva');
+const Usuario = require('./models/Usuario'); // <-- ¡AÑADIDO!
 
 // Configuración de variables de entorno
 dotenv.config();
@@ -23,29 +23,45 @@ connectDB();
 
 const app = express();
 
-// Tarea para borrar datos DIARIOS (Salud y Dietas)
+// --- TAREA COMBINADA: Limpieza de Salud Y Reseteo de Pagos ---
+// Se ejecuta a las 00:00 del día 1 de cada mes.
 cron.schedule('0 0 1 * *', async () => {
-  console.log('--- 🧹 INICIANDO TAREA DE LIMPIEZA MENSUAL (Salud y Dietas) ---');
+  console.log('--- 🧹 INICIANDO TAREAS MENSUALES (00:00) ---');
 
   try {
     const ahora = new Date();
     const inicioDeEsteMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
     inicioDeEsteMes.setHours(0, 0, 0, 0); 
 
-    // 1. Borrar datos de Salud
+    // 1. Borrar datos de Salud antiguos
+    console.log('[Tarea 1/2] Ejecutando limpieza de registros de Salud...');
     const resultadoSalud = await Salud.deleteMany({
       fecha: { $lt: inicioDeEsteMes }
     });
-    console.log(`✅ [Limpieza Mensual] Se eliminaron ${resultadoSalud.deletedCount} registros antiguos de salud.`);
+    console.log(`✅ [Limpieza Salud] Se eliminaron ${resultadoSalud.deletedCount} registros antiguos.`);
 
+    // 2. Resetear estado 'haPagado' de los clientes
+    console.log('[Tarea 2/2] Ejecutando reseteo de estado de pagos...');
+    const resultadoPagos = await Usuario.updateMany(
+      { 
+        rol: { $in: ['cliente', 'online'] }, // Solo resetea a clientes
+        haPagado: true // Solo actualiza los que SÍ habían pagado
+      }, 
+      { 
+        $set: { haPagado: false } 
+      }
+    );
+    console.log(`✅ [Reseteo Pagos] Se resetearon ${resultadoPagos.nModified} usuarios a 'No Pagado'.`);
+    
+    console.log('--- 🏁 TAREAS MENSUALES (00:00) COMPLETADAS ---');
 
   } catch (error) {
-    console.error('❌ [Limpieza Mensual] Error al eliminar datos antiguos:', error);
+    console.error('❌ [Tareas Mensuales 00:00] Error en la tarea cron:', error);
   }
 });
 
-// Tarea para borrar Clases y Reservas antiguas (ej. más de 6 meses)
-// Se ejecuta a la 1 AM del día 1 de cada mes. (Le pongo la 1 AM para que no se ejecute a la vez que la otra)
+// Tarea para borrar Clases y Reservas antiguas (ej. más de 3 meses)
+// Se ejecuta a la 1 AM del día 1 de cada mes.
 cron.schedule('0 1 1 * *', async () => {
   console.log('--- 🧹 INICIANDO TAREA DE LIMPIEZA DE HISTORIAL (Clases y Reservas) ---');
   
@@ -86,13 +102,13 @@ cron.schedule('0 1 1 * *', async () => {
 
 // Middleware
 app.use(express.json()); // Para procesar JSON
-app.use(cors());         // Habilitar CORS (opcional, según las necesidades del frontend)
+app.use(cors());         // Habilitar CORS
 
 // Rutas
-app.use('/api/auth', authRoutes);             // Autenticación
-app.use('/api/usuarios', usuariosRoutes);         // Usuarios
-app.use('/api/clases', clasesRoutes);          // Clases 
-app.use('/api/reservas', reservasRoutes);  // Reservas
+app.use('/api/auth', authRoutes);         // Autenticación
+app.use('/api/usuarios', usuariosRoutes);       // Usuarios
+app.use('/api/clases', clasesRoutes);        // Clases 
+app.use('/api/reservas', reservasRoutes); // Reservas
 app.use('/api/entrenamiento', iaEntrenamientoRoutes);
 app.use('/api/dietas', iaDietaRoutes);
 app.use('/api/salud', saludRouter);
@@ -103,6 +119,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Ha ocurrido un error en el servidor' });
 });
+
 // Levantar el servidor
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

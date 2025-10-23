@@ -6,6 +6,17 @@ const esquemaUsuario = new mongoose.Schema({
   correo: { type: String, required: true, unique: true, trim: true },
   contrasena: { type: String, required: true },
   rol: { type: String, enum: ['admin', 'cliente', 'online'], default: 'cliente' },
+  haPagado: {
+    type: Boolean,
+    default: false
+  },
+  nombreGrupo: {
+    type: String,
+    trim: true,
+    index: true, // Para que la ordenación sea más rápida
+    default: null
+  },
+  
   esPremium: { type: Boolean, default: false },
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
@@ -77,6 +88,21 @@ esquemaUsuario.pre('save', async function (next) {
   const salt = await bcrypt.genSalt(10);
   this.contrasena = await bcrypt.hash(this.contrasena, salt);
   next();
+});
+
+esquemaUsuario.pre('remove', async function(next) {
+  try {
+    // 'this._id' es el ID del usuario que se va a borrar
+    await Promise.all([
+      Reserva.deleteMany({ usuario: this._id }),
+      PlanDieta.deleteMany({ usuario: this._id }),
+      PlanEntrenamiento.deleteMany({ usuario: this._id }),
+      Salud.deleteMany({ usuario: this._id })
+    ]);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Método para verificar la contraseña
