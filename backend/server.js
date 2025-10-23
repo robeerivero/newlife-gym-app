@@ -14,7 +14,7 @@ const Salud = require('./models/Salud');
 const Clase = require('./models/Clase'); 
 const Reserva = require('./models/Reserva');
 const Usuario = require('./models/Usuario'); // <-- ¡AÑADIDO!
-
+const cors = require('cors');
 // Configuración de variables de entorno
 dotenv.config();
 

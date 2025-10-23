@@ -205,22 +205,22 @@ exports.obtenerPerfilUsuario = async (req, res) => {
   }
 };
 
-// Crear un nuevo usuario
 exports.crearUsuario = async (req, res) => {
-  const { nombre, correo, contrasena, rol, tiposDeClases, esPremium } = req.body;
+  // 1. Añade 'nombreGrupo' a la extracción de datos
+  const { nombre, correo, contrasena, rol, tiposDeClases, esPremium, nombreGrupo } = req.body;
 
   try {
+    // --- Validaciones (sin cambios) ---
     if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
     }
-
     const valoresValidos = ['funcional', 'pilates', 'zumba'];
     const tiposValidos = tiposDeClases.every((tipo) => valoresValidos.includes(tipo));
     if (!tiposValidos) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
-
-    // Mapa: key → array de valores válidos
+    
+    // --- Lógica de prendas y avatar (sin cambios) ---
     const mapPrendas = {};
     for (const prenda of prendasLogros) {
       if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
@@ -228,40 +228,51 @@ exports.crearUsuario = async (req, res) => {
         mapPrendas[prenda.key].push(prenda.value);
       }
     }
-
-    // Filtrar desbloqueadas por defecto
     const desbloqueadosPorDefecto = prendasLogros
       .filter(p => p.desbloqueadoPorDefecto)
       .map(p => ({ key: p.key, value: p.value }));
-
-    // Avatar por índice
     const avatar = {};
     for (const d of desbloqueadosPorDefecto) {
       if (!(d.key in avatar)) {
         const valores = mapPrendas[d.key];
         const idx = valores.indexOf(d.value);
         if (idx !== -1) {
-          avatar[d.key] = idx; // 👈 guardar el índice
+          avatar[d.key] = idx; 
         }
       }
     }
+    
+    // --- Hashear contraseña (Asegúrate de tener esta parte) ---
+    const salt = await bcrypt.genSalt(10);
+    const contrasenaHasheada = await bcrypt.hash(contrasena, salt);
+    // --- Fin Hashear ---
 
+    // 2. Añade 'nombreGrupo' al crear el nuevo usuario
     const nuevoUsuario = new Usuario({
       nombre,
       correo,
-      contrasena,
+      contrasena: contrasenaHasheada, // ¡Usa la contraseña hasheada!
       rol,
       tiposDeClases,
       esPremium: esPremium || false,
       desbloqueados: desbloqueadosPorDefecto,
-      avatar // 👈 avatar como { key: int }
+      avatar,
+      nombreGrupo: nombreGrupo || null // <-- AÑADIDO (null si no se proporciona)
     });
 
     await nuevoUsuario.save();
-    res.status(201).json({ mensaje: 'Usuario creado exitosamente', nuevoUsuario });
+    
+    // Es mejor no devolver el objeto 'nuevoUsuario' completo aquí por seguridad (contraseña)
+    // Devuelve solo un mensaje de éxito o datos no sensibles.
+    res.status(201).json({ mensaje: 'Usuario creado exitosamente' }); 
+
   } catch (error) {
     console.error('Error al crear el usuario:', error);
-    res.status(500).json({ mensaje: 'Error al crear el usuario', error });
+    // Controlar error de correo duplicado
+    if (error.code === 11000) {
+       return res.status(400).json({ mensaje: 'El correo electrónico ya está registrado.' });
+    }
+    res.status(500).json({ mensaje: 'Error al crear el usuario', error: error.message });
   }
 };
 
