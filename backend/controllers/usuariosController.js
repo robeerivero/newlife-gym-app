@@ -334,15 +334,15 @@ exports.obtenerUsuarios = async (req, res) => {
 
 // --- ¡AÑADE ESTA NUEVA FUNCIÓN! ---
 // Obtiene una lista única de nombres de grupo existentes
-exports.obtenerGrupos = async (req, res) => { /* Tu código aquí */
-    try {
-        const grupos = await Usuario.distinct('nombreGrupo', { rol: { $in: ['cliente', 'online'] }, nombreGrupo: { $ne: null, $ne: '' } });
-        grupos.sort();
-        console.log(`[Backend] Grupos obtenidos: ${grupos.join(', ')}`); // LOG
-        res.json(grupos);
-    } catch (error) { console.error('[Backend] Error obtenerGrupos:', error); res.status(500).send('Error'); }
+exports.obtenerGrupos = async (req, res) => {
+  try {
+    // ¡CORRECCIÓN! Añadimos un filtro para que no incluya los 'null'
+    const grupos = await Usuario.distinct('nombreGrupo', { nombreGrupo: { $ne: null } });
+    res.json(grupos);
+  } catch (error) {
+    res.status(500).json({ msg: 'Error al obtener grupos' });
+  }
 };
-
 exports.actualizarDatosAdmin = async (req, res) => {
   const { idUsuario } = req.params;
   // Añadimos más campos que el admin puede querer editar
