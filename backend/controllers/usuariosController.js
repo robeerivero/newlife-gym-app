@@ -307,34 +307,25 @@ exports.cambiarContrasena = async (req, res) => {
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    const { sortBy, haPagado, rol, nombreGrupo } = req.query;
+    // Solo necesitamos filtrar por nombreGrupo
+    const { nombreGrupo } = req.query;
     let filterOptions = {};
-    let sortOptions = {};
+    // Ordenar siempre por nombre para consistencia
+    let sortOptions = { nombre: 1 };
 
-    // Filtrado
-    if (haPagado !== undefined) filterOptions.haPagado = haPagado === 'true';
-    if (rol) filterOptions.rol = rol;
-
-    // Filtro de Grupo CORREGIDO
-    if (nombreGrupo && nombreGrupo !== 'Todos') { // Solo filtra si NO es 'Todos'
+    // Filtro de Grupo
+    if (nombreGrupo && nombreGrupo !== 'Todos') { // Solo filtra si no es 'Todos'
         if (nombreGrupo === 'Sin Grupo') {
             filterOptions.nombreGrupo = { $in: [null, '', undefined] };
         } else {
             filterOptions.nombreGrupo = nombreGrupo;
         }
     }
-    // Si es 'Todos', NO se aplica filtro de grupo.
-
-    // Ordenación
-    if (sortBy === 'nombreGrupo') {
-      sortOptions = { nombreGrupo: 1, nombre: 1 };
-    } else {
-      sortOptions = { haPagado: 1, nombre: 1 }; // Orden por defecto
-    }
+    // Si es 'Todos', no se aplica filtro.
 
     const usuarios = await Usuario.find(filterOptions)
-                                  .sort(sortOptions)
-                                  .select('-contrasena'); // Nunca enviar la contraseña
+                                  .sort(sortOptions) // Ordena por nombre
+                                  .select('-contrasena');
     res.json(usuarios);
 
   } catch (error) {
