@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const Salud = require('../models/Salud');
 const Reserva = require('../models/Reserva');
-const Clase = require('../models/Clase');
 const prendasPath = path.join(__dirname, '../data/prendas_logros.json');
 const prendasLogros = JSON.parse(fs.readFileSync(prendasPath, 'utf-8'));
 
@@ -206,74 +205,74 @@ exports.obtenerPerfilUsuario = async (req, res) => {
 };
 
 exports.crearUsuario = async (req, res) => {
-  // 1. Añade 'nombreGrupo' a la extracción de datos
-  const { nombre, correo, contrasena, rol, tiposDeClases, esPremium, nombreGrupo } = req.body;
+    // Extrae nombreGrupo
+    const { nombre, correo, contrasena, rol, tiposDeClases, nombreGrupo, esPremium } = req.body; // Añadido esPremium por si acaso
 
-  try {
-    // --- Validaciones (sin cambios) ---
-    if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
-      return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
-    }
-    const valoresValidos = ['funcional', 'pilates', 'zumba'];
-    const tiposValidos = tiposDeClases.every((tipo) => valoresValidos.includes(tipo));
-    if (!tiposValidos) {
-      return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
-    }
-    
-    // --- Lógica de prendas y avatar (sin cambios) ---
-    const mapPrendas = {};
-    for (const prenda of prendasLogros) {
-      if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
-      if (!mapPrendas[prenda.key].includes(prenda.value)) {
-        mapPrendas[prenda.key].push(prenda.value);
-      }
-    }
-    const desbloqueadosPorDefecto = prendasLogros
-      .filter(p => p.desbloqueadoPorDefecto)
-      .map(p => ({ key: p.key, value: p.value }));
-    const avatar = {};
-    for (const d of desbloqueadosPorDefecto) {
-      if (!(d.key in avatar)) {
-        const valores = mapPrendas[d.key];
-        const idx = valores.indexOf(d.value);
-        if (idx !== -1) {
-          avatar[d.key] = idx; 
+    try {
+        const existeUsuario = await Usuario.findOne({ correo });
+        if (existeUsuario) {
+            return res.status(400).json({ msg: 'El correo ya está registrado.' });
         }
-      }
+
+        // --- VALIDACIONES DE TIPOS DE CLASE (COMO LAS TENÍAS) ---
+        if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
+            return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
+        }
+        const valoresValidos = ['funcional', 'pilates', 'zumba'];
+        const tiposValidos = tiposDeClases.every((tipo) => valoresValidos.includes(tipo));
+        if (!tiposValidos) {
+            return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
+        }
+        // --- FIN VALIDACIONES ---
+
+        // --- LÓGICA DE PRENDAS Y AVATAR POR DEFECTO (COMO LA TENÍAS) ---
+        const mapPrendas = {};
+        for (const prenda of prendasLogros) {
+          if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
+          if (!mapPrendas[prenda.key].includes(prenda.value)) {
+            mapPrendas[prenda.key].push(prenda.value);
+          }
+        }
+        const desbloqueadosPorDefecto = prendasLogros
+          .filter(p => p.desbloqueadoPorDefecto)
+          .map(p => ({ key: p.key, value: p.value }));
+        const avatar = {};
+        for (const d of desbloqueadosPorDefecto) {
+          if (!(d.key in avatar)) {
+            const valores = mapPrendas[d.key];
+            const idx = valores.indexOf(d.value);
+            if (idx !== -1) {
+              avatar[d.key] = idx;
+            }
+          }
+        }
+        // --- FIN LÓGICA PRENDAS/AVATAR ---
+
+        // --- ¡¡NO SE HASHEA LA CONTRASEÑA AQUÍ!! ---
+        const nuevoUsuario = new Usuario({
+            nombre,
+            correo,
+            contrasena, // <-- Contraseña en texto plano
+            rol: rol || 'cliente', // Rol por defecto si no se especifica
+            tiposDeClases,
+            nombreGrupo: nombreGrupo || null,
+            esPremium: esPremium || false, // Asignar esPremium si viene
+            avatar: avatar, // Asignar avatar por defecto
+            desbloqueados: desbloqueadosPorDefecto // Asignar desbloqueados por defecto
+            // haPagado será false por defecto (definido en el Modelo)
+        });
+
+        await nuevoUsuario.save(); // El hook pre('save') en Usuario.js la hashea
+
+        res.status(201).json({ msg: 'Usuario creado correctamente' }); // Mensaje simple
+
+    } catch (error) {
+        console.error('Error al crear usuario:', error.message);
+        if (error.code === 11000) {
+            return res.status(400).json({ msg: 'El correo electrónico ya está registrado.' });
+        }
+        res.status(500).json({ msg: 'Error en el servidor al crear usuario' });
     }
-    
-    // --- Hashear contraseña (Asegúrate de tener esta parte) ---
-    const salt = await bcrypt.genSalt(10);
-    const contrasenaHasheada = await bcrypt.hash(contrasena, salt);
-    // --- Fin Hashear ---
-
-    // 2. Añade 'nombreGrupo' al crear el nuevo usuario
-    const nuevoUsuario = new Usuario({
-      nombre,
-      correo,
-      contrasena: contrasenaHasheada, // ¡Usa la contraseña hasheada!
-      rol,
-      tiposDeClases,
-      esPremium: esPremium || false,
-      desbloqueados: desbloqueadosPorDefecto,
-      avatar,
-      nombreGrupo: nombreGrupo || null // <-- AÑADIDO (null si no se proporciona)
-    });
-
-    await nuevoUsuario.save();
-    
-    // Es mejor no devolver el objeto 'nuevoUsuario' completo aquí por seguridad (contraseña)
-    // Devuelve solo un mensaje de éxito o datos no sensibles.
-    res.status(201).json({ mensaje: 'Usuario creado exitosamente' }); 
-
-  } catch (error) {
-    console.error('Error al crear el usuario:', error);
-    // Controlar error de correo duplicado
-    if (error.code === 11000) {
-       return res.status(400).json({ mensaje: 'El correo electrónico ya está registrado.' });
-    }
-    res.status(500).json({ mensaje: 'Error al crear el usuario', error: error.message });
-  }
 };
 
 
@@ -308,43 +307,34 @@ exports.cambiarContrasena = async (req, res) => {
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    // Añadimos 'nombreGrupo' a los posibles query params
     const { sortBy, haPagado, rol, nombreGrupo } = req.query;
-
     let filterOptions = {};
     let sortOptions = {};
 
-    // 1. Filtrado
-    if (haPagado !== undefined) {
-      filterOptions.haPagado = haPagado === 'true';
-    }
-    if (rol) {
-      filterOptions.rol = rol;
-    }
-    // ¡NUEVO! Filtrar por grupo si se proporciona
-    if (nombreGrupo && nombreGrupo !== 'Todos') { // 'Todos' será la opción por defecto en frontend
-        // Si el grupo es 'Sin Grupo', busca los que tienen null o string vacío
+    // Filtrado
+    if (haPagado !== undefined) filterOptions.haPagado = haPagado === 'true';
+    if (rol) filterOptions.rol = rol;
+
+    // Filtro de Grupo CORREGIDO
+    if (nombreGrupo && nombreGrupo !== 'Todos') { // Solo filtra si NO es 'Todos'
         if (nombreGrupo === 'Sin Grupo') {
             filterOptions.nombreGrupo = { $in: [null, '', undefined] };
         } else {
             filterOptions.nombreGrupo = nombreGrupo;
         }
     }
+    // Si es 'Todos', NO se aplica filtro de grupo.
 
-
-    // 2. Ordenación
+    // Ordenación
     if (sortBy === 'nombreGrupo') {
       sortOptions = { nombreGrupo: 1, nombre: 1 };
     } else {
-      // Orden por defecto: los no pagados primero, luego por nombre
-      sortOptions = { haPagado: 1, nombre: 1 };
+      sortOptions = { haPagado: 1, nombre: 1 }; // Orden por defecto
     }
 
-    // 3. Ejecutar consulta
     const usuarios = await Usuario.find(filterOptions)
                                   .sort(sortOptions)
-                                  .select('-contrasena'); 
-
+                                  .select('-contrasena'); // Nunca enviar la contraseña
     res.json(usuarios);
 
   } catch (error) {
@@ -376,18 +366,30 @@ exports.obtenerGrupos = async (req, res) => {
 
 exports.actualizarDatosAdmin = async (req, res) => {
   const { idUsuario } = req.params;
-  const { nombreGrupo, haPagado } = req.body;
+  // Añadimos más campos que el admin puede querer editar
+  const { nombreGrupo, haPagado, nombre, correo, rol, esPremium, incluyePlanDieta, incluyePlanEntrenamiento, nuevaContrasena } = req.body;
 
   try {
     let fieldsToUpdate = {};
 
-    // Solo añadimos los campos si se enviaron en el body
-    if (nombreGrupo !== undefined) {
-      fieldsToUpdate.nombreGrupo = nombreGrupo;
+    // Comprobar y añadir cada campo si está presente en el body
+    if (nombre !== undefined) fieldsToUpdate.nombre = nombre;
+    if (correo !== undefined) fieldsToUpdate.correo = correo;
+    if (rol !== undefined) fieldsToUpdate.rol = rol;
+    if (nombreGrupo !== undefined) fieldsToUpdate.nombreGrupo = nombreGrupo;
+    if (haPagado !== undefined) fieldsToUpdate.haPagado = haPagado;
+    if (esPremium !== undefined) fieldsToUpdate.esPremium = esPremium;
+    if (incluyePlanDieta !== undefined) fieldsToUpdate.incluyePlanDieta = incluyePlanDieta;
+    if (incluyePlanEntrenamiento !== undefined) fieldsToUpdate.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
+
+    // Actualizar contraseña SOLO si se proporciona una nueva
+    if (nuevaContrasena) {
+       // ¡IMPORTANTE! Al usar findByIdAndUpdate, el hook pre('save') NO se ejecuta.
+       // Necesitamos hashear la contraseña aquí si se va a cambiar.
+       const salt = await bcrypt.genSalt(10);
+       fieldsToUpdate.contrasena = await bcrypt.hash(nuevaContrasena, salt);
     }
-    if (haPagado !== undefined) {
-      fieldsToUpdate.haPagado = haPagado;
-    }
+
 
     if (Object.keys(fieldsToUpdate).length === 0) {
       return res.status(400).json({ msg: 'No se enviaron datos para actualizar' });
@@ -396,18 +398,26 @@ exports.actualizarDatosAdmin = async (req, res) => {
     const usuario = await Usuario.findByIdAndUpdate(
       idUsuario,
       { $set: fieldsToUpdate },
-      { new: true }
+      { new: true, runValidators: true } // runValidators para asegurar que el rol sea válido
     ).select('-contrasena');
 
     if (!usuario) {
       return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    res.json(usuario);
+    res.json(usuario); // Devuelve el usuario actualizado (sin contraseña)
 
   } catch (error) {
     console.error('Error al actualizar datos de admin:', error);
-    res.status(500).send('Error en el servidor');
+     // Manejar error de validación (ej. rol inválido)
+    if (error.name === 'ValidationError') {
+        return res.status(400).json({ msg: error.message });
+    }
+     // Manejar error de correo duplicado si se intenta cambiar a uno existente
+    if (error.code === 11000) {
+        return res.status(400).json({ msg: 'El correo electrónico ya está en uso por otro usuario.' });
+    }
+    res.status(500).send('Error en el servidor al actualizar');
   }
 };
 
