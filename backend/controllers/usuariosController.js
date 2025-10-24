@@ -308,23 +308,32 @@ exports.cambiarContrasena = async (req, res) => {
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    const { sortBy, haPagado, rol } = req.query;
+    // Añadimos 'nombreGrupo' a los posibles query params
+    const { sortBy, haPagado, rol, nombreGrupo } = req.query;
 
     let filterOptions = {};
     let sortOptions = {};
 
     // 1. Filtrado
-    if (haPagado) {
-      // Filtra por 'true' o 'false'
+    if (haPagado !== undefined) {
       filterOptions.haPagado = haPagado === 'true';
     }
     if (rol) {
       filterOptions.rol = rol;
     }
+    // ¡NUEVO! Filtrar por grupo si se proporciona
+    if (nombreGrupo && nombreGrupo !== 'Todos') { // 'Todos' será la opción por defecto en frontend
+        // Si el grupo es 'Sin Grupo', busca los que tienen null o string vacío
+        if (nombreGrupo === 'Sin Grupo') {
+            filterOptions.nombreGrupo = { $in: [null, '', undefined] };
+        } else {
+            filterOptions.nombreGrupo = nombreGrupo;
+        }
+    }
+
 
     // 2. Ordenación
     if (sortBy === 'nombreGrupo') {
-      // Ordena por nombreGrupo (A-Z) y luego por nombre (A-Z)
       sortOptions = { nombreGrupo: 1, nombre: 1 };
     } else {
       // Orden por defecto: los no pagados primero, luego por nombre
@@ -334,12 +343,33 @@ exports.obtenerUsuarios = async (req, res) => {
     // 3. Ejecutar consulta
     const usuarios = await Usuario.find(filterOptions)
                                   .sort(sortOptions)
-                                  .select('-contrasena'); // No envíes la contraseña
+                                  .select('-contrasena'); 
 
     res.json(usuarios);
 
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
+    res.status(500).send('Error en el servidor');
+  }
+};
+
+// --- ¡AÑADE ESTA NUEVA FUNCIÓN! ---
+// Obtiene una lista única de nombres de grupo existentes
+exports.obtenerGrupos = async (req, res) => {
+  try {
+    // Busca todos los valores distintos de 'nombreGrupo' en usuarios clientes/online
+    // y excluye null o vacíos explícitamente si quieres.
+    const grupos = await Usuario.distinct('nombreGrupo', {
+       rol: { $in: ['cliente', 'online'] }, // Opcional: filtrar por rol
+       nombreGrupo: { $ne: null, $ne: '' } // Excluye nulos y vacíos
+    });
+
+    // Ordena alfabéticamente
+    grupos.sort();
+
+    res.json(grupos);
+  } catch (error) {
+    console.error('Error al obtener grupos:', error);
     res.status(500).send('Error en el servidor');
   }
 };

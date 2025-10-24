@@ -7,6 +7,7 @@ const {
   actualizarUsuario,
   obtenerUsuarios,
   obtenerUsuarioPorId,
+  obtenerGrupos,
   crearUsuario,
   eliminarUsuario,
   cambiarContrasena,
@@ -39,6 +40,7 @@ router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
 
 
 // RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
+router.get('/grupos', proteger, esAdministrador, obtenerGrupos);
 router.get('/', proteger, esAdministrador, obtenerUsuarios);
 router.get('/:idUsuario', proteger, esAdministrador, obtenerUsuarioPorId);
 router.post('/', proteger, esAdministrador, crearUsuario);
