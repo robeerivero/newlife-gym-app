@@ -334,23 +334,13 @@ exports.obtenerUsuarios = async (req, res) => {
 
 // --- ¡AÑADE ESTA NUEVA FUNCIÓN! ---
 // Obtiene una lista única de nombres de grupo existentes
-exports.obtenerGrupos = async (req, res) => {
-  try {
-    // Busca todos los valores distintos de 'nombreGrupo' en usuarios clientes/online
-    // y excluye null o vacíos explícitamente si quieres.
-    const grupos = await Usuario.distinct('nombreGrupo', {
-       rol: { $in: ['cliente', 'online'] }, // Opcional: filtrar por rol
-       nombreGrupo: { $ne: null, $ne: '' } // Excluye nulos y vacíos
-    });
-
-    // Ordena alfabéticamente
-    grupos.sort();
-
-    res.json(grupos);
-  } catch (error) {
-    console.error('Error al obtener grupos:', error);
-    res.status(500).send('Error en el servidor');
-  }
+exports.obtenerGrupos = async (req, res) => { /* Tu código aquí */
+    try {
+        const grupos = await Usuario.distinct('nombreGrupo', { rol: { $in: ['cliente', 'online'] }, nombreGrupo: { $ne: null, $ne: '' } });
+        grupos.sort();
+        console.log(`[Backend] Grupos obtenidos: ${grupos.join(', ')}`); // LOG
+        res.json(grupos);
+    } catch (error) { console.error('[Backend] Error obtenerGrupos:', error); res.status(500).send('Error'); }
 };
 
 exports.actualizarDatosAdmin = async (req, res) => {
