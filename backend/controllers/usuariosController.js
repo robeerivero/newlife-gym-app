@@ -307,24 +307,22 @@ exports.cambiarContrasena = async (req, res) => {
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    // Solo necesitamos filtrar por nombreGrupo
-    const { nombreGrupo } = req.query;
+    const { nombreGrupo } = req.query; // Solo necesitamos este filtro
     let filterOptions = {};
-    // Ordenar siempre por nombre para consistencia
-    let sortOptions = { nombre: 1 };
+    const sortOptions = { nombre: 1 }; // Ordenar siempre por nombre
 
     // Filtro de Grupo
-    if (nombreGrupo && nombreGrupo !== 'Todos') { // Solo filtra si no es 'Todos'
+    if (nombreGrupo && nombreGrupo !== 'Todos') {
         if (nombreGrupo === 'Sin Grupo') {
             filterOptions.nombreGrupo = { $in: [null, '', undefined] };
         } else {
             filterOptions.nombreGrupo = nombreGrupo;
         }
     }
-    // Si es 'Todos', no se aplica filtro.
+    // Si es 'Todos', no se aplica filtro
 
     const usuarios = await Usuario.find(filterOptions)
-                                  .sort(sortOptions) // Ordena por nombre
+                                  .sort(sortOptions)
                                   .select('-contrasena');
     res.json(usuarios);
 
