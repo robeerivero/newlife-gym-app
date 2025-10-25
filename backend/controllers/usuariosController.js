@@ -511,7 +511,7 @@ exports.eliminarUsuario = async (req, res) => {
     // -------------------
     
     // Usamos .remove() para activar el middleware 'pre("remove")' en Usuario.js
-    await usuario.remove(); 
+    await usuario.deleteOne(); 
 
     // --- LOG AÑADIDO ---
     console.log(`[CONTROLLER] 10. Usuario eliminado de la DB.`);

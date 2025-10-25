@@ -90,7 +90,7 @@ esquemaUsuario.pre('save', async function (next) {
   next();
 });
 
-esquemaUsuario.pre('remove', async function(next) {
+esquemaUsuario.pre('deleteOne', { document: true, query: false }, async function(next) {
   try {
     // 'this._id' es el ID del usuario que se va a borrar
     await Promise.all([
