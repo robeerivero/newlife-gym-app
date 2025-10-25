@@ -486,25 +486,43 @@ exports.actualizarUsuario = async (req, res) => {
 };
 
 // Eliminar un usuario
+// ... (otros exports)
+
+/**
+ * [ADMIN] Elimina un usuario por ID
+ */
 exports.eliminarUsuario = async (req, res) => {
+  // --- LOG AÑADIDO ---
+  console.log(`[CONTROLLER] 8. eliminarUsuario iniciado para ID: ${req.params.idUsuario}`);
+  // -------------------
+
   try {
-    // 1. Buscamos al usuario por su ID
-    const usuario = await Usuario.findById(req.params.idUsuario); // Asumiendo que el ID viene en la URL
+    const usuario = await Usuario.findById(req.params.idUsuario);
 
     if (!usuario) {
+      // --- LOG AÑADIDO ---
+      console.log(`[CONTROLLER] 9. ERROR: Usuario no encontrado.`);
+      // -------------------
       return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    // 2. ¡Usamos .remove()!
-    // Esto activará el 'pre-remove' hook que definimos en el modelo Usuario.js
-    // y borrará todos los datos asociados.
-    await usuario.remove();
+    // --- LOG AÑADIDO ---
+    console.log(`[CONTROLLER] 9. Usuario encontrado. Llamando a .remove()`);
+    // -------------------
+    
+    // Usamos .remove() para activar el middleware 'pre("remove")' en Usuario.js
+    await usuario.remove(); 
 
-    res.json({ msg: 'Usuario y todos sus datos relacionados eliminados correctamente' });
+    // --- LOG AÑADIDO ---
+    console.log(`[CONTROLLER] 10. Usuario eliminado de la DB.`);
+    // -------------------
+    res.json({ msg: 'Usuario eliminado correctamente' });
 
   } catch (error) {
-    console.error('Error al eliminar usuario:', error);
-    res.status(500).send('Error en el servidor');
+    // --- LOG AÑADIDO ---
+    console.error('[CONTROLLER] 10. ¡ERROR! Capturado en Controller:', error);
+    // -------------------
+    res.status(500).json({ msg: 'Error en el servidor' });
   }
 };
 
