@@ -112,7 +112,7 @@ exports.obtenerPromptParaRevision = async (req, res) => {
  */
 exports.obtenerPlanesPendientes = async (req, res) => {
  try {
-    const planes = await PlanEntrenamiento.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre correo'); // Quitamos 'pendiente_ia'
+    const planes = await PlanEntrenamiento.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre nombreGrupo'); // Quitamos 'pendiente_ia'
     res.status(200).json(planes);
  } catch(error){ console.error('Error al obtener planes pendientes (entrenamiento):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
 };

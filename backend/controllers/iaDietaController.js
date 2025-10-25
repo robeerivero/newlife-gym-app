@@ -102,7 +102,7 @@ exports.obtenerPromptParaRevision = async (req, res) => {
  */
 exports.obtenerPlanesPendientes = async (req, res) => {
   try {
-    const planes = await PlanDieta.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre correo'); // Quitamos 'pendiente_ia'
+    const planes = await PlanDieta.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre nombreGrupo'); // Quitamos 'pendiente_ia'
     res.status(200).json(planes);
   } catch(error){ console.error('Error al obtener planes pendientes (dieta):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
 };
