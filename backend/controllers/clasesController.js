@@ -83,52 +83,25 @@ exports.crearClasesRecurrentes = async (req, res) => {
 
 // Obtener todas las clases (opcionalmente por fecha)
 exports.obtenerClases = async (req, res) => {
+  let filtro = {}; // Empezamos con filtro vacío
   const { fecha } = req.query;
-  const tiposDeClases = req.user?.tiposDeClases || [];
-  const userId = req.user?._id;
+
+  if (fecha) {
+    // Si se proporciona fecha, filtramos por ese día (esto está bien)
+    const diaInicio = new Date(fecha);
+    diaInicio.setUTCHours(0, 0, 0, 0);
+    const diaFin = new Date(diaInicio);
+    diaFin.setUTCDate(diaFin.getUTCDate() + 1);
+    filtro.fecha = { $gte: diaInicio, $lt: diaFin };
+  }
+  
+  // ¡HEMOS ELIMINADO EL BLOQUE 'ELSE'!
+  // Si no hay 'fecha', 'filtro' se queda como {} y trae todo.
 
   try {
-    // Todas las reservas activas del usuario
-    const reservasUsuario = await Reserva.find({ usuario: userId });
-    const clasesReservadasIds = reservasUsuario.map(r => r.clase.toString());
-
-    // --- ¡LÓGICA DE FILTRO MEJORADA! ---
-    let filtro = { nombre: { $in: tiposDeClases } };
-    const ahora = new Date();
-
-    if (fecha) {
-      const fechaSeleccionada = new Date(fecha);
-      fechaSeleccionada.setUTCHours(0, 0, 0, 0);
-
-      // Define el rango del día seleccionado
-      const inicioDelDia = fechaSeleccionada;
-      const finDelDia = new Date(fechaSeleccionada.getTime() + 24 * 60 * 60 * 1000);
-      
-      filtro.fecha = {
-        $lt: finDelDia,
-      };
-
-      // Compara el inicio del día con 'ahora'.
-      // Si el día seleccionado es 'hoy', filtra desde 'ahora' (no mostrar clases pasadas de hoy).
-      // Si el día seleccionado es futuro, filtra desde el 'inicioDelDia'.
-      filtro.fecha.$gte = new Date(Math.max(ahora, inicioDelDia));
-
-    } else {
-      // Fallback si no se envía fecha (solo mostrar clases futuras)
-      filtro.fecha = { $gte: ahora };
-    }
-    // --- FIN DE LA LÓGICA MEJORADA ---
-
-    // Excluir clases ya reservadas por el usuario
-    if (clasesReservadasIds.length > 0) {
-      filtro._id = { $nin: clasesReservadasIds };
-    }
-
-    const clases = await Clase.find(filtro).sort({ fecha: 1 }); // Ordena por fecha
-    res.status(200).json(clases);
-
+    const clases = await Clase.find(filtro).sort({ fecha: 1, horaInicio: 1 });
+    res.json(clases);
   } catch (error) {
-    console.error('Error al obtener las clases:', error);
     res.status(500).json({ mensaje: 'Error al obtener las clases', error });
   }
 };
