@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-
+const Reserva = require('./Reserva');
+const PlanDieta = require('./PlanDieta');
+const PlanEntrenamiento = require('./PlanEntrenamiento');
 const esquemaUsuario = new mongoose.Schema({
   nombre: { type: String, required: true, trim: true },
   correo: { type: String, required: true, unique: true, trim: true },
