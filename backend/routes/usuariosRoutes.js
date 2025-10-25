@@ -45,7 +45,10 @@ router.get('/', proteger, esAdministrador, obtenerUsuarios);
 router.get('/:idUsuario', proteger, esAdministrador, obtenerUsuarioPorId);
 router.post('/', proteger, esAdministrador, crearUsuario);
 router.put('/:idUsuario', proteger, esAdministrador, actualizarDatosAdmin); 
-router.delete('/:idUsuario', proteger, esAdministrador, eliminarUsuario);
+router.delete('/:idUsuario', proteger, esAdministrador, (req, res, next) => {
+  console.log(`[ROUTE] 7. DELETE /api/usuarios/${req.params.idUsuario} - Petición recibida.`);
+  next(); // Pasa al controlador
+}, eliminarUsuario);
 
 
 module.exports = router;
