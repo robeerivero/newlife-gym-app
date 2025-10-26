@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/online_client_viewmodel.dart';
 import '../client/rutinas_screen.dart';
@@ -81,3 +81,4 @@ class _OnlineClientScreenState extends State<OnlineClientScreen> {
     );
   }
 }
+*/

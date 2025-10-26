@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
 import '../models/clase.dart';
+import '../models/reserva.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ClassService {
@@ -27,6 +28,30 @@ class ClassService {
     return [];
   }
 
+  /// Trae las reservas del usuario para un rango de fechas (para el calendario)
+  Future<List<Reserva>> fetchReservasPorRango(DateTime fechaInicio, DateTime fechaFin) async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return [];
+
+    // Formateamos las fechas como YYYY-MM-DD
+    final String inicio = fechaInicio.toIso8601String().split('T')[0];
+    final String fin = fechaFin.toIso8601String().split('T')[0];
+    
+    // Usamos el nuevo endpoint del backend
+    final uri = Uri.parse('${AppConstants.baseUrl}/api/reservas/mis-reservas?fechaInicio=$inicio&fechaFin=$fin');
+
+    final response = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      // Usamos el modelo Reserva modificado
+      return data.map<Reserva>((json) => Reserva.fromJson(json)).toList();
+    }
+    return [];
+  }
 
   /// Clases próximas para el usuario
   Future<List<Clase>?> fetchNextClasses() async {

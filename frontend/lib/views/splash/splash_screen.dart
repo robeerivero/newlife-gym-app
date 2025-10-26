@@ -27,13 +27,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           case '/admin':
             Navigator.pushReplacementNamed(context, '/admin');
             break;
-          case '/online_client':
-            Navigator.pushReplacementNamed(context, '/online_client');
+          case '/online':
+            Navigator.pushReplacementNamed(context, '/online');
             break;
           case '/client':
             Navigator.pushReplacementNamed(context, '/client');
             break;
-          case '/login':
           default:
             Navigator.pushReplacementNamed(context, '/login');
         }

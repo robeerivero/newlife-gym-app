@@ -56,7 +56,7 @@ class SplashViewModel extends ChangeNotifier {
         nextRoute = '/admin';
         break;
       case 'online':
-        nextRoute = '/online_client';
+        nextRoute = '/online';
         break;
       default:
         nextRoute = '/client';

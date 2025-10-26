@@ -141,99 +141,105 @@ class _ClassManagementView extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(clase == null ? 'Nueva Clase' : 'Editar Clase'),
-        content: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: selectedClassType,
-                  items: _classTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                  onChanged: (v) => selectedClassType = v,
-                  decoration: const InputDecoration(labelText: 'Tipo de Clase'),
-                  validator: (v) => v == null ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedDay,
-                  items: _daysOfWeek.map((day) => DropdownMenuItem(value: day, child: Text(day))).toList(),
-                  onChanged: (v) => selectedDay = v,
-                  decoration: const InputDecoration(labelText: 'Día'),
-                  validator: (v) => v == null ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () async {
-                    final picked = await showTimePicker(context: context, initialTime: startTime ?? TimeOfDay.now());
-                    if (picked != null) startTime = picked;
-                  },
-                  child: AbsorbPointer(
-                    child: TextFormField(
-                      decoration: InputDecoration(
-                        labelText: startTime == null ? 'Seleccionar Hora de Inicio' : 'Hora Inicio: ${_formatTime(startTime!)}',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(clase == null ? 'Nueva Clase' : 'Editar Clase'),
+          content: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedClassType,
+                    items: _classTypes.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                    onChanged: (v) => setState(() => selectedClassType = v),
+                    decoration: const InputDecoration(labelText: 'Tipo de Clase'),
+                    validator: (v) => v == null ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedDay,
+                    items: _daysOfWeek.map((day) => DropdownMenuItem(value: day, child: Text(day))).toList(),
+                    onChanged: (v) => setState(() => selectedDay = v),
+                    decoration: const InputDecoration(labelText: 'Día'),
+                    validator: (v) => v == null ? 'Requerido' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showTimePicker(context: context, initialTime: startTime ?? TimeOfDay.now());
+                      if (picked != null) setState(() => startTime = picked);
+                    },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        decoration: InputDecoration(
+                          labelText: startTime == null
+                              ? 'Seleccionar Hora de Inicio'
+                              : 'Hora Inicio: ${_formatTime(startTime!)}',
+                        ),
+                        validator: (v) => startTime == null ? 'Requerido' : null,
                       ),
-                      validator: (v) => startTime == null ? 'Requerido' : null,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () async {
-                    final picked = await showTimePicker(context: context, initialTime: endTime ?? TimeOfDay.now());
-                    if (picked != null) endTime = picked;
-                  },
-                  child: AbsorbPointer(
-                    child: TextFormField(
-                      decoration: InputDecoration(
-                        labelText: endTime == null ? 'Seleccionar Hora de Fin' : 'Hora Fin: ${_formatTime(endTime!)}',
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showTimePicker(context: context, initialTime: endTime ?? TimeOfDay.now());
+                      if (picked != null) setState(() => endTime = picked);
+                    },
+                    child: AbsorbPointer(
+                      child: TextFormField(
+                        decoration: InputDecoration(
+                          labelText: endTime == null
+                              ? 'Seleccionar Hora de Fin'
+                              : 'Hora Fin: ${_formatTime(endTime!)}',
+                        ),
+                        validator: (v) => endTime == null ? 'Requerido' : null,
                       ),
-                      validator: (v) => endTime == null ? 'Requerido' : null,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: maxParticipantsController,
-                  decoration: const InputDecoration(labelText: 'Máximo Participantes'),
-                  keyboardType: TextInputType.number,
-                  validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: maxParticipantsController,
+                    decoration: const InputDecoration(labelText: 'Máximo Participantes'),
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(
-            child: const Text('Guardar'),
-            onPressed: () async {
-              if (!_formKey.currentState!.validate()) return;
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              child: const Text('Guardar'),
+              onPressed: () async {
+                if (!_formKey.currentState!.validate()) return;
 
-              final now = DateTime.now();
-              final selectedDate = vm.selectedDate ?? now;
-              final claseNueva = Clase(
-                id: clase?.id ?? '',
-                nombre: selectedClassType!,
-                dia: selectedDay!,
-                horaInicio: _formatTime(startTime!),
-                horaFin: _formatTime(endTime!),
-                fecha: DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-                cuposDisponibles: clase?.cuposDisponibles ?? 0,
-                maximoParticipantes: int.tryParse(maxParticipantsController.text) ?? 0,
-                listaEspera: clase?.listaEspera ?? [],
-              );
-              if (clase == null) {
-                await vm.addClass(claseNueva);
-              } else {
-                await vm.editClass(claseNueva.id, claseNueva);
-              }
-              Navigator.pop(context);
-            },
-          ),
-        ],
+                final now = DateTime.now();
+                final selectedDate = vm.selectedDate ?? now;
+                final claseNueva = Clase(
+                  id: clase?.id ?? '',
+                  nombre: selectedClassType!,
+                  dia: selectedDay!,
+                  horaInicio: _formatTime(startTime!),
+                  horaFin: _formatTime(endTime!),
+                  fecha: DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
+                  cuposDisponibles: clase?.cuposDisponibles ?? 0,
+                  maximoParticipantes: int.tryParse(maxParticipantsController.text) ?? 0,
+                  listaEspera: clase?.listaEspera ?? [],
+                );
+                if (clase == null) {
+                  await vm.addClass(claseNueva);
+                } else {
+                  await vm.editClass(claseNueva.id, claseNueva);
+                }
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -247,4 +253,5 @@ class _ClassManagementView extends StatelessWidget {
     final parts = time.split(':');
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
+
 }

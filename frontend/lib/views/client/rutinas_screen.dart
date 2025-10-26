@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../viewmodels/rutinas_viewmodel.dart';
-import '../../models/rutina.dart';
+/*import '../../models/rutina.dart';
 
 class RutinasScreen extends StatelessWidget {
   const RutinasScreen({super.key});
@@ -11,7 +11,15 @@ class RutinasScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => RutinasViewModel()..fetchRutinas(),
-      child: const _RutinasBody(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE3F2FD),
+        appBar: AppBar(
+          title: const Text('Mis Rutinas', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color(0xFF1E88E5),
+          elevation: 0,
+        ),
+        body: const _RutinasBody(),
+      ),
     );
   }
 }
@@ -138,3 +146,4 @@ class _RutinasBody extends StatelessWidget {
     );
   }
 }
+*/

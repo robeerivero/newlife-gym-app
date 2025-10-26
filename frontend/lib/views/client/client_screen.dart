@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/client_viewmodel.dart';
 import 'class_screen.dart';
-import 'diet_screen.dart';
+import 'premium_diet_display_screen.dart';
 import 'video_screen.dart';
 import 'profile_screen.dart';
 import 'salud_screen.dart';
@@ -19,7 +19,7 @@ class _ClientScreenState extends State<ClientScreen> {
 
   final List<Widget> _screens = const [
     ClassScreen(),
-    DietScreen(),
+    PremiumDietDisplayScreen(),
     VideoScreen(),
     ProfileScreen(),
     SaludScreen(),

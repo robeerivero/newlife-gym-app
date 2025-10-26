@@ -1,12 +1,16 @@
+// screens/qr_scan_screen.dart
+// --- ¡AJUSTADO! ---
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../viewmodels/qr_scan_viewmodel.dart';
 
 class QRScanScreen extends StatelessWidget {
-  final String codigoClase;
+  // final String codigoClase; // <-- ELIMINAMOS ESTO
 
-  const QRScanScreen({Key? key, required this.codigoClase}) : super(key: key);
+  // const QRScanScreen({Key? key, required this.codigoClase}) : super(key: key); // <-- ELIMINAMOS ESTO
+  const QRScanScreen({Key? key}) : super(key: key); // <-- AÑADIMOS ESTE
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +48,8 @@ class _QRScanBodyState extends State<_QRScanBody> {
 
     if (scannedData != null && !vm.alreadyScanned) {
       vm.alreadyScanned = true;
+      // Esta función (que ya tenías) envía el código escaneado
+      // directamente al backend para su validación.
       vm.registrarAsistencia(scannedData);
     }
   }

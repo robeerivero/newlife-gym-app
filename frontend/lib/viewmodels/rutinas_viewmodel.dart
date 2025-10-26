@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/rutinas_service.dart';
+/*import '../services/rutinas_service.dart';
 import '../models/rutina.dart';
 
 class RutinasViewModel extends ChangeNotifier {
@@ -25,3 +25,4 @@ class RutinasViewModel extends ChangeNotifier {
   }
   
 }
+*/

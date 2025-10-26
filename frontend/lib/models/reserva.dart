@@ -1,14 +1,16 @@
+import 'clase.dart'; // <-- Importamos el modelo Clase
+
 class Reserva {
   final String id;
   final String usuario;
-  final String clase;
+  final Clase clase; // <-- ¡CAMBIO! De String a Clase
   final DateTime fechaReserva;
   final bool asistio;
 
   Reserva({
     required this.id,
     required this.usuario,
-    required this.clase,
+    required this.clase, // <-- ¡CAMBIO!
     required this.fechaReserva,
     required this.asistio,
   });
@@ -17,7 +19,8 @@ class Reserva {
     return Reserva(
       id: json['_id'] ?? '',
       usuario: json['usuario'] ?? '',
-      clase: json['clase'] ?? '',
+      // ¡CAMBIO! Ahora parseamos el objeto 'clase' anidado
+      clase: Clase.fromJson(json['clase'] as Map<String, dynamic>), 
       fechaReserva: DateTime.parse(json['fechaReserva']),
       asistio: json['asistio'] ?? false,
     );
