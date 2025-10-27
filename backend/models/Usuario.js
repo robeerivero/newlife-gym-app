@@ -66,16 +66,24 @@ const esquemaUsuario = new mongoose.Schema({
     min: 40,
     default: 70
   },
-  nivelActividad: {
+  ocupacion: {
     type: String,
-    enum: ['sedentario', 'ligero', 'moderado', 'activo', 'muy_activo'],
-    default: 'sedentario'
+    enum: ['sedentaria', 'ligera', 'activa'],
+    default: 'sedentaria'
+  },
+  ejercicio: {
+    type: String,
+    enum: ['0', '1-3', '4-5', '6-7'],
+    default: '0'
   },
   objetivo: {
     type: String,
     enum: ['perder', 'mantener', 'ganar'],
     default: 'mantener'
   },
+  historialMedico: { type: String, default: '' },
+  horarios: { type: String, default: '' },
+  platosFavoritos: { type: String, default: '' },
   
   // Resultado del cálculo (lo guardaremos aquí)
   kcalObjetivo: {
