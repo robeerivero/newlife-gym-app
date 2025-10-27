@@ -27,7 +27,10 @@ const planEntrenamientoSchema = new mongoose.Schema({
     premiumMeta: { type: String },
     premiumFoco: { type: String },
     premiumEquipamiento: { type: String },
-    premiumTiempo: { type: Number }
+    premiumTiempo: { type: Number },
+    premiumNivel: { type: String },
+    premiumDiasSemana: { type: Number },
+    premiumLesiones: { type: String }
   },
   planGenerado: [diaEntrenamientoSchema],
   estado: {
