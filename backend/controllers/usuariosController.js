@@ -596,6 +596,9 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
   // --- ¡CAMBIO! Recibimos los nuevos campos ---
   const { peso, altura, edad, genero, ocupacion, ejercicio, objetivo } = req.body;
 
+  // --- LOG DE DEBUG ---
+  console.log('[actualizarDatosMetabolicos] Recibido:', req.body);
+
   try {
     // 1. Calcular TMB (Sin cambios)
     let tmb;
@@ -605,59 +608,43 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
       tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
     }
 
-    // --- ¡¡LÓGICA MEJORADA!! (Tu queja de las 2661 kcal) ---
-    // 2. Calcular TDEE (Gasto Energético Total Diario)
+    // --- ¡¡LÓGICA MEJORADA!! ---
     const factoresOcupacion = {
       sedentaria: 1.2,
       ligera: 1.375,
       activa: 1.55
     };
-    
-    // Calorías extra por ejercicio (ajusta estos valores)
     const caloriasEjercicio = {
-      '0': 0,
-      '1-3': 300,
-      '4-5': 500,
-      '6-7': 700
+      '0': 0, '1-3': 300, '4-5': 500, '6-7': 700 // Ajusta estos valores
     };
 
-    // El TDEE = (TMB * Ocupación) + Ejercicio
     const tdee = (tmb * (factoresOcupacion[ocupacion] || 1.2)) + (caloriasEjercicio[ejercicio] || 0);
     // --- FIN LÓGICA MEJORADA ---
 
-    // 3. Ajustar Kcal según el Objetivo (Superávit/Déficit más controlados)
     let kcalObjetivo;
     switch (objetivo) {
       case 'perder':
         kcalObjetivo = tdee - 500;
-        // Aseguramos que el déficit nunca sea menor que la TMB
-        kcalObjetivo = Math.max(kcalObjetivo, tmb + 100); 
+        kcalObjetivo = Math.max(kcalObjetivo, tmb + 100); // No bajar de TMB
         break;
       case 'ganar':
-        kcalObjetivo = tdee + 300; // Un superávit de +300 es más seguro
+        kcalObjetivo = tdee + 300;
         break;
       case 'mantener':
       default:
         kcalObjetivo = tdee;
     }
-
     kcalObjetivo = Math.round(kcalObjetivo);
 
     // 4. Guardar TODOS los datos nuevos en el Usuario
     const usuario = await Usuario.findByIdAndUpdate(
       id,
       {
-        peso,
-        altura,
-        edad,
-        genero,
-        // --- ¡CAMBIO! Guardamos los nuevos campos ---
-        ocupacion,  // Guardamos 'ocupacion'
-        ejercicio,  // Guardamos 'ejercicio'
-        nivelActividad: null, // Opcional: anular el campo antiguo
-        // ------------------------------------
-        objetivo,
-        kcalObjetivo // ¡Guardamos el nuevo cálculo!
+        peso, altura, edad, genero, objetivo,
+        ocupacion,  // <-- NUEVO
+        ejercicio,  // <-- NUEVO
+        nivelActividad: null, // Anulamos el antiguo
+        kcalObjetivo 
       },
       { new: true }
     );
@@ -671,7 +658,7 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error al calcular datos metabólicos:', error);
-    res.status(500).json({ mensaje: 'Error en el servidor' });
+    console.error('Error al actualizar datos metabólicos:', error);
+    res.status(500).json({ mensaje: 'Error en el servidor', error: error.message });
   }
 };

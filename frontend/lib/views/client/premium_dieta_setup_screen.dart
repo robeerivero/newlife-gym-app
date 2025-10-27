@@ -1,13 +1,11 @@
 // screens/client/premium_dieta_setup_screen.dart
-// ¡MODIFICADO! Se ajusta el formulario a la nueva lógica de Kcal y Prompt.
-// ¡CORREGIDO! Se elimina snackbar_helper y se usa ScaffoldMessenger.
+// ¡¡VERSIÓN FINAL!! Lógica de _submit corregida + Estilo de diet_display
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/usuario.dart';
 import '../../services/ia_dieta_service.dart';
 import '../../services/user_service.dart'; // Importar UserService
-// import '../../utils/snackbar_helper.dart'; // <-- ELIMINADO
 
 class PremiumDietaSetupScreen extends StatefulWidget {
   final Usuario usuario;
@@ -22,25 +20,24 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
 
   // --- Servicios ---
   final IADietaService _dietaService = IADietaService();
-  final UserService _userService = UserService(); // Añadido para actualizar Kcal
+  final UserService _userService = UserService(); // ¡Importante!
 
   // --- Controllers (Metabólicos) ---
   late TextEditingController _pesoController;
   late TextEditingController _alturaController;
   late TextEditingController _edadController;
   String? _genero;
-  // String? _nivelActividad; // <-- ELIMINADO
-  String? _ocupacion;      // <-- AÑADIDO
-  String? _ejercicio;      // <-- AÑADIDO
+  String? _ocupacion;
+  String? _ejercicio;
   String? _objetivo;
-  int _kcalObjetivo = 0; // Para mostrar el cálculo
+  int _kcalObjetivo = 0; 
 
   // --- Controllers (Preferencias Dieta) ---
   late TextEditingController _alergiasController;
   late TextEditingController _preferenciasController;
-  late TextEditingController _historialMedicoController; // <-- AÑADIDO
-  late TextEditingController _horariosController;        // <-- AÑADIDO
-  late TextEditingController _platosFavoritosController; // <-- AÑADIDO
+  late TextEditingController _historialMedicoController; 
+  late TextEditingController _horariosController;        
+  late TextEditingController _platosFavoritosController; 
   int _numComidas = 4;
 
   // --- Estado de UI ---
@@ -50,6 +47,12 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   
   bool get puedeSolicitar => _estadoPlan == 'pendiente_solicitud' || _estadoPlan == null;
 
+  // --- Colores del Tema ---
+  static const Color _colorFondo = Color(0xFFE3F2FD); // Azul claro (de diet_display)
+  static const Color _colorAppBar = Color(0xFF1E88E5); // Azul primario (de diet_display)
+  static const Color _colorIconos = Color(0xFF1E88E5); // Iconos de campos
+  static const Color _colorCampos = Colors.white;     // Fondo de campos
+
   @override
   void initState() {
     super.initState();
@@ -58,22 +61,20 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   }
 
   void _initializeState() {
-    // Datos Metabólicos
+    // Metabólicos
     _pesoController = TextEditingController(text: widget.usuario.peso.toStringAsFixed(1));
     _alturaController = TextEditingController(text: widget.usuario.altura.toStringAsFixed(0));
     _edadController = TextEditingController(text: widget.usuario.edad.toString());
     _genero = widget.usuario.genero;
-    // _nivelActividad = widget.usuario.nivelActividad; // <-- ELIMINADO
-    _ocupacion = widget.usuario.ocupacion;      // <-- AÑADIDO
-    _ejercicio = widget.usuario.ejercicio;      // <-- AÑADIDO
+    _ocupacion = widget.usuario.ocupacion;
+    _ejercicio = widget.usuario.ejercicio;
     _objetivo = widget.usuario.objetivo;
-    _kcalObjetivo = widget.usuario.kcalObjetivo; // Kcal guardadas
+    _kcalObjetivo = widget.usuario.kcalObjetivo; 
 
-    // Preferencias de Dieta
+    // Preferencias
     _alergiasController = TextEditingController(text: widget.usuario.dietaAlergias);
     _preferenciasController = TextEditingController(text: widget.usuario.dietaPreferencias);
     _numComidas = widget.usuario.dietaComidas;
-    // --- AÑADIDOS ---
     _historialMedicoController = TextEditingController(text: widget.usuario.historialMedico);
     _horariosController = TextEditingController(text: widget.usuario.horarios);
     _platosFavoritosController = TextEditingController(text: widget.usuario.platosFavoritos);
@@ -81,18 +82,14 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   
   @override
   void dispose() {
-    // Metabólicos
     _pesoController.dispose();
     _alturaController.dispose();
     _edadController.dispose();
-    
-    // Preferencias
     _alergiasController.dispose();
     _preferenciasController.dispose();
-    _historialMedicoController.dispose(); // <-- AÑADIDO
-    _horariosController.dispose();        // <-- AÑADIDO
-    _platosFavoritosController.dispose(); // <-- AÑADIDO
-
+    _historialMedicoController.dispose();
+    _horariosController.dispose();
+    _platosFavoritosController.dispose();
     super.dispose();
   }
   
@@ -100,21 +97,17 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     setState(() => _isLoading = true);
     try {
       final estado = await _dietaService.obtenerEstadoPlanDelMes();
-      setState(() {
-        _estadoPlan = estado;
-        _isLoading = false;
-      });
+      setState(() { _estadoPlan = estado; _isLoading = false; });
     } catch (e) {
-      setState(() {
-        _error = 'Error al cargar estado: $e';
-        _isLoading = false;
-      });
+      setState(() { _error = 'Error al cargar estado: $e'; _isLoading = false; });
     }
   }
 
+  // =================================================================
+  //                 FUNCIÓN _submit CORREGIDA
+  // =================================================================
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
     setState(() { _isLoading = true; _error = null; });
 
     try {
@@ -124,26 +117,27 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         'altura': double.tryParse(_alturaController.text) ?? widget.usuario.altura,
         'edad': int.tryParse(_edadController.text) ?? widget.usuario.edad,
         'genero': _genero,
-        // 'nivelActividad': _nivelActividad, // <-- ELIMINADO
-        'ocupacion': _ocupacion,             // <-- AÑADIDO
-        'ejercicio': _ejercicio,             // <-- AÑADIDO
+        'ocupacion': _ocupacion,
+        'ejercicio': _ejercicio,
         'objetivo': _objetivo,
       };
 
+      // --- ¡¡LÍNEAS RE-AÑADIDAS!! ---
       // Llamamos a UserService para actualizar y recalcular
       final respuestaKcal = await _userService.actualizarDatosMetabolicos(datosMetabolicos);
-      
       if (respuestaKcal == null) {
         throw Exception('Error al actualizar datos metabólicos');
       }
 
+      // Usamos las Kcal recién calculadas
       final int nuevasKcal = respuestaKcal['kcalObjetivo'] ?? _kcalObjetivo;
-      setState(() => _kcalObjetivo = nuevasKcal); // Actualiza la UI
+      setState(() => _kcalObjetivo = nuevasKcal); 
+      // --- FIN DE LA CORRECCIÓN ---
 
       // --- PASO 2: Solicitar el Plan de Dieta con TODOS los datos ---
       final Map<String, dynamic> datosSolicitud = {
-        ...datosMetabolicos, // Incluye peso, altura, ocupacion, etc.
-        'kcalObjetivo': nuevasKcal, // ¡La nueva Kcal calculada!
+        ...datosMetabolicos, 
+        'kcalObjetivo': nuevasKcal, // <-- Se usan las nuevas Kcal
         
         // Preferencias
         'dietaAlergias': _alergiasController.text.trim(),
@@ -157,73 +151,52 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       final bool solicitado = await _dietaService.solicitarPlanDieta(datosSolicitud);
 
       if (solicitado) {
-        setState(() {
-          _isLoading = false;
-          _estadoPlan = 'pendiente_revision'; // Actualiza el estado local
-        });
-        
-        // --- ¡¡CAMBIO AQUÍ!! ---
+        setState(() { _isLoading = false; _estadoPlan = 'pendiente_revision'; });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Plan solicitado con éxito! Será revisado.'),
-              backgroundColor: Colors.green,
-            ),
+            const SnackBar( content: Text('¡Plan solicitado con éxito! Será revisado.'), backgroundColor: Colors.green, ),
           );
         }
-        // -------------------------
-
       } else {
         throw Exception('Error al solicitar el plan de dieta');
       }
 
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-
-      // --- ¡¡CAMBIO AQUÍ!! ---
+      setState(() { _isLoading = false; _error = e.toString(); });
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_error ?? 'Error desconocido al enviar'),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            SnackBar( content: Text(_error ?? 'Error desconocido al enviar'), backgroundColor: Theme.of(context).colorScheme.error, ),
           );
       }
-      // -------------------------
     }
   }
+  // =================================================================
+  //               FIN DE LA FUNCIÓN _submit
+  // =================================================================
 
-  // ... (El resto del archivo: build, _buildSectionTitle, etc. se mantienen igual) ...
-  
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Scaffold(
+      backgroundColor: _colorFondo, 
       appBar: AppBar(
         title: const Text('Configurar Dieta Premium'),
-        elevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        foregroundColor: theme.textTheme.titleLarge?.color,
+        backgroundColor: _colorAppBar,
+        foregroundColor: Colors.white,
+        elevation: 2,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _estadoPlan == 'aprobado'
               ? _buildInfoCard(
                   'Plan Aprobado',
-                  'Ya tienes un plan de dieta aprobado para este mes. Puedes consultarlo en la pestaña "Mi Dieta".',
-                  Icons.check_circle,
-                  Colors.green,
+                  'Ya tienes un plan de dieta aprobado para este mes.',
+                  Icons.check_circle, Colors.green,
                 )
               : _estadoPlan == 'pendiente_revision'
                   ? _buildInfoCard(
                       'Plan Pendiente',
-                      'Tu solicitud de dieta está siendo revisada por nuestros nutricionistas. Recibirás una notificación cuando esté lista.',
-                      Icons.hourglass_top,
-                      Colors.orange,
+                      'Tu solicitud de dieta está siendo revisada.',
+                      Icons.hourglass_top, Colors.orange,
                     )
                   : _buildFormulario(context),
     );
@@ -237,14 +210,10 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_error != null && !_isLoading) // Solo muestra el error si no está cargando
+            if (_error != null && !_isLoading)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
+                child: Text( _error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 16), textAlign: TextAlign.center, ),
               ),
             
             _buildSectionTitle('1. Datos Metabólicos'),
@@ -258,22 +227,24 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
             const SizedBox(height: 32),
 
             ElevatedButton.icon(
-              icon: const Icon(Icons.send, size: 20),
+              icon: const Icon(Icons.send, size: 20, color: Colors.white),
               label: Text(
                 puedeSolicitar ? 'Solicitar Plan' : 'Plan ya Solicitado',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
+                backgroundColor: _colorAppBar, // Azul primario
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
+                elevation: 4,
               ),
-              onPressed: (puedeSolicitar && !_isLoading) ? _submit : null, // Desactiva si está cargando
+              onPressed: (puedeSolicitar && !_isLoading) ? _submit : null,
             ),
             const SizedBox(height: 16),
             Text(
-              'Al solicitar, tus datos serán enviados a nuestro equipo de nutricionistas para crear tu plan personalizado.',
+              'Al solicitar, tus datos serán enviados a nuestro equipo de nutricionistas.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -290,9 +261,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           children: [
             Expanded(
               child: _buildTextField(
-                controller: _pesoController,
-                label: 'Peso (kg)',
-                icon: Icons.monitor_weight,
+                controller: _pesoController, label: 'Peso (kg)', icon: Icons.monitor_weight,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}'))],
               ),
@@ -300,9 +269,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: _buildTextField(
-                controller: _alturaController,
-                label: 'Altura (cm)',
-                icon: Icons.height,
+                controller: _alturaController, label: 'Altura (cm)', icon: Icons.height,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
@@ -314,9 +281,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           children: [
             Expanded(
               child: _buildTextField(
-                controller: _edadController,
-                label: 'Edad',
-                icon: Icons.cake,
+                controller: _edadController, label: 'Edad', icon: Icons.cake,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               ),
@@ -324,9 +289,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: _buildDropdownField(
-                label: 'Género',
-                value: _genero,
-                icon: Icons.person,
+                label: 'Género', value: _genero, icon: Icons.person,
                 items: const [
                   DropdownMenuItem(value: 'masculino', child: Text('Masculino')),
                   DropdownMenuItem(value: 'femenino', child: Text('Femenino')),
@@ -337,12 +300,8 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        
-        // --- ¡¡CAMPO MODIFICADO!! ---
         _buildDropdownField(
-          label: 'Ocupación (Trabajo)',
-          value: _ocupacion,
-          icon: Icons.work,
+          label: 'Ocupación (Trabajo)', value: _ocupacion, icon: Icons.work,
           items: const [
             DropdownMenuItem(value: 'sedentaria', child: Text('Sedentaria (Oficina)')),
             DropdownMenuItem(value: 'ligera', child: Text('Ligera (De pie)')),
@@ -351,12 +310,8 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           onChanged: (value) => setState(() => _ocupacion = value),
         ),
         const SizedBox(height: 16),
-
-        // --- ¡¡NUEVO CAMPO!! ---
         _buildDropdownField(
-          label: 'Ejercicio Físico',
-          value: _ejercicio,
-          icon: Icons.fitness_center,
+          label: 'Ejercicio Físico', value: _ejercicio, icon: Icons.fitness_center,
           items: const [
             DropdownMenuItem(value: '0', child: Text('0 días / semana')),
             DropdownMenuItem(value: '1-3', child: Text('1-3 días / semana')),
@@ -365,12 +320,9 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           ],
           onChanged: (value) => setState(() => _ejercicio = value),
         ),
-        
         const SizedBox(height: 16),
         _buildDropdownField(
-          label: 'Objetivo',
-          value: _objetivo,
-          icon: Icons.flag,
+          label: 'Objetivo', value: _objetivo, icon: Icons.flag,
           items: const [
             DropdownMenuItem(value: 'perder', child: Text('Perder peso')),
             DropdownMenuItem(value: 'mantener', child: Text('Mantener peso')),
@@ -379,37 +331,28 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           onChanged: (value) => setState(() => _objetivo = value),
         ),
         const SizedBox(height: 16),
-        // Mostramos las Kcal calculadas
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.05),
+            color: _colorAppBar.withOpacity(0.05), // Fondo azul muy sutil
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2))
+            border: Border.all(color: _colorAppBar.withOpacity(0.2))
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.calculate, color: Theme.of(context).primaryColor),
+              Icon(Icons.calculate, color: _colorAppBar),
               const SizedBox(width: 12),
               Text(
                 'Kcal Objetivo: $_kcalObjetivo',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
-                ),
+                style: TextStyle( fontSize: 18, fontWeight: FontWeight.bold, color: _colorAppBar, ),
               ),
             ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 8.0),
-          child: Text(
-            'Tus kcal objetivo se recalcularán al enviar.',
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
+          child: Text( 'Tus kcal objetivo se recalcularán al enviar.', style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center, ),
         ),
       ],
     );
@@ -419,59 +362,24 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     return Column(
       children: [
         _buildDropdownField(
-          label: 'Número de Comidas',
-          value: _numComidas.toString(),
-          icon: Icons.restaurant,
+          label: 'Número de Comidas', value: _numComidas.toString(), icon: Icons.restaurant,
           items: [2, 3, 4, 5, 6].map((num) {
             return DropdownMenuItem(value: num.toString(), child: Text('$num comidas'));
           }).toList(),
           onChanged: (value) {
-            if (value != null) {
-              setState(() => _numComidas = int.parse(value));
-            }
+            if (value != null) setState(() => _numComidas = int.parse(value));
           },
         ),
         const SizedBox(height: 16),
-        _buildTextField(
-          controller: _alergiasController,
-          label: 'Alergias o Intolerancias',
-          icon: Icons.no_food,
-          maxLines: 2,
-          isOptional: true,
-        ),
+        _buildTextField( controller: _alergiasController, label: 'Alergias o Intolerancias', icon: Icons.no_food, maxLines: 2, isOptional: true, ),
         const SizedBox(height: 16),
-        _buildTextField(
-          controller: _preferenciasController,
-          label: 'Alimentos que no te gustan',
-          icon: Icons.thumb_down,
-          maxLines: 2,
-          isOptional: true,
-        ),
+        _buildTextField( controller: _preferenciasController, label: 'Alimentos que no te gustan', icon: Icons.thumb_down, maxLines: 2, isOptional: true, ),
         const SizedBox(height: 16),
-        // --- ¡¡NUEVOS CAMPOS!! ---
-        _buildTextField(
-          controller: _historialMedicoController,
-          label: 'Historial Médico (Opcional)',
-          icon: Icons.medical_services,
-          maxLines: 2,
-          isOptional: true,
-        ),
+        _buildTextField( controller: _historialMedicoController, label: 'Historial Médico (Opcional)', icon: Icons.medical_services, maxLines: 2, isOptional: true, ),
         const SizedBox(height: 16),
-        _buildTextField(
-          controller: _horariosController,
-          label: 'Horarios de trabajo/sueño (Opcional)',
-          icon: Icons.schedule,
-          maxLines: 2,
-          isOptional: true,
-        ),
+        _buildTextField( controller: _horariosController, label: 'Horarios de trabajo/sueño (Opcional)', icon: Icons.schedule, maxLines: 2, isOptional: true, ),
         const SizedBox(height: 16),
-        _buildTextField(
-          controller: _platosFavoritosController,
-          label: 'Platos favoritos (Opcional)',
-          icon: Icons.favorite,
-          maxLines: 2,
-          isOptional: true,
-        ),
+        _buildTextField( controller: _platosFavoritosController, label: 'Platos favoritos (Opcional)', icon: Icons.favorite, maxLines: 2, isOptional: true, ),
       ],
     );
   }
@@ -491,21 +399,9 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
           children: [
             Icon(icon, size: 60, color: color),
             const SizedBox(height: 20),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text( title, style: TextStyle( fontSize: 22, fontWeight: FontWeight.bold, color: color, ), textAlign: TextAlign.center, ),
             const SizedBox(height: 12),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
+            Text( message, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center, ),
           ],
         ),
       ),
@@ -518,7 +414,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       style: const TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF1E88E5), // Color azul primario
+        color: _colorAppBar, // Azul primario
       ),
     );
   }
@@ -530,27 +426,24 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
-    bool isOptional = false, // ¡¡AÑADIDO!!
+    bool isOptional = false, 
   }) {
     return TextFormField(
       controller: controller,
-      readOnly: !puedeSolicitar, // No editable si no puede solicitar
+      readOnly: !puedeSolicitar, 
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: const Color(0xFF1E88E5)),
+        prefixIcon: Icon(icon, color: _colorIconos),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         filled: true,
-        fillColor: Colors.blue[50],
+        fillColor: _colorCampos, // Fondo Blanco
       ),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       validator: (value) {
-        if (isOptional) return null; // Si es opcional, no valida si está vacío
-        
-        if (value == null || value.trim().isEmpty) {
-          return 'Requerido';
-        }
+        if (isOptional) return null; 
+        if (value == null || value.trim().isEmpty) return 'Requerido';
         if (keyboardType.toString().contains('number')) {
            if (double.tryParse(value) == null || double.parse(value) <= 0) {
              return 'Valor > 0';
@@ -572,22 +465,16 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       value: value,
       items: items,
       onChanged: puedeSolicitar ? onChanged : null,
-      
-      // --- ¡¡FIX DE OVERFLOW AÑADIDO!! ---
       isExpanded: true, 
-      // ---------------------------------
-
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: const Color(0xFF1E88E5)),
+        prefixIcon: Icon(icon, color: _colorIconos),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         filled: true,
-        fillColor: Colors.blue[50],
+        fillColor: _colorCampos, // Fondo Blanco
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Requerido';
-        }
+        if (value == null || value.isEmpty) return 'Requerido';
         return null;
       },
     );

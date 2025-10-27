@@ -9,16 +9,23 @@ const Usuario = require('../models/Usuario');
 const getMesActual = () => new Date().toISOString().slice(0, 7);
 
 // --- Helper para calcular Kcal (sin cambios) ---
-function calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo) {
+function calcularKcal(peso, altura, edad, genero, ocupacion, ejercicio, objetivo) {
   let tmb;
   if (genero === 'masculino') { tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5; }
   else { tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161; }
-  const factores = { 'sedentario': 1.2, 'ligero': 1.375, 'moderado': 1.55, 'activo': 1.725, 'muy_activo': 1.9 };
-  const tdee = tmb * (factores[nivelActividad] || 1.2);
+  
+  const factoresOcupacion = { 'sedentaria': 1.2, 'ligera': 1.375, 'activa': 1.55 };
+  const caloriasEjercicio = { '0': 0, '1-3': 300, '4-5': 500, '6-7': 700 };
+  
+  const tdee = (tmb * (factoresOcupacion[ocupacion] || 1.2)) + (caloriasEjercicio[ejercicio] || 0);
+
   let kcalObjetivo;
   switch (objetivo) {
-    case 'perder': kcalObjetivo = tdee - 500; break;
-    case 'ganar': kcalObjetivo = tdee + 500; break;
+    case 'perder':
+      kcalObjetivo = tdee - 500;
+      kcalObjetivo = Math.max(kcalObjetivo, tmb + 100); 
+      break;
+    case 'ganar': kcalObjetivo = tdee + 300; break;
     default: kcalObjetivo = tdee;
   }
   return Math.round(kcalObjetivo);
@@ -28,20 +35,47 @@ function calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo) {
  * [CLIENTE] Solicita un plan (Versión unificada, flujo manual)
  */
 exports.solicitarPlanDieta = async (req, res) => {
-  const { dietaAlergias, dietaPreferencias, dietaComidas, peso, altura, edad, genero, nivelActividad, objetivo } = req.body;
-  const usuarioId = req.user.id;
-  try {
-    if (!peso || !altura || !edad || !genero || !nivelActividad || !objetivo) { return res.status(400).json({ mensaje: 'Faltan datos metabólicos.' }); }
-    const kcalCalculadas = calcularKcal(peso, altura, edad, genero, nivelActividad, objetivo);
-    const usuario = await Usuario.findByIdAndUpdate( usuarioId, { $set: { dietaAlergias, dietaPreferencias, dietaComidas, peso, altura, edad, genero, nivelActividad, objetivo, kcalObjetivo: kcalCalculadas } }, { new: true } );
-    if (!usuario.esPremium || !usuario.incluyePlanDieta) { return res.status(403).json({ mensaje: 'Servicio no incluido.' }); }
-    const mesActual = getMesActual();
-    await PlanDieta.findOneAndUpdate( { usuario: usuarioId, mes: mesActual }, { inputsUsuario: { objetivo: usuario.objetivo, kcalObjetivo: usuario.kcalObjetivo, dietaAlergias: usuario.dietaAlergias, dietaPreferencias: usuario.dietaPreferencias, dietaComidas: usuario.dietaComidas }, estado: 'pendiente_revision', planGenerado: [] }, { new: true, upsert: true } );
-    // --- FETCH ELIMINADO ---
-    res.status(200).json({ mensaje: 'Solicitud recibida. Tu nutricionista la revisará.' });
-  } catch (error) { console.error('Error en solicitarPlanDieta:', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
-};
+  // --- LOG DE DEBUG ---
+  console.log('--- [iaDietaController] DATOS RECIBIDOS (req.body) ---');
+  console.log(req.body);
+  console.log('----------------------------------------------------');
 
+  try {
+    const usuarioId = req.user.id;
+    
+    // El req.body ya viene completo desde Flutter
+    // (Flutter ya llamó a /metabolicos, así que Usuario.js ya está actualizado)
+    // Solo necesitamos guardar los inputs en el PlanDieta
+    const datosParaPlan = req.body; 
+
+    const usuario = await Usuario.findById(usuarioId);
+    if (!usuario.esPremium || !usuario.incluyePlanDieta) {
+      console.error('[iaDietaController] Error: Usuario no es premium o no incluye dieta.');
+      return res.status(403).json({ mensaje: 'Servicio no incluido.' });
+    }
+    
+    const mesActual = getMesActual();
+
+    // 2. Crear/Actualizar el PlanDieta
+    await PlanDieta.findOneAndUpdate(
+      { usuario: usuarioId, mes: mesActual },
+      {
+        inputsUsuario: datosParaPlan, // <-- ¡Guardamos TODOS los datos del req.body!
+        estado: 'pendiente_revision',
+        planGenerado: [] 
+      },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ mensaje: 'Solicitud de dieta enviada correctamente.' });
+
+  } catch (error) {
+    console.error('--- [iaDietaController] ¡ERROR EN EL CATCH! ---');
+    console.error(error);
+    console.error('---------------------------------------------');
+    res.status(500).json({ mensaje: 'Error interno del servidor al solicitar el plan.', error: error.message });
+  }
+};
 /**
  * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
  */

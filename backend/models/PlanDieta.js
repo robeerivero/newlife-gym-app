@@ -33,7 +33,16 @@ const planDietaSchema = new mongoose.Schema({
     kcalObjetivo: { type: Number },
     dietaAlergias: { type: String },
     dietaPreferencias: { type: String },
-    dietaComidas: { type: Number }
+    dietaComidas: { type: Number },
+    peso: { type: Number },
+    altura: { type: Number },
+    edad: { type: Number },
+    genero: { type: String },
+    ocupacion: { type: String },
+    ejercicio: { type: String },
+    historialMedico: { type: String },
+    horarios: { type: String },
+    platosFavoritos: { type: String }
   },
   planGenerado: [diaDietaSchema],
   estado: {
