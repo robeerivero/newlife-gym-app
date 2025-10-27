@@ -591,66 +591,81 @@ exports.obtenerProgresoLogros = async (req, res) => {
 };
 
 exports.actualizarDatosMetabolicos = async (req, res) => {
-  const { id } = req.user; // ID del usuario autenticado
-  const { peso, altura, edad, genero, nivelActividad, objetivo } = req.body;
+  const { id } = req.user;
+  
+  // --- ¡CAMBIO! Recibimos los nuevos campos ---
+  const { peso, altura, edad, genero, ocupacion, ejercicio, objetivo } = req.body;
 
   try {
-    // 1. Calcular TMB (Tasa Metabólica Basal) - Fórmula Mifflin-St Jeor
+    // 1. Calcular TMB (Sin cambios)
     let tmb;
     if (genero === 'masculino') {
       tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5;
-    } else { // 'femenino'
+    } else {
       tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
     }
 
+    // --- ¡¡LÓGICA MEJORADA!! (Tu queja de las 2661 kcal) ---
     // 2. Calcular TDEE (Gasto Energético Total Diario)
-    const factoresActividad = {
-      sedentario: 1.2,
-      ligero: 1.375,
-      moderado: 1.55,
-      activo: 1.725,
-      muy_activo: 1.9
+    const factoresOcupacion = {
+      sedentaria: 1.2,
+      ligera: 1.375,
+      activa: 1.55
     };
-    const tdee = tmb * (factoresActividad[nivelActividad] || 1.2);
+    
+    // Calorías extra por ejercicio (ajusta estos valores)
+    const caloriasEjercicio = {
+      '0': 0,
+      '1-3': 300,
+      '4-5': 500,
+      '6-7': 700
+    };
 
-    // 3. Ajustar Kcal según el Objetivo
+    // El TDEE = (TMB * Ocupación) + Ejercicio
+    const tdee = (tmb * (factoresOcupacion[ocupacion] || 1.2)) + (caloriasEjercicio[ejercicio] || 0);
+    // --- FIN LÓGICA MEJORADA ---
+
+    // 3. Ajustar Kcal según el Objetivo (Superávit/Déficit más controlados)
     let kcalObjetivo;
     switch (objetivo) {
       case 'perder':
-        kcalObjetivo = tdee - 500; // Déficit de 500 kcal
+        kcalObjetivo = tdee - 500;
+        // Aseguramos que el déficit nunca sea menor que la TMB
+        kcalObjetivo = Math.max(kcalObjetivo, tmb + 100); 
         break;
       case 'ganar':
-        kcalObjetivo = tdee + 500; // Superávit de 500 kcal
+        kcalObjetivo = tdee + 300; // Un superávit de +300 es más seguro
         break;
       case 'mantener':
       default:
         kcalObjetivo = tdee;
     }
 
-    // Redondear al número entero más cercano
     kcalObjetivo = Math.round(kcalObjetivo);
 
-    // 4. Guardar TODOS los datos en el Usuario
+    // 4. Guardar TODOS los datos nuevos en el Usuario
     const usuario = await Usuario.findByIdAndUpdate(
       id,
       {
-        // --- ESTA ES LA PARTE QUE FALTABA ---
         peso,
         altura,
         edad,
         genero,
-        nivelActividad,
-        objetivo,
-        kcalObjetivo // <-- ¡Guardamos el resultado del cálculo!
+        // --- ¡CAMBIO! Guardamos los nuevos campos ---
+        ocupacion,  // Guardamos 'ocupacion'
+        ejercicio,  // Guardamos 'ejercicio'
+        nivelActividad: null, // Opcional: anular el campo antiguo
         // ------------------------------------
+        objetivo,
+        kcalObjetivo // ¡Guardamos el nuevo cálculo!
       },
-      { new: true } // {new: true} devuelve el documento actualizado
+      { new: true }
     );
 
-    // 5. Devolver la respuesta correcta a Flutter
+    // 5. Devolver la respuesta
     res.status(200).json({
       mensaje: 'Datos metabólicos actualizados',
-      kcalObjetivo: usuario.kcalObjetivo, // Devuelve el dato guardado
+      kcalObjetivo: usuario.kcalObjetivo,
       tdee: Math.round(tdee),
       tmb: Math.round(tmb)
     });

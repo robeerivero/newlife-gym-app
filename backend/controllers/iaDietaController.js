@@ -45,41 +45,69 @@ exports.solicitarPlanDieta = async (req, res) => {
 /**
  * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
  */
-function generarPromptParaPlan(inputsUsuario) {
-  const masterPrompt = `
-      Eres un nutricionista experto. Genera un plan de comidas semanal detallado
-      con ${inputsUsuario.dietaComidas} comidas por día.
-      
-      DATOS:
-      - Objetivo: ${inputsUsuario.objetivo} (aprox ${inputsUsuario.kcalObjetivo} kcal/día)
-      - Alergias/Restricciones: "${inputsUsuario.dietaAlergias}"
-      - Preferencias: "${inputsUsuario.dietaPreferencias}"
-      - Comidas por día: ${inputsUsuario.dietaComidas}
+// Esta función se llama desde 'solicitarPlanDieta' o 'obtenerPromptParaRevision'
+// 'inputsUsuario' DEBE contener todos los datos del formulario.
 
-      RESPUESTA (Solo JSON):
-      Genera un array JSON con 7 objetos. Cada objeto debe representar un día de la semana,
-      empezando por "Lunes" y terminando en "Domingo".
+function generarPromptParaPlan(inputsUsuario) {
+  // Aseguramos valores por defecto para que el prompt no se rompa
+  const kcal = inputsUsuario.kcalObjetivo || 2000;
+  const comidas = inputsUsuario.dietaComidas || 4;
+  
+  const masterPrompt = `
+      Eres un nutricionista experto de nivel élite. Genera un plan de comidas semanal detallado
+      en formato JSON para un usuario con los siguientes datos:
+
+      --- DATOS METABÓLICOS ---
+      - Sexo: ${inputsUsuario.genero || 'No especificado'}
+      - Edad: ${inputsUsuario.edad || 'No especificado'} años
+      - Peso: ${inputsUsuario.peso || 'No especificado'} kg
+      - Altura: ${inputsUsuario.altura || 'No especificado'} cm
+      - Ocupación: ${inputsUsuario.ocupacion || 'No especificado'}
+      - Ejercicio: ${inputsUsuario.ejercicio || 'No especificado'} días/semana
+      - Objetivo: ${inputsUsuario.objetivo || 'mantener'}
+      - Kcal Objetivo: Aprox ${kcal} kcal/día
+
+      --- PREFERENCIAS DIETA ---
+      - Comidas por día: ${comidas}
+      - Alergias/Restricciones: "${inputsUsuario.dietaAlergias || 'Ninguna'}"
+      - Preferencias: "${inputsUsuario.dietaPreferencias || 'Omnívoro'}"
       
-      Formato esperado:
-      [
-        { 
-          "nombreDia": "Lunes", 
-          "kcalDiaAprox": ${inputsUsuario.kcalObjetivo},
-          "comidas": [
-            { "nombreComida": "Desayuno", "opciones": [ { "nombrePlato": "...", "kcalAprox": ..., "ingredientes": "...", "receta": "..." } ] },
-            { "nombreComida": "Almuerzo", "opciones": [ ... ] },
-            // ... (resto de comidas)
-          ]
-        },
-        { "nombreDia": "Martes", ... },
-        { "nombreDia": "Miércoles", ... },
-        { "nombreDia": "Jueves", ... },
-        { "nombreDia": "Viernes", ... },
-        { "nombreDia": "Sábado", ... },
-        { "nombreDia": "Domingo", ... }
-      ]
+      --- DATOS ADICIONALES (OPCIONAL) ---
+      - Historial Médico: "${inputsUsuario.historialMedico || 'No especificado'}"
+      - Horarios: "${inputsUsuario.horarios || 'No especificado'}"
+      - Platos Favoritos: "${inputsUsuario.platosFavoritos || 'No especificado'}"
+
+      --- INSTRUCCIONES DE FORMATO JSON ---
+      Responde SÓLO con el array JSON, sin explicaciones.
+      El array debe tener 7 objetos, uno para cada día ("Lunes" a "Domingo").
+      Cada objeto 'dia' debe seguir esta estructura exacta:
+      { 
+        "nombreDia": "Lunes", 
+        "kcalDiaAprox": ${kcal},  // La suma de kcalAprox de sus platos
+        "comidas": [
+          { 
+            "nombreComida": "Desayuno", 
+            "opciones": [ 
+              { 
+                "nombrePlato": "...", 
+                "kcalAprox": ..., 
+                "ingredientes": "...", 
+                "receta": "..." 
+              } 
+            ] 
+          },
+          // ... (resto de ${comidas} comidas: "Media Mañana", "Almuerzo", "Merienda", "Cena", etc.)
+        ]
+      }
+
+      --- ¡¡INSTRUCCIÓN CLAVE PARA PLATOS!! ---
+      Para cada 'platoGenerado' dentro de "opciones":
+      1. Rellena "kcalAprox" con un número.
+      2. En el campo "ingredientes", escribe un texto claro para el usuario que incluya los GRAMOS de cada ingrediente principal.
+         EJEMPLO: "2 rebanadas de pan integral (60g), 1/2 aguacate (70g), 2 huevos (100g)"
+      3. Rellena "receta" con la preparación.
   `;
-  // --- FIN PROMPT MODIFICADO ---
+  
   return masterPrompt;
 }
 
