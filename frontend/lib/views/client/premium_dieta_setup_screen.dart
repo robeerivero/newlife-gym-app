@@ -1,10 +1,13 @@
 // screens/client/premium_dieta_setup_screen.dart
-// ¡ESTILO DEFINITIVO + FIX DE OVERFLOW!
+// ¡MODIFICADO! Se ajusta el formulario a la nueva lógica de Kcal y Prompt.
+// ¡CORREGIDO! Se elimina snackbar_helper y se usa ScaffoldMessenger.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/usuario.dart';
 import '../../services/ia_dieta_service.dart';
+import '../../services/user_service.dart'; // Importar UserService
+// import '../../utils/snackbar_helper.dart'; // <-- ELIMINADO
 
 class PremiumDietaSetupScreen extends StatefulWidget {
   final Usuario usuario;
@@ -19,18 +22,25 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
 
   // --- Servicios ---
   final IADietaService _dietaService = IADietaService();
+  final UserService _userService = UserService(); // Añadido para actualizar Kcal
 
   // --- Controllers (Metabólicos) ---
   late TextEditingController _pesoController;
   late TextEditingController _alturaController;
   late TextEditingController _edadController;
   String? _genero;
-  String? _nivelActividad;
+  // String? _nivelActividad; // <-- ELIMINADO
+  String? _ocupacion;      // <-- AÑADIDO
+  String? _ejercicio;      // <-- AÑADIDO
   String? _objetivo;
+  int _kcalObjetivo = 0; // Para mostrar el cálculo
 
   // --- Controllers (Preferencias Dieta) ---
   late TextEditingController _alergiasController;
   late TextEditingController _preferenciasController;
+  late TextEditingController _historialMedicoController; // <-- AÑADIDO
+  late TextEditingController _horariosController;        // <-- AÑADIDO
+  late TextEditingController _platosFavoritosController; // <-- AÑADIDO
   int _numComidas = 4;
 
   // --- Estado de UI ---
@@ -53,13 +63,37 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     _alturaController = TextEditingController(text: widget.usuario.altura.toStringAsFixed(0));
     _edadController = TextEditingController(text: widget.usuario.edad.toString());
     _genero = widget.usuario.genero;
-    _nivelActividad = widget.usuario.nivelActividad;
+    // _nivelActividad = widget.usuario.nivelActividad; // <-- ELIMINADO
+    _ocupacion = widget.usuario.ocupacion;      // <-- AÑADIDO
+    _ejercicio = widget.usuario.ejercicio;      // <-- AÑADIDO
     _objetivo = widget.usuario.objetivo;
+    _kcalObjetivo = widget.usuario.kcalObjetivo; // Kcal guardadas
 
     // Preferencias de Dieta
     _alergiasController = TextEditingController(text: widget.usuario.dietaAlergias);
     _preferenciasController = TextEditingController(text: widget.usuario.dietaPreferencias);
     _numComidas = widget.usuario.dietaComidas;
+    // --- AÑADIDOS ---
+    _historialMedicoController = TextEditingController(text: widget.usuario.historialMedico);
+    _horariosController = TextEditingController(text: widget.usuario.horarios);
+    _platosFavoritosController = TextEditingController(text: widget.usuario.platosFavoritos);
+  }
+  
+  @override
+  void dispose() {
+    // Metabólicos
+    _pesoController.dispose();
+    _alturaController.dispose();
+    _edadController.dispose();
+    
+    // Preferencias
+    _alergiasController.dispose();
+    _preferenciasController.dispose();
+    _historialMedicoController.dispose(); // <-- AÑADIDO
+    _horariosController.dispose();        // <-- AÑADIDO
+    _platosFavoritosController.dispose(); // <-- AÑADIDO
+
+    super.dispose();
   }
   
   Future<void> _fetchPlanStatus() async {
@@ -81,259 +115,428 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
 
     try {
-      final Map<String, dynamic> datosFormulario = {
+      // --- PASO 1: Actualizar Datos Metabólicos y recalcular Kcal ---
+      final Map<String, dynamic> datosMetabolicos = {
         'peso': double.tryParse(_pesoController.text) ?? widget.usuario.peso,
         'altura': double.tryParse(_alturaController.text) ?? widget.usuario.altura,
         'edad': int.tryParse(_edadController.text) ?? widget.usuario.edad,
         'genero': _genero,
-        'nivelActividad': _nivelActividad,
+        // 'nivelActividad': _nivelActividad, // <-- ELIMINADO
+        'ocupacion': _ocupacion,             // <-- AÑADIDO
+        'ejercicio': _ejercicio,             // <-- AÑADIDO
         'objetivo': _objetivo,
+      };
+
+      // Llamamos a UserService para actualizar y recalcular
+      final respuestaKcal = await _userService.actualizarDatosMetabolicos(datosMetabolicos);
+      
+      if (respuestaKcal == null) {
+        throw Exception('Error al actualizar datos metabólicos');
+      }
+
+      final int nuevasKcal = respuestaKcal['kcalObjetivo'] ?? _kcalObjetivo;
+      setState(() => _kcalObjetivo = nuevasKcal); // Actualiza la UI
+
+      // --- PASO 2: Solicitar el Plan de Dieta con TODOS los datos ---
+      final Map<String, dynamic> datosSolicitud = {
+        ...datosMetabolicos, // Incluye peso, altura, ocupacion, etc.
+        'kcalObjetivo': nuevasKcal, // ¡La nueva Kcal calculada!
+        
+        // Preferencias
         'dietaAlergias': _alergiasController.text.trim(),
         'dietaPreferencias': _preferenciasController.text.trim(),
         'dietaComidas': _numComidas,
+        'historialMedico': _historialMedicoController.text.trim(),
+        'horarios': _horariosController.text.trim(),
+        'platosFavoritos': _platosFavoritosController.text.trim(),
       };
 
-      bool exito = await _dietaService.solicitarPlanDieta(datosFormulario);
+      final bool solicitado = await _dietaService.solicitarPlanDieta(datosSolicitud);
 
-      if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Preferencias enviadas. Tu nutricionista las revisará.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      if (solicitado) {
         setState(() {
           _isLoading = false;
-          _estadoPlan = 'pendiente_revision'; 
+          _estadoPlan = 'pendiente_revision'; // Actualiza el estado local
         });
-        Navigator.of(context).pop(true);
+        
+        // --- ¡¡CAMBIO AQUÍ!! ---
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('¡Plan solicitado con éxito! Será revisado.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        // -------------------------
+
       } else {
-        throw Exception('Error en el servidor al enviar la solicitud.');
+        throw Exception('Error al solicitar el plan de dieta');
       }
+
     } catch (e) {
       setState(() {
         _isLoading = false;
         _error = e.toString();
       });
+
+      // --- ¡¡CAMBIO AQUÍ!! ---
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_error ?? 'Error desconocido al enviar'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+      }
+      // -------------------------
     }
   }
 
+  // ... (El resto del archivo: build, _buildSectionTitle, etc. se mantienen igual) ...
+  
   @override
   Widget build(BuildContext context) {
-    // Color principal del estilo
-    const Color colorPrimario = Color(0xFF1E88E5);
-
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD), 
       appBar: AppBar(
-        title: const Text('Preferencias de Dieta', style: TextStyle(color: Colors.white)),
-        backgroundColor: colorPrimario,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Configurar Dieta Premium'),
         elevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.textTheme.titleLarge?.color,
       ),
-      body: _isLoading && _estadoPlan == null
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-              child: Center(
-                child: Card(
-                  elevation: 10,
-                  margin: const EdgeInsets.only(top: 18, bottom: 24),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Datos Metabólicos',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: colorPrimario),
-                            textAlign: TextAlign.center,
-                          ),
-                          const Text('Se usan para calcular tus calorías base.', textAlign: TextAlign.center),
-                          const SizedBox(height: 20),
-
-                          if (_error != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 14.0),
-                              child: Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
-                            ),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  label: 'Peso (kg)',
-                                  controller: _pesoController,
-                                  icon: Icons.monitor_weight_outlined,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}'))],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildTextField(
-                                  label: 'Altura (cm)',
-                                  controller: _alturaController,
-                                  icon: Icons.height_outlined,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  label: 'Edad',
-                                  controller: _edadController,
-                                  icon: Icons.cake_outlined,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _buildDropdownField(
-                                  label: 'Género',
-                                  value: _genero,
-                                  items: const [
-                                    DropdownMenuItem(value: 'masculino', child: Text('Masculino')),
-                                    DropdownMenuItem(value: 'femenino', child: Text('Femenino')),
-                                  ],
-                                  icon: Icons.wc_outlined,
-                                  onChanged: (val) => setState(() => _genero = val),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildDropdownField(
-                            label: 'Nivel de Actividad',
-                            value: _nivelActividad,
-                            items: const [
-                              DropdownMenuItem(value: 'sedentario', child: Text('Sedentario (oficina)')),
-                              DropdownMenuItem(value: 'ligero', child: Text('Ligero (1-3 días/sem)')),
-                              DropdownMenuItem(value: 'moderado', child: Text('Moderado (3-5 días/sem)')),
-                              DropdownMenuItem(value: 'activo', child: Text('Activo (6-7 días/sem)')),
-                              DropdownMenuItem(value: 'muy_activo', child: Text('Muy Activo (trabajo físico)')),
-                            ],
-                            icon: Icons.directions_run_outlined,
-                            onChanged: (val) => setState(() => _nivelActividad = val),
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildDropdownField(
-                            label: 'Objetivo Principal',
-                            value: _objetivo,
-                            items: const [
-                              DropdownMenuItem(value: 'perder', child: Text('Perder peso')),
-                              DropdownMenuItem(value: 'mantener', child: Text('Mantener peso')),
-                              DropdownMenuItem(value: 'ganar', child: Text('Ganar masa muscular')),
-                            ],
-                            icon: Icons.flag_outlined,
-                            onChanged: (val) => setState(() => _objetivo = val),
-                          ),
-
-                          const Divider(height: 32),
-
-                          Text(
-                            'Preferencias de Dieta',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: colorPrimario),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          _buildTextField(
-                            label: 'Alergias o Restricciones',
-                            hintText: 'Ej: Lactosa, gluten, "no como pescado"',
-                            controller: _alergiasController,
-                            icon: Icons.no_food_outlined,
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildTextField(
-                            label: 'Preferencias Generales',
-                            hintText: 'Ej: "Me gusta la comida simple", "vegetariano"',
-                            controller: _preferenciasController,
-                            icon: Icons.restaurant_menu_outlined,
-                            maxLines: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          Text('Comidas por día: $_numComidas', style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center,),
-                          Slider(
-                            value: _numComidas.toDouble(),
-                            min: 2, max: 6, divisions: 4,
-                            label: '$_numComidas comidas',
-                            activeColor: colorPrimario,
-                            onChanged: puedeSolicitar ? (val) => setState(() => _numComidas = val.round()) : null,
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          ElevatedButton.icon(
-                            icon: Icon(_isLoading ? Icons.sync : Icons.save_alt_rounded, color: Colors.white),
-                            label: Text(
-                              _isLoading 
-                                ? 'Procesando...' 
-                                : (puedeSolicitar ? 'Enviar Preferencias' : 'Tu plan está en revisión'),
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorPrimario,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              elevation: 5,
-                            ),
-                            onPressed: _isLoading || !puedeSolicitar ? null : _submit,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          : _estadoPlan == 'aprobado'
+              ? _buildInfoCard(
+                  'Plan Aprobado',
+                  'Ya tienes un plan de dieta aprobado para este mes. Puedes consultarlo en la pestaña "Mi Dieta".',
+                  Icons.check_circle,
+                  Colors.green,
+                )
+              : _estadoPlan == 'pendiente_revision'
+                  ? _buildInfoCard(
+                      'Plan Pendiente',
+                      'Tu solicitud de dieta está siendo revisada por nuestros nutricionistas. Recibirás una notificación cuando esté lista.',
+                      Icons.hourglass_top,
+                      Colors.orange,
+                    )
+                  : _buildFormulario(context),
     );
   }
 
-  // --- Helpers de Widgets (ESTILO ACTUALIZADO) ---
+  Widget _buildFormulario(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_error != null && !_isLoading) // Solo muestra el error si no está cargando
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            
+            _buildSectionTitle('1. Datos Metabólicos'),
+            const SizedBox(height: 16),
+            _buildFormularioMetabolico(),
+            const SizedBox(height: 24),
+            
+            _buildSectionTitle('2. Preferencias de Dieta'),
+            const SizedBox(height: 16),
+            _buildFormularioPreferencias(),
+            const SizedBox(height: 32),
+
+            ElevatedButton.icon(
+              icon: const Icon(Icons.send, size: 20),
+              label: Text(
+                puedeSolicitar ? 'Solicitar Plan' : 'Plan ya Solicitado',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: (puedeSolicitar && !_isLoading) ? _submit : null, // Desactiva si está cargando
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Al solicitar, tus datos serán enviados a nuestro equipo de nutricionistas para crear tu plan personalizado.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormularioMetabolico() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _pesoController,
+                label: 'Peso (kg)',
+                icon: Icons.monitor_weight,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}'))],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildTextField(
+                controller: _alturaController,
+                label: 'Altura (cm)',
+                icon: Icons.height,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _edadController,
+                label: 'Edad',
+                icon: Icons.cake,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildDropdownField(
+                label: 'Género',
+                value: _genero,
+                icon: Icons.person,
+                items: const [
+                  DropdownMenuItem(value: 'masculino', child: Text('Masculino')),
+                  DropdownMenuItem(value: 'femenino', child: Text('Femenino')),
+                ],
+                onChanged: (value) => setState(() => _genero = value),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        // --- ¡¡CAMPO MODIFICADO!! ---
+        _buildDropdownField(
+          label: 'Ocupación (Trabajo)',
+          value: _ocupacion,
+          icon: Icons.work,
+          items: const [
+            DropdownMenuItem(value: 'sedentaria', child: Text('Sedentaria (Oficina)')),
+            DropdownMenuItem(value: 'ligera', child: Text('Ligera (De pie)')),
+            DropdownMenuItem(value: 'activa', child: Text('Activa (Física)')),
+          ],
+          onChanged: (value) => setState(() => _ocupacion = value),
+        ),
+        const SizedBox(height: 16),
+
+        // --- ¡¡NUEVO CAMPO!! ---
+        _buildDropdownField(
+          label: 'Ejercicio Físico',
+          value: _ejercicio,
+          icon: Icons.fitness_center,
+          items: const [
+            DropdownMenuItem(value: '0', child: Text('0 días / semana')),
+            DropdownMenuItem(value: '1-3', child: Text('1-3 días / semana')),
+            DropdownMenuItem(value: '4-5', child: Text('4-5 días / semana')),
+            DropdownMenuItem(value: '6-7', child: Text('6-7 días / semana')),
+          ],
+          onChanged: (value) => setState(() => _ejercicio = value),
+        ),
+        
+        const SizedBox(height: 16),
+        _buildDropdownField(
+          label: 'Objetivo',
+          value: _objetivo,
+          icon: Icons.flag,
+          items: const [
+            DropdownMenuItem(value: 'perder', child: Text('Perder peso')),
+            DropdownMenuItem(value: 'mantener', child: Text('Mantener peso')),
+            DropdownMenuItem(value: 'ganar', child: Text('Ganar masa muscular')),
+          ],
+          onChanged: (value) => setState(() => _objetivo = value),
+        ),
+        const SizedBox(height: 16),
+        // Mostramos las Kcal calculadas
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2))
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.calculate, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 12),
+              Text(
+                'Kcal Objetivo: $_kcalObjetivo',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            'Tus kcal objetivo se recalcularán al enviar.',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormularioPreferencias() {
+    return Column(
+      children: [
+        _buildDropdownField(
+          label: 'Número de Comidas',
+          value: _numComidas.toString(),
+          icon: Icons.restaurant,
+          items: [2, 3, 4, 5, 6].map((num) {
+            return DropdownMenuItem(value: num.toString(), child: Text('$num comidas'));
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _numComidas = int.parse(value));
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _alergiasController,
+          label: 'Alergias o Intolerancias',
+          icon: Icons.no_food,
+          maxLines: 2,
+          isOptional: true,
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _preferenciasController,
+          label: 'Alimentos que no te gustan',
+          icon: Icons.thumb_down,
+          maxLines: 2,
+          isOptional: true,
+        ),
+        const SizedBox(height: 16),
+        // --- ¡¡NUEVOS CAMPOS!! ---
+        _buildTextField(
+          controller: _historialMedicoController,
+          label: 'Historial Médico (Opcional)',
+          icon: Icons.medical_services,
+          maxLines: 2,
+          isOptional: true,
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _horariosController,
+          label: 'Horarios de trabajo/sueño (Opcional)',
+          icon: Icons.schedule,
+          maxLines: 2,
+          isOptional: true,
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _platosFavoritosController,
+          label: 'Platos favoritos (Opcional)',
+          icon: Icons.favorite,
+          maxLines: 2,
+          isOptional: true,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildInfoCard(String title, String message, IconData icon, Color color) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 60, color: color),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF1E88E5), // Color azul primario
+      ),
+    );
+  }
 
   Widget _buildTextField({
-    required String label,
     required TextEditingController controller,
+    required String label,
     required IconData icon,
-    String? hintText,
+    int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
-    int maxLines = 1,
+    bool isOptional = false, // ¡¡AÑADIDO!!
   }) {
     return TextFormField(
       controller: controller,
-      enabled: puedeSolicitar,
+      readOnly: !puedeSolicitar, // No editable si no puede solicitar
       decoration: InputDecoration(
         labelText: label,
-        hintText: hintText,
         prefixIcon: Icon(icon, color: const Color(0xFF1E88E5)),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         filled: true,
@@ -343,6 +546,8 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       validator: (value) {
+        if (isOptional) return null; // Si es opcional, no valida si está vacío
+        
         if (value == null || value.trim().isEmpty) {
           return 'Requerido';
         }
@@ -379,7 +584,12 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         filled: true,
         fillColor: Colors.blue[50],
       ),
-      validator: (value) => (value == null || value.isEmpty) ? 'Requerido' : null,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Requerido';
+        }
+        return null;
+      },
     );
   }
 }

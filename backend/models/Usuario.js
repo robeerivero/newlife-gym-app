@@ -1,3 +1,4 @@
+// models/Usuario.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Reserva = require('./Reserva');
@@ -26,17 +27,21 @@ const esquemaUsuario = new mongoose.Schema({
   avatar: { type: Object, default: {} },
   desbloqueados: { type: [Object], default: [] },
   // --- CAMPOS DE SERVICIO PREMIUM ---
-  esPremium: { type: Boolean, default: false },
+  // esPremium: { type: Boolean, default: false }, // -> Ya está arriba, duplicado
   // Banderas de control del Admin
   incluyePlanDieta: { type: Boolean, default: false },
   incluyePlanEntrenamiento: { type: Boolean, default: false },
   
   // --- Inputs de Dieta ---
+  // (Aquí irían los campos de dieta que añadimos antes: ocupacion, ejercicio, etc.)
   dietaAlergias: { type: String, default: 'Ninguna' },
   dietaPreferencias: { type: String, default: 'Omnívoro, me gusta todo' },
-  dietaComidas: { type: Number, default: 4 }, // Num comidas al día
+  dietaComidas: { type: Number, default: 4 },
+  historialMedico: { type: String, default: '' },
+  horarios: { type: String, default: '' },
+  platosFavoritos: { type: String, default: '' },
 
-  // --- Inputs de Entrenamiento ---
+  // --- Inputs de Entrenamiento (MODIFICADOS) ---
   premiumMeta: { type: String, default: 'Quiero ganar fuerza y definir.' },
   premiumFoco: { type: String, default: 'Pecho, espalda y piernas' },
   premiumEquipamiento: {
@@ -45,6 +50,22 @@ const esquemaUsuario = new mongoose.Schema({
     default: 'solo_cuerpo'
   },
   premiumTiempo: { type: Number, default: 45 },
+  // --- ¡NUEVOS CAMPOS DE ENTRENAMIENTO! ---
+  premiumNivel: {
+    type: String,
+    enum: ['principiante', 'intermedio', 'avanzado'],
+    default: 'principiante'
+  },
+  premiumDiasSemana: {
+    type: Number,
+    default: 4
+  },
+  premiumLesiones: {
+    type: String,
+    default: 'Ninguna'
+  },
+  // -----------------------------------------
+  
   // --- Datos Metabólicos ---
   genero: {
     type: String,
@@ -66,6 +87,8 @@ const esquemaUsuario = new mongoose.Schema({
     min: 40,
     default: 70
   },
+  
+  // --- Campos de Dieta (que ya modificamos) ---
   ocupacion: {
     type: String,
     enum: ['sedentaria', 'ligera', 'activa'],
@@ -76,16 +99,14 @@ const esquemaUsuario = new mongoose.Schema({
     enum: ['0', '1-3', '4-5', '6-7'],
     default: '0'
   },
+  // nivelActividad: { ... }, // Este campo debería estar eliminado
+  
   objetivo: {
     type: String,
     enum: ['perder', 'mantener', 'ganar'],
     default: 'mantener'
   },
-  historialMedico: { type: String, default: '' },
-  horarios: { type: String, default: '' },
-  platosFavoritos: { type: String, default: '' },
   
-  // Resultado del cálculo (lo guardaremos aquí)
   kcalObjetivo: {
     type: Number,
     default: 2000
@@ -96,6 +117,10 @@ const esquemaUsuario = new mongoose.Schema({
 // Middleware para encriptar la contraseña antes de guardarla
 esquemaUsuario.pre('save', async function (next) {
   if (!this.isModified('contrasena')) return next();
+  // Corregir duplicado de 'esPremium' si existe
+  if (this.esPremium && this.esPremium.length > 1) {
+    this.esPremium = this.esPremium[0];
+  }
   const salt = await bcrypt.genSalt(10);
   this.contrasena = await bcrypt.hash(this.contrasena, salt);
   next();
