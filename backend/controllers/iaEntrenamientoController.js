@@ -219,39 +219,35 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
     return res.status(404).json({ mensaje: `Día de descanso.` });
   }
 
-  // Asigna "Dia 1" o "Dia 2"
   let rutinaDelDia;
   const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
   
   if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
      rutinaDelDia = planAprobado.planGenerado[indiceDia];
   } else if (planAprobado.planGenerado.length > 0) {
-     // Fallback: Si los días asignados no coinciden con el plan (ej. asigna 5 días pero el JSON solo tiene 3)
-     // Hacemos un módulo para rotar.
      const indiceFallback = indiceDia % planAprobado.planGenerado.length;
      rutinaDelDia = planAprobado.planGenerado[indiceFallback];
   } else {
      return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
   }
 
-
   if (!rutinaDelDia) return res.status(404).json({ mensaje: 'Error de plan.' });
 
-  // Simula la estructura de 'Rutina.js' para el frontend
-  res.status(200).json({
-    _id: planAprobado._id,
-    diaSemana: rutinaDelDia.nombreDia,
+  // --- ¡¡ESTRUCTURA CORREGIDA!! ---
+  // Ahora enviamos exactamente lo que espera plan_entrenamiento.dart
+  const jsonParaApp = {
+    nombreDia: rutinaDelDia.nombreDia, 
     ejercicios: rutinaDelDia.ejercicios.map(e => ({
-      _id: new mongoose.Types.ObjectId(),
-      ejercicio: { 
-        _id: new mongoose.Types.ObjectId(),
-        nombre: e.nombre,
-        descripcion: e.descripcion,
-      },
-      series: e.series,
-      repeticiones: e.repeticiones,
+      // Estructura plana: nombre, series, repeticiones, etc. al mismo nivel
+      nombre: e.nombre,
+      descripcion: e.descripcion,
+      series: e.series, // <-- Ahora sí se enviará correctamente
+      repeticiones: e.repeticiones, // <-- Ahora sí se enviará correctamente
       descansoSeries: e.descansoSeries,
       descansoEjercicios: e.descansoEjercicios
     }))
-  });
+  };
+  // --- FIN CORRECCIÓN ---
+
+  res.status(200).json(jsonParaApp);
 };
