@@ -205,13 +205,9 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
 // controllers/iaEntrenamientoController.js
 // --- ¡¡ESTA ES LA VERSIÓN FINAL Y CORRECTA!! ---
 
-// controllers/iaEntrenamientoController.js
-// --- VERSIÓN DE DEPURACIÓN FINAL ---
-
 exports.obtenerMiRutinaDelDia = async (req, res) => {
   try {
     const { fecha } = req.query;
-    // ... (toda la lógica de búsqueda de planAprobado y rutinaDelDia sigue igual) ...
     const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()];
@@ -231,25 +227,36 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
     const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
     
     if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
-       rutinaDelDia = planAprobado.planGenerado[indiceDia];
+      rutinaDelDia = planAprobado.planGenerado[indiceDia];
     } else if (planAprobado.planGenerado.length > 0) {
-       const indiceFallback = indiceDia % planAprobado.planGenerado.length;
-       rutinaDelDia = planAprobado.planGenerado[indiceFallback];
+      const indiceFallback = indiceDia % planAprobado.planGenerado.length;
+      rutinaDelDia = planAprobado.planGenerado[indiceFallback];
     } else {
-       return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
+      return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
     }
 
-    if (!rutinaDelDia) return res.status(404).json({ mensaje: 'Error de plan.' });
+    if (!rutinaDelDia) {
+      return res.status(404).json({ mensaje: 'Error de plan.' });
+    }
 
-    // --- ¡¡AQUÍ ESTÁ LA CLAVE!! ---
-    // 1. Construimos el objeto JSON plano y robusto
-    const respuestaJson = {
+    // (Opcional) Puedes borrar los console.log si ya no los necesitas
+    console.log('--- [DEBUG] RUTINA DEL DIA ENCONTRADA ---');
+    console.log(JSON.stringify(rutinaDelDia, null, 2));
+
+
+    // --- ¡¡SOLUCIÓN FINAL!! ---
+    // 1. Estructura PLANA (sin 'ejercicio:' anidado)
+    // 2. Robusto: (rutinaDelDia.ejercicios || []) para evitar error si es null
+    // 3. Robusto: .filter(e => e) para evitar error si hay un ejercicio null en el array
+    // 4. Clave 'nombreDia' corregida para coincidir con el frontend
+    
+    res.status(200).json({
       _id: planAprobado._id,
-      nombreDia: rutinaDelDia.nombreDia,
+      nombreDia: rutinaDelDia.nombreDia, // <-- Clave corregida
       ejercicios: (rutinaDelDia.ejercicios || []) 
         .filter(e => e) // Filtra nulos
         .map(e => ({
-          _id: new mongoose.Types.ObjectId(), // ID temporal
+          _id: new mongoose.Types.ObjectId(),
           nombre: e.nombre,
           descripcion: e.descripcion,
           series: e.series,
@@ -257,23 +264,10 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
           descansoSeries: e.descansoSeries,
           descansoEjercicios: e.descansoEjercicios
         }))
-    };
-
-    // --- ¡¡NUEVO LOG DE DEPURACIÓN!! ---
-    // Mostramos *exactamente* lo que se va a enviar.
-    // Específicamente, mostramos el primer ejercicio del array.
-    console.log('--- [DEBUG] JSON FINAL ENVIADO (PRIMER EJERCICIO) ---');
-    if (respuestaJson.ejercicios.length > 0) {
-      console.log(JSON.stringify(respuestaJson.ejercicios[0], null, 2));
-    } else {
-      console.log('No hay ejercicios para enviar.');
-    }
-    // --- FIN DEL LOG ---
-
-    // 3. Enviamos la respuesta
-    res.status(200).json(respuestaJson);
+    });
 
   } catch (error) {
+    // El catch se mantiene por seguridad
     console.error('¡¡¡CRASH AL PROCESAR LA RUTINA DEL DÍA!!!', error);
     res.status(500).json({ 
       mensaje: 'Error interno del servidor al procesar la rutina.', 
