@@ -240,14 +240,11 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
   // Simula la estructura de 'Rutina.js' para el frontend
   res.status(200).json({
     _id: planAprobado._id,
-    diaSemana: rutinaDelDia.nombreDia,
+    nombreDia: rutinaDelDia.nombreDia,
     ejercicios: rutinaDelDia.ejercicios.map(e => ({
-      _id: new mongoose.Types.ObjectId(),
-      ejercicio: { 
-        _id: new mongoose.Types.ObjectId(),
-        nombre: e.nombre,
-        descripcion: e.descripcion,
-      },
+      _id: new mongoose.Types.ObjectId(), // Puedes mantener un ID si lo necesitas
+      nombre: e.nombre,
+      descripcion: e.descripcion,
       series: e.series,
       repeticiones: e.repeticiones,
       descansoSeries: e.descansoSeries,
