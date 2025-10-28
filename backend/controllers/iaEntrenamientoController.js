@@ -203,59 +203,80 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
  * [CLIENTE] Obtiene la rutina del día para el calendario
  */
 exports.obtenerMiRutinaDelDia = async (req, res) => {
-  const { fecha } = req.query;
-  const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
-  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()];
-  const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
+  // --- ¡¡BLOQUE TRY/CATCH AÑADIDO!! ---
+  // Esto capturará cualquier crash (ej. .map sobre null)
+  try {
+    const { fecha } = req.query;
+    const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()];
+    const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
 
-  const planAprobado = await PlanEntrenamiento.findOne({
-    usuario: req.user.id,
-    mes: mesActual,
-    estado: 'aprobado'
-  });
+    const planAprobado = await PlanEntrenamiento.findOne({
+      usuario: req.user.id,
+      mes: mesActual,
+      estado: 'aprobado'
+    });
 
-  if (!planAprobado || !planAprobado.diasAsignados.includes(diaSemanaSeleccionado)) {
-    return res.status(404).json({ mensaje: `Día de descanso.` });
+    if (!planAprobado || !planAprobado.diasAsignados.includes(diaSemanaSeleccionado)) {
+      return res.status(404).json({ mensaje: `Día de descanso.` });
+    }
+
+    let rutinaDelDia;
+    const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
+    
+    if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
+      rutinaDelDia = planAprobado.planGenerado[indiceDia];
+    } else if (planAprobado.planGenerado.length > 0) {
+      const indiceFallback = indiceDia % planAprobado.planGenerado.length;
+      rutinaDelDia = planAprobado.planGenerado[indiceFallback];
+    } else {
+      return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
+    }
+
+    if (!rutinaDelDia) {
+      return res.status(404).json({ mensaje: 'Error de plan.' });
+    }
+
+    // --- ¡¡LOGS DE DEPURACIÓN!! ---
+    console.log('--- [DEBUG] RUTINA DEL DIA ENCONTRADA ---');
+    // Usamos JSON.stringify para ver el objeto completo, incluso si es grande
+    console.log(JSON.stringify(rutinaDelDia, null, 2));
+
+    console.log('--- [DEBUG] EJERCICIOS DENTRO DE LA RUTINA ---');
+    console.log(JSON.stringify(rutinaDelDia.ejercicios, null, 2));
+    // --- FIN DE LOGS ---
+
+
+    // Simula la estructura de 'Rutina.js' para el frontend
+    res.status(200).json({
+      _id: planAprobado._id,
+      nombreDia: rutinaDelDia.nombreDia, // Mantenemos esta clave que estaba correcta
+      
+      // --- ¡¡ESTRUCTURA REVERTIDA!! ---
+      // Volvemos a la estructura anidada que causaba el
+      // problema de "valores por defecto", pero que NO crasheaba.
+      ejercicios: rutinaDelDia.ejercicios.map(e => ({
+        _id: new mongoose.Types.ObjectId(),
+        ejercicio: { // <-- Objeto anidado
+          _id: new mongoose.Types.ObjectId(),
+          nombre: e.nombre,
+          descripcion: e.descripcion,
+        },
+        series: e.series,
+        repeticiones: e.repeticiones,
+        descansoSeries: e.descansoSeries,
+        descansoEjercicios: e.descansoEjercicios
+      }))
+    });
+
+  } catch (error) {
+    // --- ¡¡AQUÍ VEREMOS EL CRASH!! ---
+    console.error('¡¡¡CRASH AL PROCESAR LA RUTINA DEL DÍA!!!', error);
+    // Enviamos un error 500 claro al frontend
+    res.status(500).json({ 
+      mensaje: 'Error interno del servidor al procesar la rutina.', 
+      error: error.message 
+    });
   }
-
-  // Asigna "Dia 1" o "Dia 2"
-  let rutinaDelDia;
-  const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
-  
-  if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
-     rutinaDelDia = planAprobado.planGenerado[indiceDia];
-  } else if (planAprobado.planGenerado.length > 0) {
-     // Fallback: Si los días asignados no coinciden con el plan (ej. asigna 5 días pero el JSON solo tiene 3)
-     // Hacemos un módulo para rotar.
-     const indiceFallback = indiceDia % planAprobado.planGenerado.length;
-     rutinaDelDia = planAprobado.planGenerado[indiceFallback];
-  } else {
-     return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
-  }
-
-
-  if (!rutinaDelDia) return res.status(404).json({ mensaje: 'Error de plan.' });
-
-  // Simula la estructura de 'Rutina.js' para el frontend
-  res.status(200).json({
-    _id: planAprobado._id,
-    nombreDia: rutinaDelDia.nombreDia,
-
-    // --- ¡¡CÓDIGO CORREGIDO AQUÍ!! ---
-    // 1. (rutinaDelDia.ejercicios || []): Si 'ejercicios' es null, usa un array vacío [].
-    // 2. .filter(e => e): Filtra (elimina) cualquier elemento 'null' dentro del array.
-    ejercicios: (rutinaDelDia.ejercicios || []) 
-      .filter(e => e) 
-      .map(e => ({
-       _id: new mongoose.Types.ObjectId(), 
-       nombre: e.nombre,
-       descripcion: e.descripcion,
-       series: e.series,
-       repeticiones: e.repeticiones,
-       descansoSeries: e.descansoSeries,
-       descansoEjercicios: e.descansoEjercicios
-     }))
-    // --- FIN DE LA CORRECCIÓN ---
-  });
 };
