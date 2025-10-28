@@ -203,8 +203,7 @@ exports.obtenerMiPlanDelMes = async (req, res) => {
  * [CLIENTE] Obtiene la rutina del día para el calendario
  */
 exports.obtenerMiRutinaDelDia = async (req, res) => {
-  // --- ¡¡BLOQUE TRY/CATCH AÑADIDO!! ---
-  // Esto capturará cualquier crash (ej. .map sobre null)
+  // ¡¡TRY/CATCH PARA CAPTURAR CUALQUIER ERROR!!
   try {
     const { fecha } = req.query;
     const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
@@ -226,54 +225,47 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
     const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
     
     if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
-      rutinaDelDia = planAprobado.planGenerado[indiceDia];
+       rutinaDelDia = planAprobado.planGenerado[indiceDia];
     } else if (planAprobado.planGenerado.length > 0) {
-      const indiceFallback = indiceDia % planAprobado.planGenerado.length;
-      rutinaDelDia = planAprobado.planGenerado[indiceFallback];
+       const indiceFallback = indiceDia % planAprobado.planGenerado.length;
+       rutinaDelDia = planAprobado.planGenerado[indiceFallback];
     } else {
-      return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
+       return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
     }
 
+    // Comprobación de seguridad
     if (!rutinaDelDia) {
-      return res.status(404).json({ mensaje: 'Error de plan.' });
+      return res.status(404).json({ mensaje: 'Error de plan: rutinaDelDia no encontrada.' });
     }
 
-    // --- ¡¡LOGS DE DEPURACIÓN!! ---
-    console.log('--- [DEBUG] RUTINA DEL DIA ENCONTRADA ---');
-    // Usamos JSON.stringify para ver el objeto completo, incluso si es grande
-    console.log(JSON.stringify(rutinaDelDia, null, 2));
-
-    console.log('--- [DEBUG] EJERCICIOS DENTRO DE LA RUTINA ---');
-    console.log(JSON.stringify(rutinaDelDia.ejercicios, null, 2));
-    // --- FIN DE LOGS ---
-
-
-    // Simula la estructura de 'Rutina.js' para el frontend
-    res.status(200).json({
+    // --- ¡¡SOLUCIÓN FINAL!! ---
+    // 1. Estructura PLANA (sin 'ejercicio:' anidado)
+    // 2. Robusto: (rutinaDelDia.ejercicios || []) para evitar error si 'ejercicios' es null
+    // 3. Robusto: .filter(e => e) para evitar error si hay un ejercicio null en el array
+    
+    const respuestaJson = {
       _id: planAprobado._id,
-      nombreDia: rutinaDelDia.nombreDia, // Mantenemos esta clave que estaba correcta
-      
-      // --- ¡¡ESTRUCTURA REVERTIDA!! ---
-      // Volvemos a la estructura anidada que causaba el
-      // problema de "valores por defecto", pero que NO crasheaba.
-      ejercicios: rutinaDelDia.ejercicios.map(e => ({
-        _id: new mongoose.Types.ObjectId(),
-        ejercicio: { // <-- Objeto anidado
+      nombreDia: rutinaDelDia.nombreDia, // Clave corregida
+      ejercicios: (rutinaDelDia.ejercicios || []) 
+        .filter(e => e) // Filtra nulos
+        .map(e => ({
           _id: new mongoose.Types.ObjectId(),
+          // --- ¡ESTA ES LA ESTRUCTURA PLANA CORRECTA! ---
           nombre: e.nombre,
           descripcion: e.descripcion,
-        },
-        series: e.series,
-        repeticiones: e.repeticiones,
-        descansoSeries: e.descansoSeries,
-        descansoEjercicios: e.descansoEjercicios
-      }))
-    });
+          series: e.series,
+          repeticiones: e.repeticiones,
+          descansoSeries: e.descansoSeries,
+          descansoEjercicios: e.descansoEjercicios
+        }))
+    };
+    
+    // 3. Enviamos la respuesta
+    res.status(200).json(respuestaJson);
 
   } catch (error) {
-    // --- ¡¡AQUÍ VEREMOS EL CRASH!! ---
+    // Si algo falla (ej. rutinaDelDia es null), esto lo captura
     console.error('¡¡¡CRASH AL PROCESAR LA RUTINA DEL DÍA!!!', error);
-    // Enviamos un error 500 claro al frontend
     res.status(500).json({ 
       mensaje: 'Error interno del servidor al procesar la rutina.', 
       error: error.message 
