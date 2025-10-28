@@ -11,6 +11,7 @@ const {
   crearUsuario,
   eliminarUsuario,
   cambiarContrasena,
+  cambiarContrasenaAdmin,
   actualizarAvatar, 
   obtenerCatalogoPrendas,
   obtenerPrendasDesbloqueadas,
@@ -37,7 +38,7 @@ router.get('/prendas/progreso', proteger, obtenerProgresoLogros);
 // --- *** MOVEMOS LA RUTA AQUÍ *** ---
 // Ruta calculo kcal objetivo (DEBE IR ANTES DE /:idUsuario)
 router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
-
+router.put('/:idUsuario/admin-contrasena', proteger, esAdministrador, cambiarContrasenaAdmin);
 
 // RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
 router.get('/grupos', proteger, esAdministrador, obtenerGrupos);

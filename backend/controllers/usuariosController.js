@@ -662,3 +662,33 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
     res.status(500).json({ mensaje: 'Error en el servidor', error: error.message });
   }
 };
+exports.cambiarContrasenaAdmin = async (req, res) => {
+  const { contrasena } = req.body; // Recibe la nueva contraseña
+  const { idUsuario } = req.params;
+
+  if (!contrasena || contrasena.length < 6) {
+    return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 6 caracteres.' });
+  }
+
+  try {
+    // 1. Encontrar al usuario
+    const usuario = await Usuario.findById(idUsuario);
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+    }
+
+    // 2. Asignar la nueva contraseña
+    // ¡IMPORTANTE! Solo la asignamos, no la hasheamos aquí
+    usuario.contrasena = contrasena;
+
+    // 3. Guardar
+    // El .save() SÍ activa el 'pre(save)' hook en Usuario.js
+    await usuario.save(); 
+
+    res.status(200).json({ mensaje: 'Contraseña actualizada correctamente.' });
+
+  } catch (error) {
+    console.error('Error al cambiar contraseña (admin):', error);
+    res.status(500).json({ mensaje: 'Error del servidor.', error: error.message });
+  }
+};
