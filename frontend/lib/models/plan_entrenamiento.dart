@@ -20,6 +20,12 @@ class EjercicioGenerado {
   });
 
   factory EjercicioGenerado.fromJson(Map<String, dynamic> json) {
+    
+    // --- ¡¡LOG AQUÍ!! ---
+    // Esto nos dirá si la estructura anidada o plana está llegando aquí
+    //print('Parseando EjercicioGenerado con JSON: $json', name: 'EjercicioGenerado.fromJson');
+    // --- FIN DE LOG ---
+    
     return EjercicioGenerado(
       nombre: json['nombre'] ?? 'Ejercicio sin nombre',
       series: json['series']?.toString() ?? '3', // Convertir a String por si acaso

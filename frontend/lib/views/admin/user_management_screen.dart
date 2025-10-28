@@ -1,5 +1,7 @@
 // screens/admin/user_management_screen.dart
-// ¡ACTUALIZADO CON FILTROS, ORDEN, INDICADOR DE PAGO Y DIÁLOGO DE EDICIÓN!
+// ¡VERSIÓN FINAL CORREGIDA!
+// 1. Botón de contraseña añadido.
+// 2. Campo de contraseña eliminado de "Editar".
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -47,7 +49,6 @@ class _UserManagementBody extends StatelessWidget {
                 icon: const Icon(Icons.filter_list, color: Colors.white),
                 dropdownColor: Colors.indigo[700],
                 style: const TextStyle(color: Colors.white, fontSize: 16),
-                // Usar vm.gruposDisponibles que se actualiza desde el ViewModel
                 items: vm.gruposDisponibles.map((String grupo) {
                   return DropdownMenuItem<String>(
                     value: grupo,
@@ -55,7 +56,7 @@ class _UserManagementBody extends StatelessWidget {
                   );
                 }).toList(),
                 onChanged: vm.loading ? null : (String? nuevoGrupo) {
-                     vm.setGrupoSeleccionado(nuevoGrupo); // Actualiza el filtro
+                    vm.setGrupoSeleccionado(nuevoGrupo); // Actualiza el filtro
                 },
               ),
             ),
@@ -92,11 +93,86 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
+  /// 
+  /// ¡¡ESTA FUNCIÓN YA LA TENÍAS, ESTÁ PERFECTA!!
+  /// (Solo la incluyo para que veas que el botón de la tarjeta la llama)
+  ///
+  void _showChangePasswordDialog(BuildContext context, UserManagementViewModel vm, Usuario user) {
+    final TextEditingController passwordController = TextEditingController();
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('Cambiar Contraseña'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Usuario: ${user.nombre}'),
+                SizedBox(height: 16),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Nueva Contraseña',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'El campo no puede estar vacío';
+                    }
+                    if (value.length < 6) {
+                      return 'Debe tener al menos 6 caracteres';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('Cancelar'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            ElevatedButton(
+              child: Text('Guardar'),
+              onPressed: () async {
+                if (formKey.currentState?.validate() ?? false) {
+                  final newPassword = passwordController.text;
+                  
+                  // Llama al ViewModel
+                  final success = await vm.cambiarContrasena(user.id, newPassword);
+                  
+                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  
+                  if (context.mounted) {
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Contraseña de ${user.nombre} actualizada.'), backgroundColor: Colors.green),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: ${vm.error}'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Construye la tarjeta para un usuario en la lista
   Widget _buildUserCard(BuildContext context, UserManagementViewModel vm, Usuario user) {
-    // --- ¡TAMAÑO DE FUENTE AUMENTADO! ---
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold); // Más grande
-    final subtitleStyle = Theme.of(context).textTheme.bodyLarge; // Un poco más grande
+    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold);
+    final subtitleStyle = Theme.of(context).textTheme.bodyLarge;
 
     return Card(
       elevation: 2,
@@ -111,23 +187,32 @@ class _UserManagementBody extends StatelessWidget {
       child: ListTile(
         leading: Icon(
           Icons.circle,
-          size: 18, // Ligeramente más grande
+          size: 18,
           color: user.rol == 'admin' ? Colors.indigo : (user.haPagado ? Colors.green : Colors.red),
         ),
-        // Aplicamos los nuevos estilos de texto
         title: Text(user.nombre, style: titleStyle),
         subtitle: Text(
           '${user.nombreGrupo ?? 'Sin Grupo'}  •  ${user.rol}',
           style: subtitleStyle?.copyWith(color: user.nombreGrupo == null ? Colors.grey[600] : Colors.black87),
         ),
+        
+        // --- ¡¡CAMBIO AQUÍ!! ---
+        // Se ha añadido el botón de la llave (Icons.key)
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: Icon(Icons.edit, color: Colors.blueGrey[600]),
-              tooltip: 'Editar',
+              tooltip: 'Editar Datos',
               onPressed: () => _showEditUserDialog(context, vm, user),
             ),
+            // --- ¡¡BOTÓN AÑADIDO!! ---
+            IconButton(
+              icon: Icon(Icons.key, color: Colors.orange[800]),
+              tooltip: 'Cambiar Contraseña',
+              onPressed: () => _showChangePasswordDialog(context, vm, user), // <-- Llama a la nueva función
+            ),
+            // --- FIN DEL CAMBIO ---
             IconButton(
               icon: Icon(Icons.delete, color: Colors.red[700]),
               tooltip: 'Eliminar',
@@ -140,13 +225,13 @@ class _UserManagementBody extends StatelessWidget {
   }
 
   /// Muestra el diálogo para AÑADIR un nuevo usuario
-  /// Muestra el diálogo para AÑADIR un nuevo usuario (¡CON CAMPO GRUPO!)
   void _showAddUserDialog(BuildContext context, UserManagementViewModel vm) {
+    // ... (Esta función estaba perfecta, no necesita cambios)
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController();
     final _correoController = TextEditingController();
     final _contrasenaController = TextEditingController();
-    final _grupoController = TextEditingController(); // <-- ¡NUEVO!
+    final _grupoController = TextEditingController();
     String _selectedRol = 'cliente';
 
     showDialog(
@@ -187,13 +272,10 @@ class _UserManagementBody extends StatelessWidget {
                       if (newValue != null) _selectedRol = newValue;
                     },
                   ),
-                  // --- ¡NUEVO CAMPO! ---
                   TextFormField(
                     controller: _grupoController,
                     decoration: const InputDecoration(labelText: 'Nombre de Grupo (Opcional)'),
-                    // Sin validador, es opcional
                   ),
-                  // --- FIN NUEVO CAMPO ---
                 ],
               ),
             ),
@@ -209,7 +291,7 @@ class _UserManagementBody extends StatelessWidget {
                   final success = await vm.addUsuario(
                     nombre: _nombreController.text,
                     correo: _correoController.text,
-                    contrasena: _contrasenaController.text, // <-- SIN HASHEAR
+                    contrasena: _contrasenaController.text,
                     rol: _selectedRol,
                     tiposDeClases: _tiposDeClasesDefault,
                     nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
@@ -238,11 +320,12 @@ class _UserManagementBody extends StatelessWidget {
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController(text: user.nombre);
     final _correoController = TextEditingController(text: user.correo);
-    final _contrasenaController = TextEditingController(); // Vacía por defecto
-    // --- ¡NUEVO! ---
+    // --- ¡¡CAMBIO AQUÍ!! ---
+    // final _contrasenaController = TextEditingController(); // <-- ¡ELIMINADO!
+    // --- FIN DEL CAMBIO ---
+    
     final _grupoController = TextEditingController(text: user.nombreGrupo);
     bool _haPagado = user.haPagado;
-    // --- FIN NUEVO ---
     
     String _selectedRol = user.rol;
     bool _esPremium = user.esPremium;
@@ -253,7 +336,6 @@ class _UserManagementBody extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        // Usamos StatefulBuilder para que el estado del Switch se actualice
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -264,7 +346,6 @@ class _UserManagementBody extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      // --- ¡NUEVO! Switch de Pago ---
                       SwitchListTile(
                         title: Text(
                           _haPagado ? 'Pagado' : 'Pendiente de Pago',
@@ -277,7 +358,6 @@ class _UserManagementBody extends StatelessWidget {
                           });
                         },
                       ),
-                      // --- ¡NUEVO! Campo de Grupo ---
                       TextFormField(
                         controller: _grupoController,
                         decoration: const InputDecoration(labelText: 'Nombre de Grupo (Opcional)'),
@@ -294,11 +374,12 @@ class _UserManagementBody extends StatelessWidget {
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) => (value == null || !value.contains('@')) ? 'Correo inválido' : null,
                       ),
-                      TextFormField(
-                        controller: _contrasenaController,
-                        decoration: const InputDecoration(labelText: 'Nueva Contraseña (Opcional)'),
-                        obscureText: true,
-                      ),
+                      
+                      // --- ¡¡CAMBIO AQUÍ!! ---
+                      // --- Campo de Contraseña Opcional ELIMINADO ---
+                      // TextFormField( ... ),
+                      // --- FIN DEL CAMBIO ---
+
                       DropdownButtonFormField<String>(
                         value: _selectedRol,
                         decoration: const InputDecoration(labelText: 'Rol'),
@@ -314,7 +395,6 @@ class _UserManagementBody extends StatelessWidget {
                         },
                       ),
                       const SizedBox(height: 16),
-                      // Checkboxes de servicios
                       SwitchListTile(
                         title: const Text('Es Premium'),
                         value: _esPremium,
@@ -359,11 +439,14 @@ class _UserManagementBody extends StatelessWidget {
                         nombre: _nombreController.text,
                         correo: _correoController.text,
                         rol: _selectedRol,
-                        nuevaContrasena: _contrasenaController.text.isEmpty ? null : _contrasenaController.text,
+                        
+                        // --- ¡¡CAMBIO AQUÍ!! ---
+                        nuevaContrasena: null, // <-- ¡ELIMINADO! Se pasa null
+                        // --- FIN DEL CAMBIO ---
+                        
                         esPremium: _esPremium,
                         incluyePlanDieta: _incluyeDieta,
                         incluyePlanEntrenamiento: _incluyeEntreno,
-                        // --- ¡NUEVOS CAMPOS! ---
                         haPagado: _haPagado,
                         nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
                       );

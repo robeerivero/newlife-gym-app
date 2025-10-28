@@ -6,7 +6,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../config.dart';
 import '../models/plan_entrenamiento.dart'; // Importa el nuevo modelo
-
 class IAEntrenamientoService {
   final _storage = const FlutterSecureStorage();
   final String _apiUrl = '${AppConstants.baseUrl}/api/entrenamiento'; // Ruta base
@@ -48,38 +47,34 @@ class IAEntrenamientoService {
 
   /// [CLIENTE] Obtiene la rutina detallada para un día específico.
   /// Devuelve el objeto `DiaEntrenamiento` correspondiente a ese día.
-  Future<DiaEntrenamiento?> obtenerRutinaDelDia(DateTime fecha) async {
+  Future<DiaEntrenamiento> obtenerRutinaDelDia(DateTime fecha) async {
     final headers = await _getHeaders();
-    final fechaQuery = fecha.toIso8601String().split('T')[0];
+    final String fechaQuery = fecha.toIso8601String().split('T')[0];
+    
     final response = await http.get(
-      Uri.parse('$_apiUrl/mi-rutina-del-dia?fecha=$fechaQuery'),
-      headers: headers,
-    );
+  Uri.parse('$_apiUrl/mi-rutina-del-dia?fecha=$fechaQuery'), // <--- ¡AÑADE "DEL" AQUÍ!
+  headers: headers,
+);
+
+    // --- ¡¡LOGS DE FRONTEND CON PRINT!! ---
+    print('--- [FRONTEND DEBUG: SERVICIO] ---');
+    print('Status Code: ${response.statusCode}');
+    print('Respuesta (body) RAW: ${response.body}');
+    // --- FIN DE LOGS ---
 
     if (response.statusCode == 200) {
-      // El backend ahora devuelve directamente la estructura simulada
-      // Necesitamos adaptarla aquí si el frontend espera DiaEntrenamiento
-      // O modificar el frontend para que use la estructura simulada
-      
-      // Asumiendo que el backend simula bien, podemos parsearlo como PlanEntrenamiento
-      // y luego extraer el día. ¡Esto es ineficiente! 
-      // Idealmente, el backend devolvería SOLO el DiaEntrenamiento.
-      // Por ahora, lo hacemos así:
-      
-      final Map<String, dynamic> rawData = json.decode(response.body);
-      // Creamos un DiaEntrenamiento directamente de la parte relevante
-       if (rawData['ejercicios'] != null) {
-         return DiaEntrenamiento(
-           nombreDia: rawData['diaSemana'] ?? 'Rutina del día',
-           ejercicios: (rawData['ejercicios'] as List)
-               .map((e) => EjercicioGenerado.fromJson(e['ejercicio'])) // Ojo a la estructura simulada!
-               .toList() ?? [],
-         );
-       }
-    } else if (response.statusCode == 404) {
-      return null; // Día de descanso o sin plan
+      final data = json.decode(response.body);
+
+      // --- ¡¡LOG 2 CON PRINT!! ---
+      print('Datos (body) DECODIFICADOS: $data');
+      // --- FIN DE LOG 2 ---
+
+      return DiaEntrenamiento.fromJson(data); 
+    } else {
+      final errorData = json.decode(response.body);
+      print('Error del servidor: ${errorData['mensaje']}');
+      throw Exception(errorData['mensaje'] ?? 'Error al cargar la rutina.');
     }
-    throw Exception('Error al obtener rutina del día');
   }
 
   // --- MÉTODOS PARA EL ADMIN ---

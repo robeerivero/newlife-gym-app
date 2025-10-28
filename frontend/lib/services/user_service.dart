@@ -222,6 +222,29 @@ class UserService {
     return response.statusCode == 200;
   }
 
+  /// [ADMIN] Cambia la contraseña de un usuario específico
+  Future<bool> cambiarContrasenaAdmin(String usuarioId, String nuevaContrasena) async {
+    final headers = await _getHeaders(); // Esto ya incluye Content-Type: application/json
+    
+    final body = jsonEncode({
+      'contrasena': nuevaContrasena
+    });
+
+    final response = await http.put(
+      Uri.parse('$_apiUrl/$usuarioId/admin-contrasena'), // <-- La nueva ruta
+      headers: headers,
+      body: body,
+    );
+    
+    // Si falla, podemos lanzar una excepción
+    if (response.statusCode != 200) {
+      final errorData = json.decode(response.body);
+      throw Exception(errorData['mensaje'] ?? 'Error al cambiar la contraseña');
+    }
+    
+    return response.statusCode == 200;
+  }
+
   /// [ADMIN] Elimina un usuario
   Future<bool> deleteUsuario(String usuarioId) async {
     final headers = await _getHeaders(includeContentType: false);

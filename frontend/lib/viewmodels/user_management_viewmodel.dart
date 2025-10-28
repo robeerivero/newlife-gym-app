@@ -184,7 +184,27 @@ class UserManagementViewModel extends ChangeNotifier {
      return success;
   }
 
-  // --- DELETE USUARIO (Manejo de Error Mejorado) ---
+  /// [ADMIN] Cambia la contraseña de un usuario
+  Future<bool> cambiarContrasena(String usuarioId, String nuevaContrasena) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    
+    bool success = false;
+    try {
+      success = await _userService.cambiarContrasenaAdmin(usuarioId, nuevaContrasena);
+      if (!success) {
+         _error = 'El servicio falló al cambiar la contraseña.';
+      }
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+    return success;
+  }
+ 
   // --- DELETE USUARIO (Manejo de Error Mejorado) ---
   Future<bool> deleteUsuario(String id) async {
     _loading = true; _error = null; notifyListeners();
