@@ -239,16 +239,23 @@ exports.obtenerMiRutinaDelDia = async (req, res) => {
 
   // Simula la estructura de 'Rutina.js' para el frontend
   res.status(200).json({
-    _id: planAprobado._id,
-    nombreDia: rutinaDelDia.nombreDia,
-    ejercicios: rutinaDelDia.ejercicios.map(e => ({
-      _id: new mongoose.Types.ObjectId(), // Puedes mantener un ID si lo necesitas
-      nombre: e.nombre,
-      descripcion: e.descripcion,
-      series: e.series,
-      repeticiones: e.repeticiones,
-      descansoSeries: e.descansoSeries,
-      descansoEjercicios: e.descansoEjercicios
-    }))
-  });
+    _id: planAprobado._id,
+    nombreDia: rutinaDelDia.nombreDia,
+
+    // --- ¡¡CÓDIGO CORREGIDO AQUÍ!! ---
+    // 1. (rutinaDelDia.ejercicios || []): Si 'ejercicios' es null, usa un array vacío [].
+    // 2. .filter(e => e): Filtra (elimina) cualquier elemento 'null' dentro del array.
+    ejercicios: (rutinaDelDia.ejercicios || []) 
+      .filter(e => e) 
+      .map(e => ({
+       _id: new mongoose.Types.ObjectId(), 
+       nombre: e.nombre,
+       descripcion: e.descripcion,
+       series: e.series,
+       repeticiones: e.repeticiones,
+       descansoSeries: e.descansoSeries,
+       descansoEjercicios: e.descansoEjercicios
+     }))
+    // --- FIN DE LA CORRECCIÓN ---
+  });
 };
