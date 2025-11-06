@@ -391,7 +391,7 @@ class ClassScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Consigue rutinas de entrenamiento y dietas generadas por IA y revisadas por tu entrenador, adaptadas a tus objetivos.',
+            'Consigue rutinas de entrenamiento y dietas generadas por tu entrenador, adaptadas a tus objetivos.',
             style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),

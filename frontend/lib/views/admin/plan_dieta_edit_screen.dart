@@ -2,7 +2,6 @@
 // ¡ACTUALIZADO CON ESTILO Y FLUJO MANUAL!
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Para copiar al portapapeles
-import 'package:provider/provider.dart';
 import 'dart:convert'; // Para jsonDecode
 import '../../models/plan_dieta.dart';
 import '../../viewmodels/plan_review_viewmodel.dart';

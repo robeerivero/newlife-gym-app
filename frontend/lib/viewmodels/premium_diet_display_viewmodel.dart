@@ -1,75 +1,117 @@
 // viewmodels/premium_diet_display_viewmodel.dart
-// ¡¡ACTUALIZADO PARA SOPORTAR TABLECALENDAR!!
+// ¡¡VERSIÓN FINAL!!
+// Ahora es autónomo, como ClassViewModel.
+// Carga su propio perfil de usuario.
 
 import 'package:flutter/material.dart';
-import 'package:table_calendar/table_calendar.dart'; // Importa para isSameDay
 import '../models/plan_dieta.dart';
+import '../models/usuario.dart'; // <-- Importante
 import '../services/ia_dieta_service.dart';
+import '../services/user_service.dart'; // <-- Importante
 
-// Helper para comparar días (lo ponemos aquí para usarlo en cambiarDia)
+// Helper para comparar días
 bool isSameDay(DateTime? a, DateTime? b) {
   if (a == null || b == null) return false;
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 class PremiumDietDisplayViewModel extends ChangeNotifier {
+  // --- Servicios ---
   final IADietaService _dietaService = IADietaService();
+  final UserService _userService = UserService(); // <-- Como ClassViewModel
 
-  DiaDieta? dietaDelDia;
-  bool _isLoading = false;
-  String? error;
-  DateTime _fechaSeleccionada = DateTime.now();
-  
-  // --- CAMPOS NUEVOS PARA TABLECALENDAR ---
-  DateTime _focusedDay = DateTime.now(); // Para controlar el foco del calendario
-  // --- FIN CAMPOS NUEVOS ---
+  // --- Estado del Usuario ---
+  Usuario? _currentUser; // <-- Como ClassViewModel
+  Usuario? get currentUser => _currentUser;
+  bool get esPremium => _currentUser?.esPremium ?? false;
+  bool get incluyePlanDieta => _currentUser?.incluyePlanDieta ?? false;
 
-  // --- Getters ---
+  // --- Estado de la Dieta ---
+  DiaDieta? _dietaDelDia;
+  DiaDieta? get dietaDelDia => _dietaDelDia;
+
+  bool _isLoading = true; // Empieza cargando (para el perfil)
   bool get isLoading => _isLoading;
-  DateTime get fechaSeleccionada => _fechaSeleccionada;
-  DateTime get focusedDay => _focusedDay; // Getter para el foco
 
+  String? _error;
+  String? get error => _error;
+
+  DateTime _fechaSeleccionada = DateTime.now();
+  DateTime get fechaSeleccionada => _fechaSeleccionada;
+
+  DateTime _focusedDay = DateTime.now();
+  DateTime get focusedDay => _focusedDay;
+
+  // --- Constructor ---
   PremiumDietDisplayViewModel() {
-    // Carga la dieta para el día de hoy al iniciar
-    fetchDietaParaDia(DateTime.now());
+    // Al crearse, inicializa todo
+    _initialize();
   }
 
-  /// Carga la dieta aprobada para una fecha específica.
-  Future<void> fetchDietaParaDia(DateTime fecha) async {
+  /// Carga el perfil y, si aplica, la dieta.
+  Future<void> _initialize() async {
     _isLoading = true;
-    error = null;
-    _fechaSeleccionada = fecha;
-    // No notificamos aquí para evitar parpadeo si ya hay datos
-    // notifyListeners();
+    _error = null;
+    notifyListeners();
 
     try {
-      dietaDelDia = await _dietaService.obtenerDietaDelDia(fecha);
+      // 1. Carga el perfil del usuario (¡igual que ClassViewModel!)
+      _currentUser = await _userService.fetchProfile();
+
+      // 2. Si tiene el servicio de dieta, carga la dieta de hoy
+      if (incluyePlanDieta) {
+        await fetchDietaParaDia(DateTime.now());
+      }
+      // Si no tiene el servicio, _isLoading se pondrá en false
+      // y la UI mostrará el estado vacío (el banner de "Hazte Premium")
+
     } catch (e) {
-      error = 'Error al cargar la dieta: ${e.toString()}';
-      dietaDelDia = null; // Limpia datos en caso de error
+      _error = "Error al inicializar: ${e.toString()}";
     } finally {
       _isLoading = false;
-      notifyListeners(); // Actualiza la UI con los datos (o error)
+      notifyListeners();
     }
   }
 
-  /// Cambia el día y recarga la dieta.
+  /// Carga la dieta para una fecha específica (función pública)
+  Future<void> fetchDietaParaDia(DateTime fecha) async {
+    // Solo carga si tiene el plan
+    if (!incluyePlanDieta) return;
+
+    _isLoading = true;
+    _error = null;
+    _fechaSeleccionada = fecha;
+    notifyListeners(); // Muestra el loader
+
+    try {
+      _dietaDelDia = await _dietaService.obtenerDietaDelDia(fecha);
+    } catch (e) {
+      // Maneja "dia de descanso" silenciosamente
+      if (e.toString().toLowerCase().contains('descans')) {
+        _error = null;
+        _dietaDelDia = null;
+      } else {
+        _error = 'Error al cargar la dieta: ${e.toString()}';
+        _dietaDelDia = null;
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Cambia el día y recarga la dieta. (onDaySelected)
   void cambiarDia(DateTime nuevaFecha) {
     if (!isSameDay(_fechaSeleccionada, nuevaFecha)) {
-       // --- LÓGICA DE CALENDARIO ACTUALIZADA ---
       _fechaSeleccionada = nuevaFecha;
-      _focusedDay = nuevaFecha; // Mueve el foco al día seleccionado
-      // --- FIN LÓGICA ---
-      
-      // Recargamos la dieta para el nuevo día
-      fetchDietaParaDia(nuevaFecha);
+      _focusedDay = nuevaFecha;
+      fetchDietaParaDia(nuevaFecha); // Llama a fetch
     }
   }
 
-  // --- FUNCIÓN NUEVA PARA TABLECALENDAR ---
-  /// Solo cambia el foco del calendario (ej. al cambiar de mes)
-  void setFocusedDay(DateTime date) {
-    _focusedDay = date;
+  /// Actualiza el 'focusedDay' (onPageChanged).
+  void setFocusedDay(DateTime newFocusedDay) {
+    _focusedDay = newFocusedDay;
     notifyListeners();
   }
 }

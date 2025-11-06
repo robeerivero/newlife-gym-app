@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
 import '../models/clase.dart';
-import '../models/usuario.dart';
 import '../models/usuario_reserva.dart';
 
 class ReservationService {

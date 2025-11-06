@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:io' show Platform;
 import 'package:provider/provider.dart'; // <-- 1. IMPORTA PROVIDER
+import 'package:flutter/foundation.dart' show kIsWeb; // <-- ¡¡AÑADIDO!!
 import 'viewmodels/profile_viewmodel.dart';
 import 'viewmodels/client_viewmodel.dart';
 import 'views/splash/splash_screen.dart';
@@ -17,13 +18,15 @@ import 'views/client/client_screen.dart';
 //import 'views/online_client/online_client_screen.dart';
 
 // Notificaciones
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 // Nombres de las tareas
 const String kMorningNotificationTask = "morningNotificationTask";
 const String kNightNotificationTask = "nightNotificationTask";
 
 // --- WORKMANAGER CALLBACK ---
+// (Esta función solo será llamada en móvil, por lo que es segura)
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     const androidInit = AndroidInitializationSettings('ic_notificacion');
@@ -66,6 +69,7 @@ void callbackDispatcher() {
 }
 
 // ---- Permisos: Solo notificaciones y solo primera vez ----
+// (Esta función solo será llamada en móvil gracias al kIsWeb)
 Future<void> requestNotificationPermissionIfNeeded() async {
   final prefs = await SharedPreferences.getInstance();
   final permisoPedido = prefs.getBool('permisoNotificacionesPedido') ?? false;
@@ -85,13 +89,15 @@ Future<void> requestNotificationPermissionIfNeeded() async {
   // iOS: pide permisos normales
   if (Platform.isIOS) {
     await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
     await prefs.setBool('permisoNotificacionesPedido', true);
   }
 }
 
 // --- Programar tareas Workmanager a horas exactas ---
+// (Esta función solo será llamada en móvil gracias al kIsWeb)
 Future<void> scheduleDailyTasks() async {
   DateTime now = DateTime.now();
 
@@ -131,17 +137,24 @@ Future<void> scheduleDailyTasks() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES', null);
-  // Pide permisos SOLO la primera vez (solo el de notificaciones)
-  await requestNotificationPermissionIfNeeded();
 
-  // Inicializa Workmanager
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: false,
-  );
+  // --- INICIO DE LA CORRECCIÓN PARA WEB ---
+  // Comprueba si NO estamos en un navegador web.
+  // Las notificaciones, tareas en segundo plano y permisos son solo para móvil.
+  if (!kIsWeb) {
+    // Pide permisos SOLO la primera vez (solo el de notificaciones)
+    await requestNotificationPermissionIfNeeded();
 
-  // Registra tareas para notificar a las horas deseadas
-  await scheduleDailyTasks();
+    // Inicializa Workmanager
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: false,
+    );
+
+    // Registra tareas para notificar a las horas deseadas
+    await scheduleDailyTasks();
+  }
+  // --- FIN DE LA CORRECCIÓN PARA WEB ---
 
   runApp(
     // --- 3. ENVUELVE TU APP CON MULTIPROVIDER ---
@@ -164,7 +177,7 @@ void main() async {
         designSize: const Size(360, 690),
         minTextAdapt: true,
         // 6. Añade 'const' a MyApp()
-        builder: (context, child) => const MyApp(), 
+        builder: (context, child) => const MyApp(),
       ),
     ),
   );

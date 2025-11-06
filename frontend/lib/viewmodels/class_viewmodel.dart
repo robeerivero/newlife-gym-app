@@ -125,7 +125,11 @@ class ClassViewModel extends ChangeNotifier {
     try {
       _rutinaDelDia = await _iaEntrenamientoService.obtenerRutinaDelDia(dia);
     } catch (e) {
-      _error = "Error al cargar la rutina: $e";
+      if (e.toString().toLowerCase().contains('descanso')) {
+        _error = null; // No es un error, es un día libre. No mostramos nada.
+      } else {
+        _error = e.toString(); // Es un error real (ej. sin conexión).
+      }
     } finally {
        _isRutinaLoading = false;
        notifyListeners();

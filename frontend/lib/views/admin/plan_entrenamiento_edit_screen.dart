@@ -2,7 +2,6 @@
 // ¡ACTUALIZADO CON ESTILO Y FLUJO MANUAL!
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../../models/plan_entrenamiento.dart';
 import '../../viewmodels/plan_review_viewmodel.dart';

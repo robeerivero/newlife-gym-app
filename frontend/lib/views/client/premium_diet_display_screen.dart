@@ -1,15 +1,17 @@
 // screens/client/premium_diet_display_screen.dart
-// ¡¡VERSIÓN FINAL CON CORRECCIÓN DEL LOADER (isLoading)!!
+// ¡¡VERSIÓN SIMPLIFICADA!!
+// Ahora es un StatelessWidget y depende SÓLO de PremiumDietDisplayViewModel
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:table_calendar/table_calendar.dart'; // Import del calendario
+import 'package:table_calendar/table_calendar.dart';
 import '../../viewmodels/premium_diet_display_viewmodel.dart';
 import '../../models/plan_dieta.dart';
 import '../../models/usuario.dart';
 import 'premium_dieta_setup_screen.dart';
-import '../../viewmodels/profile_viewmodel.dart';
+// ¡¡Ya no se necesita ProfileViewModel!!
+// import '../../viewmodels/profile_viewmodel.dart'; 
 
 // Helper isSameDay (importante para TableCalendar)
 bool isSameDay(DateTime? a, DateTime? b) {
@@ -17,12 +19,14 @@ bool isSameDay(DateTime? a, DateTime? b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
+// --- 1. VUELVE A SER STATELESSWIDGET ---
 class PremiumDietDisplayScreen extends StatelessWidget {
   const PremiumDietDisplayScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
+      // 2. Crea el VM autónomo. El constructor llamará a _initialize()
       create: (_) => PremiumDietDisplayViewModel(),
       child: Consumer<PremiumDietDisplayViewModel>(
         builder: (context, vm, _) {
@@ -39,39 +43,31 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               elevation: 0,
             ),
             
-            // Usamos Consumer<ProfileViewModel> para que escuche los cambios
-            body: Consumer<ProfileViewModel>(
-              builder: (context, profileVM, _) {
+            // 3. Ya no hay Consumer<ProfileViewModel>
+            body: Column(
+              children: [
+                // 4. Lógica de UI simple basada en el VM
                 
-                // --- ¡¡FIX 1: LÓGICA DE CARGA CORREGIDA!! ---
-                // Comprobamos si el usuario es nulo, en lugar de 'isLoading'
-                if (profileVM.usuario == null) {
-                  // Si el usuario es nulo, el ProfileViewModel aún está cargando
-                  return const Center(child: CircularProgressIndicator());
-                }
-                // --- FIN DE LA CORRECCIÓN ---
+                // Muestra el calendario SOLO si el VM cargó el usuario Y tiene el plan
+                if (vm.currentUser != null && vm.incluyePlanDieta)
+                  _buildTableCalendar(context, vm),
 
-                // 2. Si el usuario SÍ está cargado (no es nulo), mostramos el contenido
-                return Column(
-                  children: [
-                    // El calendario solo se muestra si tiene el plan
-                    if (profileVM.usuario!.incluyePlanDieta)
-                      _buildTableCalendar(context, vm),
-
-                    // 3. Contenido (Dieta o Estados Vacíos)
-                    Expanded(
-                      child: vm.isLoading && vm.dietaDelDia == null
-                          ? const Center(child: CircularProgressIndicator()) // Loader del viewmodel de dieta
-                          : vm.error != null
-                              ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: const TextStyle(color: Colors.red))))
-                              // Pasamos el usuario (¡ya cargado!) al _buildEmptyState
-                              : vm.dietaDelDia == null
-                                  ? _buildEmptyState(context, vm.fechaSeleccionada, profileVM.usuario)
-                                  : _buildDietDay(context, vm.dietaDelDia!),
-                    ),
-                  ],
-                );
-              },
+                // Contenido
+                Expanded(
+                  child: vm.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : vm.error != null
+                          ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: const TextStyle(color: Colors.red))))
+                          
+                          // Si no hay dieta (ya sea por día de descanso o porque no tiene plan)
+                          : vm.dietaDelDia == null
+                              // Pasa el usuario del VM al _buildEmptyState
+                              ? _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser) 
+                              
+                              // Si hay dieta, la muestra
+                              : _buildDietDay(context, vm.dietaDelDia!),
+                ),
+              ],
             ),
           );
         },
@@ -79,6 +75,8 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
   
+  // --- EL RESTO DE WIDGETS (Sin cambios) ---
+
   // --- WIDGET DE CALENDARIO ---
   Widget _buildTableCalendar(BuildContext context, PremiumDietDisplayViewModel vm) {
     return Card(
@@ -94,6 +92,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
         selectedDayPredicate: (day) => isSameDay(vm.fechaSeleccionada, day),
         
         onDaySelected: (selectedDay, focusedDay) {
+          // Llama al VM (que ya sabe si tiene permiso)
           vm.cambiarDia(selectedDay);
         },
         onPageChanged: (focusedDay) {
@@ -120,12 +119,8 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  // (El resto de tus widgets: _buildDietDay, _buildMealCard, _buildDishDetails, _buildDetailRow, _buildEmptyState... 
-  // permanecen exactamente como los tenías en tu último archivo, no necesitan cambios)
-
   /// Muestra el contenido de la dieta para el día.
   Widget _buildDietDay(BuildContext context, DiaDieta diaDieta) {
-    // (Esta función estaba perfecta, no se toca)
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       children: [
@@ -144,7 +139,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
 
   /// Construye una Card para cada comida.
   Widget _buildMealCard(BuildContext context, ComidaDia comida) {
-    // (Esta función estaba perfecta, no se toca)
      return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
@@ -171,7 +165,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
 
   /// Construye los detalles de un plato.
   Widget _buildDishDetails(BuildContext context, PlatoGenerado plato) {
-    // (Esta función estaba perfecta, no se toca)
      return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -205,7 +198,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
 
   /// Helper para fila de detalle.
   Widget _buildDetailRow(IconData icon, String label, String value){
-    // (Esta función estaba perfecta, no se toca)
      return Padding(
       padding: const EdgeInsets.only(top: 4.0),
       child: Row(
@@ -221,9 +213,10 @@ class PremiumDietDisplayScreen extends StatelessWidget {
   }
 
   /// --- Función de estado vacío (Tu lógica original) ---
+  /// Ahora usa el 'usuario' que viene del VM
   Widget _buildEmptyState(BuildContext context, DateTime fecha, Usuario? usuario) {
-    // (Esta función estaba perfecta, no se toca)
-    // 1. Si NO es premium, muestra el Upsell
+    
+    // 1. Si NO es premium (o el usuario es nulo)
     if (usuario == null || !usuario.esPremium) {
       return const _PremiumUpsellWidget();
     }
@@ -255,7 +248,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
       );
     }
     
-    // 3. Si ES premium y SÍ incluye dieta (pero no hay plan 'aprobado')
+    // 3. Si ES premium y SÍ incluye dieta (pero no hay plan o es día de descanso)
     if (usuario.esPremium && usuario.incluyePlanDieta) {
       return Center(
         child: Padding(
@@ -272,7 +265,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Aún no has configurado tus preferencias o tu plan no está aprobado.',
+                'Puede ser un día de descanso, aún no has configurado tus preferencias o tu plan no está aprobado.',
                  style: Theme.of(context).textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
@@ -283,11 +276,15 @@ class PremiumDietDisplayScreen extends StatelessWidget {
                   onPressed: () {
                      Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumDietaSetupScreen(usuario: usuario)))
                          .then((result) {
-                             if (result == true) {
-                               Provider.of<PremiumDietDisplayViewModel>(context, listen: false).fetchDietaParaDia(fecha);
-                               Provider.of<ProfileViewModel>(context, listen: false).fetchProfile();
-                             }
-                           });
+                            if (result == true) {
+                              // Al volver, le decimos al VM que refresque
+                              Provider.of<PremiumDietDisplayViewModel>(context, listen: false).fetchDietaParaDia(fecha);
+                              
+                              // NOTA: Si al guardar preferencias cambia el perfil, 
+                              // el VM debería recargar su propio perfil.
+                              // Por ahora, solo recargamos la dieta.
+                            }
+                          });
                   },
                   style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
                ),
@@ -300,57 +297,56 @@ class PremiumDietDisplayScreen extends StatelessWidget {
   }
 }
 
-// --- WIDGET DE UPSELL (COPIADO DE CLASS_SCREEN) ---
+// --- WIDGET DE UPSELL (Tu widget original sin cambios) ---
 class _PremiumUpsellWidget extends StatelessWidget {
   const _PremiumUpsellWidget({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-     padding: const EdgeInsets.all(24.0),
-     decoration: BoxDecoration(
-       color: Colors.amber[50],
-       borderRadius: BorderRadius.circular(16),
-       border: Border.all(color: Colors.amber[200]!, width: 2)
-     ),
-     margin: const EdgeInsets.all(16.0),
-     // --- ¡¡FIX 3: OVERFLOW ARREGLADO!! ---
-     child: SingleChildScrollView( // <--- Añadido
-       child: Column(
-         mainAxisSize: MainAxisSize.min,
-         children: [
-           Icon(Icons.star_border_purple500_sharp, color: Colors.amber[800], size: 50),
-           const SizedBox(height: 16),
-           Text(
-             '✨ Desbloquea tu Plan de Dieta ✨',
-             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                   fontWeight: FontWeight.bold, color: Colors.amber[900], fontSize: 22
-                 ),
-             textAlign: TextAlign.center,
-           ),
-           const SizedBox(height: 16),
-           Text(
-             'Consigue dietas generadas por IA y revisadas por tu nutricionista, adaptadas 100% a tus calorías y objetivos.',
-             style: Theme.of(context).textTheme.bodyLarge,
-             textAlign: TextAlign.center,
-           ),
-           const SizedBox(height: 24),
-           ElevatedButton.icon(
-             icon: const Icon(Icons.star, color: Colors.white),
-             label: const Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-             onPressed: () {
-               // TODO: Navegar a la pantalla de suscripción premium
-             },
-             style: ElevatedButton.styleFrom(
-               backgroundColor: Colors.amber[700],
-               foregroundColor: Colors.white,
-               padding: const EdgeInsets.symmetric(vertical: 14),
-               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-             ),
-           ),
-         ],
-       ),
-     ),
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: Colors.amber[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber[200]!, width: 2)
+      ),
+      margin: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView( 
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_border_purple500_sharp, color: Colors.amber[800], size: 50),
+            const SizedBox(height: 16),
+            Text(
+              '✨ Desbloquea tu Plan de Dieta ✨',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                     fontWeight: FontWeight.bold, color: Colors.amber[900], fontSize: 22
+                   ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Consigue dietas generadas por tu nutricionista, adaptadas 100% a tus calorías y objetivos.',
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.star, color: Colors.white),
+              label: const Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              onPressed: () {
+                // TODO: Navegar a la pantalla de suscripción premium
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
