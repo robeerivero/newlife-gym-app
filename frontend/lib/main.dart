@@ -7,8 +7,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:io' show Platform;
-import 'package:provider/provider.dart'; // <-- 1. IMPORTA PROVIDER
-import 'package:flutter/foundation.dart' show kIsWeb; // <-- ¡¡AÑADIDO!!
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// --- Imports para notificaciones programadas en iOS ---
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
 import 'viewmodels/profile_viewmodel.dart';
 import 'viewmodels/client_viewmodel.dart';
 import 'views/splash/splash_screen.dart';
@@ -21,12 +26,13 @@ import 'views/client/client_screen.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
-// Nombres de las tareas
+// Nombres de las tareas (para Android/Workmanager)
 const String kMorningNotificationTask = "morningNotificationTask";
 const String kNightNotificationTask = "nightNotificationTask";
 
-// --- WORKMANAGER CALLBACK ---
+// --- WORKMANAGER CALLBACK (SOLO ANDROID) ---
 // (Esta función solo será llamada en móvil, por lo que es segura)
+@pragma('vm:entry-point') // Recomendado por la documentación de Workmanager
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     const androidInit = AndroidInitializationSettings('ic_notificacion');
@@ -86,24 +92,24 @@ Future<void> requestNotificationPermissionIfNeeded() async {
     }
   }
 
-  // iOS: pide permisos normales
+  // iOS: El permiso se pide al inicializar el plugin
+  // (DarwinInitializationSettings)
+  // Pero marcamos que ya se pidió para no insistir.
   if (Platform.isIOS) {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
+    // La inicialización en main() ya pide el permiso.
+    // Solo necesitamos registrar que el intento se hizo.
     await prefs.setBool('permisoNotificacionesPedido', true);
   }
 }
 
-// --- Programar tareas Workmanager a horas exactas ---
-// (Esta función solo será llamada en móvil gracias al kIsWeb)
-Future<void> scheduleDailyTasks() async {
+// --- Programar tareas Workmanager (SOLO ANDROID) ---
+Future<void> scheduleAndroidTasks() async {
   DateTime now = DateTime.now();
 
   // Morning: 08:00
   DateTime nextMorning = DateTime(now.year, now.month, now.day, 8, 00);
-  if (now.isAfter(nextMorning)) nextMorning = nextMorning.add(Duration(days: 1));
+  if (now.isAfter(nextMorning))
+    nextMorning = nextMorning.add(Duration(days: 1));
   final delayMorning = nextMorning.difference(now);
 
   // Night: 22:30
@@ -134,49 +140,117 @@ Future<void> scheduleDailyTasks() async {
   );
 }
 
+// --- !! NUEVA FUNCIÓN SOLO PARA iOS !! ---
+// Esta usa el planificador del propio plugin de notificaciones
+Future<void> scheduleIOSTasks() async {
+  // Función para calcular la próxima hora (ej. 8:00 AM)
+  tz.TZDateTime _nextInstanceOf(int hour, int minute) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+
+  // 1. Notificación de la mañana (8:00)
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    1, // ID de la notificación
+    '¡Inicia el día!',
+    'Empieza a contabilizar tus pasos desde ya 🚶‍♂️',
+    _nextInstanceOf(8, 0), // 08:00
+    const NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    ),
+    androidAllowWhileIdle: false, // No aplica a iOS
+    uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+    matchDateTimeComponents: DateTimeComponents.time, // ¡Repetir diariamente!
+  );
+
+  // 2. Notificación de la noche (22:30)
+  await flutterLocalNotificationsPlugin.zonedSchedule(
+    2, // ID de la notificación
+    '¡Mira tus pasos!',
+    'Consulta cuántos pasos has hecho hoy y revisa tu ranking en la app.',
+    _nextInstanceOf(22, 30), // 22:30
+    const NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    ),
+    androidAllowWhileIdle: false, // No aplica a iOS
+    uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+    matchDateTimeComponents: DateTimeComponents.time, // ¡Repetir diariamente!
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES', null);
 
-  // --- INICIO DE LA CORRECCIÓN PARA WEB ---
+  // --- INICIO DE LA CORRECCIÓN PARA MÓVIL (iOS/Android) ---
   // Comprueba si NO estamos en un navegador web.
-  // Las notificaciones, tareas en segundo plano y permisos son solo para móvil.
   if (!kIsWeb) {
-    // Pide permisos SOLO la primera vez (solo el de notificaciones)
+    // 1. Inicializar Timezones (necesario para zonedSchedule)
+    tz.initializeTimeZones();
+
+    // 2. Inicializar el plugin de notificaciones (para ambas plataformas)
+    const androidInit = AndroidInitializationSettings('ic_notificacion');
+    // Necesario para que la app pida permiso en iOS
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+    // Nota: La solicitud de permiso de iOS se dispara aquí
+    await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+    // 3. Pedir permisos de Android si es necesario
+    // (y registrar que ya se pidió en iOS)
     await requestNotificationPermissionIfNeeded();
 
-    // Inicializa Workmanager
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
-
-    // Registra tareas para notificar a las horas deseadas
-    await scheduleDailyTasks();
+    // 4. LÓGICA DE TAREAS SEPARADA POR PLATAFORMA
+    if (Platform.isAndroid) {
+      // Usa Workmanager para Android
+      await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+      await scheduleAndroidTasks(); // Tu función original
+    } else if (Platform.isIOS) {
+      // Usa Notificaciones Locales Programadas para iOS
+      await scheduleIOSTasks(); // La nueva función
+    }
   }
-  // --- FIN DE LA CORRECCIÓN PARA WEB ---
+  // --- FIN DE LA CORRECCIÓN ---
 
   runApp(
-    // --- 3. ENVUELVE TU APP CON MULTIPROVIDER ---
     MultiProvider(
       providers: [
-        // 4. CREA EL PROFILEVIEWMODEL DE FORMA GLOBAL
         ChangeNotifierProvider(
           create: (_) => ProfileViewModel()..fetchProfile(),
         ),
-        // --- ¡¡NUEVO VIEWMODEL GLOBAL!! ---
-        // ViewModel Global de Cliente (para estado de navegación, etc.)
-        ChangeNotifierProvider(
-          create: (_) => ClientViewModel(),
-        ),
-        // Aquí podrás añadir más ViewModels globales en el futuro
-        // Ej: ChangeNotifierProvider(create: (_) => SettingsViewModel()),
+        ChangeNotifierProvider(create: (_) => ClientViewModel()),
       ],
-      // 5. Tu ScreenUtilInit ahora es HIJO del MultiProvider
       child: ScreenUtilInit(
         designSize: const Size(360, 690),
         minTextAdapt: true,
-        // 6. Añade 'const' a MyApp()
         builder: (context, child) => const MyApp(),
       ),
     ),
@@ -184,7 +258,6 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  // 7. Añade un constructor const
   const MyApp({Key? key}) : super(key: key);
 
   @override
@@ -202,10 +275,7 @@ class MyApp extends StatelessWidget {
         '/client': (context) => ClientScreen(),
         //'/online': (context) => OnlineClientScreen(),
       },
-      supportedLocales: const [
-        Locale('es', ''),
-        Locale('en', ''),
-      ],
+      supportedLocales: const [Locale('es', ''), Locale('en', '')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

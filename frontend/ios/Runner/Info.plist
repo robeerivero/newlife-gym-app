@@ -2,10 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>be.tramckrijte.workmanager.background</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Frontend</string>
+	<string>New Life</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,17 +30,26 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Necesitamos acceso a tu cámara para escanear códigos QR.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos Face ID para proteger tu acceso a datos seguros.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Necesitamos acceso a tus datos de movimiento para contar tus pasos.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Necesitamos tu permiso para mostrar notificaciones</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>Necesitamos tu permiso para mostrar notificaciones</string>
-	<!-- Apple HealthKit permisos -->
-	<key>NSHealthShareUsageDescription</key>
-	<string>Esta aplicación necesita acceder a tus datos de salud para contar pasos y calorías.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Esta aplicación necesita escribir tus datos de salud para registrar actividad física.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -48,27 +63,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-	<string>fetch</string>
-	<string>remote-notification</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>be.tramckrijte.workmanager.background</string>
-	</array>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Sincronizamos tus datos con Apple Health para mostrarte tus pasos.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Sincronizamos tus datos con Apple Health para mostrarte tus pasos.</string>
-
 </dict>
 </plist>
