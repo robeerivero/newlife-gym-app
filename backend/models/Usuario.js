@@ -41,6 +41,35 @@ const esquemaUsuario = new mongoose.Schema({
   horarios: { type: String, default: '' },
   platosFavoritos: { type: String, default: '' },
 
+  // --- ¡NUEVO! CAMPOS DE ADHERENCIA (Dieta) ---
+  dietaTiempoCocina: {
+    type: String,
+    enum: ['menos_15_min', '15_30_min', 'mas_30_min'],
+    default: '15_30_min'
+  },
+  dietaHabilidadCocina: {
+    type: String,
+    enum: ['principiante', 'intermedio', 'avanzado'],
+    default: 'intermedio'
+  },
+  dietaEquipamiento: { 
+    type: [String], 
+    default: ['basico'] // Opciones: 'basico', 'horno', 'airfryer', 'batidora', 'robot'
+  },
+  dietaContextoComida: {
+    type: String,
+    enum: ['casa', 'oficina_tupper', 'restaurante'],
+    default: 'casa'
+  },
+  dietaAlimentosOdiados: { type: String, default: 'Ninguno' },
+  dietaRetoPrincipal: { 
+    type: String, 
+    enum: ['picoteo', 'social', 'organizacion', 'estres', 'raciones'],
+    default: 'picoteo'
+  },
+  dietaBebidas: { type: String, default: 'Principalmente agua' },
+  // -----------------------------------------
+
   // --- Inputs de Entrenamiento (MODIFICADOS) ---
   premiumMeta: { type: String, default: 'Quiero ganar fuerza y definir.' },
   premiumFoco: { type: String, default: 'Pecho, espalda y piernas' },

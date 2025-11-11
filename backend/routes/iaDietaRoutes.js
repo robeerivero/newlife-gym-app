@@ -9,13 +9,21 @@ const router = express.Router();
 router.put('/solicitud', proteger, iaDietaController.solicitarPlanDieta);
 router.get('/mi-plan-del-mes', proteger, iaDietaController.obtenerMiPlanDelMes);
 router.get('/mi-dieta-del-dia', proteger, iaDietaController.obtenerMiDietaDelDia);
+router.get('/mi-lista-compra', proteger, iaDietaController.obtenerMiListaCompra);
+
 
 // --- ADMIN ---
 router.get('/admin/planes-pendientes', proteger, esAdministrador, iaDietaController.obtenerPlanesPendientes);
-router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaDietaController.aprobarPlan);
-// --- NUEVA RUTA ---
 router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaDietaController.obtenerPromptParaRevision);
-// --- RUTA ELIMINADA ---
-// router.post('/admin/generar-ia/:idPlan', ... );
+router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaDietaController.aprobarPlan);
+
+// --- ¡NUEVAS RUTAS DE ADMIN! ---
+
+// 1. (Para EDITAR) Obtiene el JSON de un plan para que el admin lo copie
+router.get('/admin/plan/:idPlan/para-editar', proteger, esAdministrador, iaDietaController.obtenerPlanParaEditar);
+
+// 2. (Para ELIMINAR) Borra un plan
+router.delete('/admin/plan/:idPlan', proteger, esAdministrador, iaDietaController.eliminarPlan);
+
 
 module.exports = router;

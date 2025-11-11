@@ -62,7 +62,8 @@ exports.solicitarPlanDieta = async (req, res) => {
       {
         inputsUsuario: datosParaPlan, // <-- ¡Guardamos TODOS los datos del req.body!
         estado: 'pendiente_revision',
-        planGenerado: [] 
+        planGenerado: [],
+        listaCompraGenerada: {} // Reseteamos la lista de la compra
       },
       { upsert: true, new: true }
     );
@@ -76,12 +77,11 @@ exports.solicitarPlanDieta = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor al solicitar el plan.', error: error.message });
   }
 };
+
 /**
  * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
+ * ¡MODIFICADO PARA LISTA DE LA COMPRA!
  */
-// Esta función se llama desde 'solicitarPlanDieta' o 'obtenerPromptParaRevision'
-// 'inputsUsuario' DEBE contener todos los datos del formulario.
-
 function generarPromptParaPlan(inputsUsuario) {
   // Aseguramos valores por defecto para que el prompt no se rompa
   const kcal = inputsUsuario.kcalObjetivo || 2000;
@@ -89,9 +89,10 @@ function generarPromptParaPlan(inputsUsuario) {
   
   const masterPrompt = `
       Eres un nutricionista experto de nivel élite. Genera un plan de comidas semanal detallado
-      en formato JSON para un usuario con los siguientes datos:
+      Y UNA LISTA DE LA COMPRA SEMANAL CONSOLIDADA.
+      Responde SÓLO con un objeto JSON, sin explicaciones.
 
-      --- DATOS METABÓLICOS ---
+      --- DATOS DEL USUARIO ---
       - Sexo: ${inputsUsuario.genero || 'No especificado'}
       - Edad: ${inputsUsuario.edad || 'No especificado'} años
       - Peso: ${inputsUsuario.peso || 'No especificado'} kg
@@ -100,24 +101,35 @@ function generarPromptParaPlan(inputsUsuario) {
       - Ejercicio: ${inputsUsuario.ejercicio || 'No especificado'} días/semana
       - Objetivo: ${inputsUsuario.objetivo || 'mantener'}
       - Kcal Objetivo: Aprox ${kcal} kcal/día
-
-      --- PREFERENCIAS DIETA ---
       - Comidas por día: ${comidas}
       - Alergias/Restricciones: "${inputsUsuario.dietaAlergias || 'Ninguna'}"
       - Preferencias: "${inputsUsuario.dietaPreferencias || 'Omnívoro'}"
-      
-      --- DATOS ADICIONALES (OPCIONAL) ---
       - Historial Médico: "${inputsUsuario.historialMedico || 'No especificado'}"
-      - Horarios: "${inputsUsuario.horarios || 'No especificado'}"
-      - Platos Favoritos: "${inputsUsuario.platosFavoritos || 'No especificado'}"
+      
+      --- LOGÍSTICA Y ESTILO DE VIDA (CLAVE PARA ADHERENCIA) ---
+      - Tiempo para cocinar: ${inputsUsuario.dietaTiempoCocina || '15-30 min'} (Generar recetas acordes)
+      - Habilidad en cocina: ${inputsUsuario.dietaHabilidadCocina || 'intermedio'} (Ajustar complejidad)
+      - Equipamiento: ${ (inputsUsuario.dietaEquipamiento || ['basico']).join(', ') } (Usar solo esto)
+      - Dónde come: ${inputsUsuario.dietaContextoComida || 'casa'} (Si 'oficina_tupper', priorizar recetas transportables)
+      - Alimentos Odiados: "${inputsUsuario.dietaAlimentosOdiados || 'Ninguno'}" (¡EVITAR ESTOS ALIMENTOS!)
+      - Mayor Reto: ${inputsUsuario.dietaRetoPrincipal || 'picoteo'} (Incluir snacks saludables)
 
       --- INSTRUCCIONES DE FORMATO JSON ---
-      Responde SÓLO con el array JSON, sin explicaciones.
-      El array debe tener 7 objetos, uno para cada día ("Lunes" a "Domingo").
-      Cada objeto 'dia' debe seguir esta estructura exacta:
+      Responde SÓLO con un objeto JSON que tenga esta estructura exacta:
+      {
+        "planSemanal": [
+          // ... (Array de 7 días, de "Lunes" a "Domingo") ...
+        ],
+        "listaCompra": {
+          // ... (Objeto con la lista de la compra) ...
+        }
+      }
+
+      --- ESTRUCTURA "planSemanal" (Array de 7 días) ---
+      Cada objeto 'dia' debe seguir esta estructura:
       { 
         "nombreDia": "Lunes", 
-        "kcalDiaAprox": ${kcal},  // La suma de kcalAprox de sus platos
+        "kcalDiaAprox": ${kcal},
         "comidas": [
           { 
             "nombreComida": "Desayuno", 
@@ -125,21 +137,25 @@ function generarPromptParaPlan(inputsUsuario) {
               { 
                 "nombrePlato": "...", 
                 "kcalAprox": ..., 
-                "ingredientes": "...", 
+                "ingredientes": "...", // EJ: "2 rebanadas pan (60g), 1/2 aguacate (70g), 2 huevos (100g)"
                 "receta": "..." 
               } 
             ] 
           },
-          // ... (resto de ${comidas} comidas: "Media Mañana", "Almuerzo", "Merienda", "Cena", etc.)
+          // ... (resto de ${comidas} comidas)
         ]
       }
 
-      --- ¡¡INSTRUCCIÓN CLAVE PARA PLATOS!! ---
-      Para cada 'platoGenerado' dentro de "opciones":
-      1. Rellena "kcalAprox" con un número.
-      2. En el campo "ingredientes", escribe un texto claro para el usuario que incluya los GRAMOS de cada ingrediente principal.
-         EJEMPLO: "2 rebanadas de pan integral (60g), 1/2 aguacate (70g), 2 huevos (100g)"
-      3. Rellena "receta" con la preparación.
+      --- ESTRUCTURA "listaCompra" (Objeto) ---
+      Agrupa TODOS los ingredientes de los 7 días del "planSemanal".
+      Suma las cantidades totales (ej. si se usan 100g de pollo 3 veces, son 300g).
+      Organízala por categorías.
+      {
+        "Frutas y Verduras": [ "Aguacate (3.5 unidades)", "Espinacas (1 bolsa)", ... ],
+        "Carnes y Pescados": [ "Pechuga de Pollo (700g)", "Salmón (300g)", ... ],
+        "Lácteos y Huevos": [ "Huevos (1 docena)", "Yogur Griego (7 unidades)", ... ],
+        "Despensa": [ "Pan Integral (1 paquete)", "Arroz Integral (500g)", "Avena (1kg)", ... ]
+      }
   `;
   
   return masterPrompt;
@@ -154,7 +170,10 @@ exports.obtenerPromptParaRevision = async (req, res) => {
     const plan = await PlanDieta.findById(idPlan);
     if (!plan) { return res.status(404).json({ mensaje: 'Plan no encontrado' }); }
     if (!plan.inputsUsuario) { return res.status(400).json({ mensaje: 'Datos de entrada no disponibles.' }); }
+    
+    // Usamos la función helper actualizada
     const prompt = generarPromptParaPlan(plan.inputsUsuario);
+    
     res.status(200).json({ prompt: prompt });
   } catch (error) { console.error('Error al obtener prompt para revisión (dieta):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
 };
@@ -164,52 +183,80 @@ exports.obtenerPromptParaRevision = async (req, res) => {
  */
 exports.obtenerPlanesPendientes = async (req, res) => {
   try {
-    const planes = await PlanDieta.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre nombreGrupo'); // Quitamos 'pendiente_ia'
+    const planes = await PlanDieta.find({ estado: 'pendiente_revision' })
+                            .populate('usuario', 'nombre nombreGrupo')
+                            .sort({ createdAt: -1 }); // Ordenar por más nuevos primero
     res.status(200).json(planes);
   } catch(error){ console.error('Error al obtener planes pendientes (dieta):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
 };
 
 /**
  * [ADMIN] Aprueba un plan recibiendo el JSON como string.
+ * ¡MODIFICADO PARA LISTA DE LA COMPRA!
  */
 exports.aprobarPlan = async (req, res) => {
-  console.log('--- APROBAR PLAN DIETA REQ.BODY ---'); // Log para depurar
-  console.log(req.body); // Log para depurar
-  console.log('---------------------------------'); // Log para depurar
+  console.log('--- APROBAR PLAN DIETA REQ.BODY ---');
+  console.log(req.body);
+  console.log('---------------------------------');
 
   const { idPlan } = req.params;
   const { jsonString } = req.body; // Espera jsonString
 
   if (!jsonString) { return res.status(400).json({ mensaje: 'Falta el JSON generado (jsonString).' }); }
 
-  let planGeneradoParseado;
+  let planCompletoParseado;
   try {
-    planGeneradoParseado = JSON.parse(jsonString);
-    if (!Array.isArray(planGeneradoParseado)) { throw new Error('El JSON proporcionado no es un array válido.'); }
-  } catch (error) { console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message); return res.status(400).json({ mensaje: 'El JSON pegado no es válido.', error: error.message }); }
+    planCompletoParseado = JSON.parse(jsonString);
+    
+    // Verificamos la nueva estructura de Objeto
+    if (typeof planCompletoParseado !== 'object' || planCompletoParseado === null || Array.isArray(planCompletoParseado)) {
+      throw new Error('El JSON proporcionado no es un objeto válido.');
+    }
+    if (!planCompletoParseado.planSemanal || !Array.isArray(planCompletoParseado.planSemanal)) {
+      throw new Error('El JSON debe contener la clave "planSemanal" (un array).');
+    }
+    if (!planCompletoParseado.listaCompra || typeof planCompletoParseado.listaCompra !== 'object') {
+      throw new Error('El JSON debe contener la clave "listaCompra" (un objeto).');
+    }
+
+  } catch (error) { 
+    console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message); 
+    return res.status(400).json({ mensaje: 'El JSON pegado no es válido o no tiene la estructura { planSemanal: [], listaCompra: {} }.', error: error.message }); 
+  }
 
   try {
-    const plan = await PlanDieta.findByIdAndUpdate( idPlan, { planGenerado: planGeneradoParseado, estado: 'aprobado' }, { new: true } );
+    const plan = await PlanDieta.findByIdAndUpdate( 
+      idPlan, 
+      { 
+        // ¡Guardamos cada parte en su sitio!
+        planGenerado: planCompletoParseado.planSemanal,
+        listaCompraGenerada: planCompletoParseado.listaCompra,
+        estado: 'aprobado' 
+      }, 
+      { new: true } 
+    );
+    
     if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
-    res.status(200).json({ mensaje: 'Plan de dieta aprobado.', plan });
+    res.status(200).json({ mensaje: 'Plan de dieta aprobado (con lista de compra).', plan });
   } catch(error){ console.error(`Error al aprobar plan de dieta ${idPlan}:`, error); res.status(500).json({ mensaje: 'Error interno al guardar el plan.' }); }
 };
 
-// --- FUNCIONES SIN CAMBIOS o que no afectan al flujo manual ---
+
+// --- FUNCIONES CLIENTE (EXISTENTES) ---
+
 exports.obtenerMiPlanDelMes = async (req, res) => {
+   // Esta función solo revisa el estado, no devuelve el plan.
    const plan = await PlanDieta.findOne({ usuario: req.user.id, mes: getMesActual() });
-   if (!plan) { return res.status(200).json({ estado: 'pendiente_solicitud' }); } // Devuelve 200 con el estado correcto
+   if (!plan) { return res.status(200).json({ estado: 'pendiente_solicitud' }); }
    res.status(200).json({ estado: plan.estado });
 };
+
 exports.obtenerMiDietaDelDia = async (req, res) => {
   const { fecha } = req.query;
   const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
   
-  // --- LÓGICA MODIFICADA ---
-  
-  // Mapeo de getUTCDay() a los nombres exactos que pedimos en el prompt
   const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()]; // Ej: "Miércoles"
+  const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()]; 
   
   const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
 
@@ -223,23 +270,105 @@ exports.obtenerMiDietaDelDia = async (req, res) => {
     return res.status(404).json({ mensaje: `No tienes una dieta aprobada para ${mesActual}.` });
   }
   
-  // Buscar el día exacto en el array
-  // Usamos 'find' para buscar el objeto cuyo 'nombreDia' coincida exactamente.
   let dietaDelDia = planAprobado.planGenerado.find(
     d => d.nombreDia === diaSemanaSeleccionado
   );
   
-  // Fallback: Si por alguna razón la IA no generó el día (ej. "Miércoles" no existe)
-  // o el array no tiene 7 días, simplemente devolvemos el primer día disponible.
   if (!dietaDelDia && planAprobado.planGenerado.length > 0) {
      console.warn(`Fallback: No se encontró el plan para '${diaSemanaSeleccionado}'. Usando el primer plan disponible.`);
      dietaDelDia = planAprobado.planGenerado[0];
   }
-  // --- FIN LÓGICA MODIFICADA ---
 
   if (!dietaDelDia) {
     return res.status(404).json({ mensaje: 'Error de plan de dieta.' });
   }
   
   res.status(200).json(dietaDelDia);
+};
+
+
+// --- ¡NUEVA FUNCIÓN PARA EL CLIENTE! ---
+
+/**
+ * [CLIENTE] Obtiene la lista de la compra del mes actual
+ */
+exports.obtenerMiListaCompra = async (req, res) => {
+  try {
+    const mesActual = getMesActual();
+    const planAprobado = await PlanDieta.findOne({
+      usuario: req.user.id,
+      mes: mesActual,
+      estado: 'aprobado'
+    });
+
+    if (!planAprobado || !planAprobado.listaCompraGenerada) {
+      return res.status(404).json({ mensaje: 'No se encontró una lista de la compra aprobada para este mes.' });
+    }
+
+    res.status(200).json(planAprobado.listaCompraGenerada);
+
+  } catch (error) {
+    console.error('Error al obtener la lista de la compra:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+// controllers/iaDietaController.js
+
+// ... (todas las funciones que ya tienes: solicitarPlanDieta, generarPromptParaPlan, aprobarPlan, etc.) ...
+
+
+/**
+ * [ADMIN] Obtiene los datos de un plan aprobado para poder editarlos.
+ * (Devuelve el plan y la lista como un objeto para re-copiar)
+ */
+exports.obtenerPlanParaEditar = async (req, res) => {
+  try {
+    const { idPlan } = req.params;
+    const plan = await PlanDieta.findById(idPlan);
+
+    if (!plan) {
+      return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    }
+
+    // Devolvemos la estructura exacta que el admin debe pegar
+    const jsonParaEditar = {
+      planSemanal: plan.planGenerado || [],
+      listaCompra: plan.listaCompraGenerada || {}
+    };
+
+    // Convertimos el objeto a un string JSON formateado (pretty-print)
+    // para que sea fácil de copiar y pegar para el Admin.
+    const jsonString = JSON.stringify(jsonParaEditar, null, 2); // 'null, 2' añade indentación
+
+    res.status(200).json({ 
+      jsonStringParaEditar: jsonString,
+      // También devolvemos los inputs por si el admin quiere consultar el prompt
+      inputsUsuario: plan.inputsUsuario 
+    });
+
+  } catch (error) {
+    console.error('Error al obtener plan para editar:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * [ADMIN] Elimina un plan de dieta permanentemente.
+ */
+exports.eliminarPlan = async (req, res) => {
+  try {
+    const { idPlan } = req.params;
+    const planEliminado = await PlanDieta.findByIdAndDelete(idPlan);
+
+    if (!planEliminado) {
+      return res.status(404).json({ mensaje: 'Plan no encontrado.' });
+    }
+
+    res.status(200).json({ mensaje: 'Plan de dieta eliminado permanentemente.' });
+
+  } catch (error) {
+    console.error('Error al eliminar plan de dieta:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
 };
