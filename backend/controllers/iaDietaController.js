@@ -372,3 +372,18 @@ exports.eliminarPlan = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor.' });
   }
 };
+
+/**
+ * [ADMIN] Obtiene planes APROBADOS (para editar/eliminar)
+ */
+exports.obtenerPlanesAprobados = async (req, res) => {
+  try {
+    const planes = await PlanDieta.find({ estado: 'aprobado' })
+                            .populate('usuario', 'nombre nombreGrupo')
+                            .sort({ updatedAt: -1 }); // Ordenar por más recientemente modificados
+    res.status(200).json(planes);
+  } catch(error){ 
+    console.error('Error al obtener planes aprobados (dieta):', error); 
+    res.status(500).json({ mensaje: 'Error interno del servidor.' }); 
+  }
+};

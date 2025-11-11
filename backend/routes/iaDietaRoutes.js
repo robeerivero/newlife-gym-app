@@ -24,6 +24,6 @@ router.get('/admin/plan/:idPlan/para-editar', proteger, esAdministrador, iaDieta
 
 // 2. (Para ELIMINAR) Borra un plan
 router.delete('/admin/plan/:idPlan', proteger, esAdministrador, iaDietaController.eliminarPlan);
-
+router.get('/admin/planes-aprobados', proteger, esAdministrador, iaDietaController.obtenerPlanesAprobados);
 
 module.exports = router;
