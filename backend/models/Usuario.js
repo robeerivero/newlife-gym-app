@@ -26,22 +26,18 @@ const esquemaUsuario = new mongoose.Schema({
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
   desbloqueados: { type: [Object], default: [] },
-  // --- CAMPOS DE SERVICIO PREMIUM ---
-  // esPremium: { type: Boolean, default: false }, // -> Ya está arriba, duplicado
-  // Banderas de control del Admin
+  
+  // --- Banderas de control del Admin ---
   incluyePlanDieta: { type: Boolean, default: false },
   incluyePlanEntrenamiento: { type: Boolean, default: false },
   
   // --- Inputs de Dieta ---
-  // (Aquí irían los campos de dieta que añadimos antes: ocupacion, ejercicio, etc.)
   dietaAlergias: { type: String, default: 'Ninguna' },
   dietaPreferencias: { type: String, default: 'Omnívoro, me gusta todo' },
   dietaComidas: { type: Number, default: 4 },
   historialMedico: { type: String, default: '' },
   horarios: { type: String, default: '' },
   platosFavoritos: { type: String, default: '' },
-
-  // --- ¡NUEVO! CAMPOS DE ADHERENCIA (Dieta) ---
   dietaTiempoCocina: {
     type: String,
     enum: ['menos_15_min', '15_30_min', 'mas_30_min'],
@@ -54,7 +50,7 @@ const esquemaUsuario = new mongoose.Schema({
   },
   dietaEquipamiento: { 
     type: [String], 
-    default: ['basico'] // Opciones: 'basico', 'horno', 'airfryer', 'batidora', 'robot'
+    default: ['basico']
   },
   dietaContextoComida: {
     type: String,
@@ -68,22 +64,29 @@ const esquemaUsuario = new mongoose.Schema({
     default: 'picoteo'
   },
   dietaBebidas: { type: String, default: 'Principalmente agua' },
-  // -----------------------------------------
-
-  // --- Inputs de Entrenamiento (MODIFICADOS) ---
-  premiumMeta: { type: String, default: 'Quiero ganar fuerza y definir.' },
-  premiumFoco: { type: String, default: 'Pecho, espalda y piernas' },
-  premiumEquipamiento: {
+  
+  // --- ¡¡INPUTS DE ENTRENAMIENTO ACTUALIZADOS!! ---
+  premiumMeta: {
     type: String,
-    enum: ['solo_cuerpo', 'mancuernas_basico', 'gym_completo'],
-    default: 'solo_cuerpo'
+    // (fuerza_pura = Powerlifting, rendimiento_atletico = Híbrido/Velocidad)
+    enum: ['perder_grasa', 'hipertrofia', 'fuerza_pura', 'rendimiento_atletico', 'salud_general'],
+    default: 'salud_general'
+  },
+  premiumFoco: { type: String, default: 'Cuerpo completo' },
+  
+  premiumEquipamiento: {
+    type: [String], // Cambiado a Array de Strings
+    default: ['solo_cuerpo']
+    // Opciones: 'solo_cuerpo', 'bandas_elasticas', 'mancuernas_ligeras', 
+    // 'mancuernas_ajustables', 'kettlebell', 'barra_dominadas', 'banco',
+    // 'gym_basico', 'gym_completo'
   },
   premiumTiempo: { type: Number, default: 45 },
-  // --- ¡NUEVOS CAMPOS DE ENTRENAMIENTO! ---
+  
   premiumNivel: {
     type: String,
-    enum: ['principiante', 'intermedio', 'avanzado'],
-    default: 'principiante'
+    enum: ['principiante_nuevo', 'intermedio_consistente', 'avanzado_programado'],
+    default: 'principiante_nuevo'
   },
   premiumDiasSemana: {
     type: Number,
@@ -93,9 +96,13 @@ const esquemaUsuario = new mongoose.Schema({
     type: String,
     default: 'Ninguna'
   },
+  premiumEjerciciosOdiados: { // ¡NUEVO!
+    type: String,
+    default: 'Ninguno'
+  },
   // -----------------------------------------
   
-  // --- Datos Metabólicos ---
+  // --- Datos Metabólicos (Dieta) ---
   genero: {
     type: String,
     enum: ['masculino', 'femenino'],
@@ -116,8 +123,6 @@ const esquemaUsuario = new mongoose.Schema({
     min: 40,
     default: 70
   },
-  
-  // --- Campos de Dieta (que ya modificamos) ---
   ocupacion: {
     type: String,
     enum: ['sedentaria', 'ligera', 'activa'],
@@ -128,14 +133,11 @@ const esquemaUsuario = new mongoose.Schema({
     enum: ['0', '1-3', '4-5', '6-7'],
     default: '0'
   },
-  // nivelActividad: { ... }, // Este campo debería estar eliminado
-  
   objetivo: {
     type: String,
     enum: ['perder', 'mantener', 'ganar'],
     default: 'mantener'
   },
-  
   kcalObjetivo: {
     type: Number,
     default: 2000
@@ -146,18 +148,14 @@ const esquemaUsuario = new mongoose.Schema({
 // Middleware para encriptar la contraseña antes de guardarla
 esquemaUsuario.pre('save', async function (next) {
   if (!this.isModified('contrasena')) return next();
-  // Corregir duplicado de 'esPremium' si existe
-  if (this.esPremium && this.esPremium.length > 1) {
-    this.esPremium = this.esPremium[0];
-  }
   const salt = await bcrypt.genSalt(10);
   this.contrasena = await bcrypt.hash(this.contrasena, salt);
   next();
 });
 
+// Middleware para borrar en cascada
 esquemaUsuario.pre('deleteOne', { document: true, query: false }, async function(next) {
   try {
-    // 'this._id' es el ID del usuario que se va a borrar
     await Promise.all([
       Reserva.deleteMany({ usuario: this._id }),
       PlanDieta.deleteMany({ usuario: this._id }),

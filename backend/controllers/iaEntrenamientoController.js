@@ -1,6 +1,5 @@
 // controllers/iaEntrenamientoController.js
-// ¡¡VERSIÓN CORREGIDA!!
-// Añadidos los nuevos campos de Nivel, Días y Lesiones.
+// ¡¡ACTUALIZADO!! Con lógica de Atleta Híbrido y Admin (Editar/Borrar)
 
 const PlanEntrenamiento = require('../models/PlanEntrenamiento');
 const Usuario = require('../models/Usuario');
@@ -10,12 +9,14 @@ const getMesActual = () => new Date().toISOString().slice(0, 7);
 
 /**
  * [CLIENTE] Solicita un plan (flujo manual)
+ * ¡ACTUALIZADO!
  */
 exports.solicitarPlanEntrenamiento = async (req, res) => {
   // --- ¡CAMBIO AQUÍ! Recogemos TODOS los datos del formulario ---
   const { 
     premiumMeta, premiumFoco, premiumEquipamiento, premiumTiempo,
-    premiumNivel, premiumDiasSemana, premiumLesiones // <-- CAMPOS NUEVOS
+    premiumNivel, premiumDiasSemana, premiumLesiones,
+    premiumEjerciciosOdiados // <-- CAMPO NUEVO
   } = req.body;
   
   const usuarioId = req.user.id;
@@ -23,7 +24,8 @@ exports.solicitarPlanEntrenamiento = async (req, res) => {
   // Objeto con todos los datos a guardar
   const datosEntrenamiento = {
     premiumMeta, premiumFoco, premiumEquipamiento, premiumTiempo,
-    premiumNivel, premiumDiasSemana, premiumLesiones
+    premiumNivel, premiumDiasSemana, premiumLesiones,
+    premiumEjerciciosOdiados // <-- CAMPO NUEVO
   };
 
   try {
@@ -34,103 +36,167 @@ exports.solicitarPlanEntrenamiento = async (req, res) => {
       { new: true } 
     );
     
-    if (!usuario.esPremium || !usuario.incluyePlanEntrenamiento) { 
-      return res.status(403).json({ mensaje: 'Servicio no incluido.' }); 
+    if (!usuario || !usuario.esPremium || !usuario.incluyePlanEntrenamiento) {
+      return res.status(403).json({ mensaje: 'No tienes permiso para este servicio.' });
     }
     
     const mesActual = getMesActual();
-    
-    // --- ¡CAMBIO AQUÍ! Guardamos TODOS los datos en inputsUsuario del Plan ---
-    await PlanEntrenamiento.findOneAndUpdate( 
-      { usuario: usuarioId, mes: mesActual }, 
-      { 
-        inputsUsuario: datosEntrenamiento, // Guardamos el objeto completo
-        estado: 'pendiente_revision', 
-        planGenerado: [], 
-        diasAsignados: [] 
-      }, 
-      { upsert: true, new: true } 
+
+    // Crear/Actualizar el Plan de Entrenamiento
+    await PlanEntrenamiento.findOneAndUpdate(
+      { usuario: usuarioId, mes: mesActual },
+      {
+        inputsUsuario: datosEntrenamiento, // Guardamos los datos en el plan
+        estado: 'pendiente_revision',    // Pasa a revisión del Admin
+        planGenerado: [],              // Limpia el plan anterior
+        diasAsignados: []              // Limpia los días
+      },
+      { upsert: true, new: true }
     );
-    
-    res.status(200).json({ mensaje: 'Preferencias guardadas. Tu entrenador revisará tu plan pronto.' });
-  } catch (error) { 
-    console.error('Error al solicitar plan entrenamiento:', error); 
-    res.status(500).json({ mensaje: 'Error al solicitar plan', error: error.message }); 
+
+    res.status(200).json({ mensaje: 'Solicitud de entrenamiento enviada correctamente.' });
+
+  } catch (error) {
+    console.error('Error al solicitar plan de entrenamiento:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.', error: error.message });
   }
 };
 
-// =================================================================
-//          FUNCIÓN "SÚPER-PROMPT" (CORREGIDA)
-// =================================================================
 /**
- * [HELPER INTERNO] Genera el string del prompt basado en los inputs.
+ * [HELPER INTERNO] Genera el prompt para el Admin
+ * ¡TOTALMENTE REEMPLAZADO!
  */
 function generarPromptParaPlan(inputsUsuario) {
-  // --- ¡PROMPT MEJORADO CON TODOS LOS DATOS! ---
+  
+  // Convertimos el array de equipamiento en texto claro
+  const equipamientoTexto = (inputsUsuario.premiumEquipamiento || ['solo_cuerpo']).join(', ');
+
   const masterPrompt = `
-      Eres un entrenador personal experto de nivel élite. 
-      Genera un plan de entrenamiento semanal detallado en formato JSON.
+      Eres un entrenador personal certificado de nivel élite (NSCA-CPT). 
+      Tu especialidad es el rendimiento deportivo y el entrenamiento concurrente.
+      Genera un plan de entrenamiento semanal detallado en formato JSON
+      para un usuario con los siguientes datos:
 
-      --- DATOS DEL USUARIO ---
-      - Nivel: ${inputsUsuario.premiumNivel || 'principiante'}
+      --- OBJETIVO Y NIVEL ---
+      - Objetivo Principal: ${inputsUsuario.premiumMeta || 'salud_general'} 
+        (INSTRUCCIÓN: Adapta las series/reps a ESTE objetivo.
+         'fuerza_pura' = reps bajas (3-6), descansos largos.
+         'hipertrofia' = reps medias (8-12).
+         'perder_grasa' = reps altas (10-15) + cardio.
+         
+         ¡IMPORTANTE! Si el objetivo es 'rendimiento_atletico':
+         El plan DEBE ser híbrido. Combina rangos de fuerza (ej. 4x5) en ejercicios 
+         principales con ejercicios de POTENCIA/VELOCIDAD (ej. pliometría, saltos, 
+         sprints) y algo de acondicionamiento metabólico.)
+
+      - Nivel de Experiencia: ${inputsUsuario.premiumNivel || 'principiante_nuevo'}
+        (Ajusta la complejidad de los ejercicios pliométricos a este nivel)
+
+      --- LOGÍSTICA DE ENTRENAMIENTO ---
       - Días por semana: ${inputsUsuario.premiumDiasSemana || 4}
-      - Objetivo (Meta): ${inputsUsuario.premiumMeta || 'No especificado'}
-      - Foco muscular: ${inputsUsuario.premiumFoco || 'No especificado'}
-      - Equipamiento: ${inputsUsuario.premiumEquipamiento || 'No especificado'}
       - Tiempo por sesión: ${inputsUsuario.premiumTiempo || 45} minutos
-      - Lesiones/Limitaciones: "${inputsUsuario.premiumLesiones || 'Ninguna'}"
+        (INSTRUCCIÓN: La rutina completa, calentamiento incluido, debe durar esto)
       
-      --- INSTRUCCIONES CLAVE ---
-      1. Genera un plan para EXACTAMENTE ${inputsUsuario.premiumDiasSemana || 4} días.
-      2. Adapta los ejercicios y el volumen al Nivel: "${inputsUsuario.premiumNivel || 'principiante'}".
-      3. ¡MUY IMPORTANTE! Ten en cuenta las lesiones: "${inputsUsuario.premiumLesiones || 'Ninguna'}". Si se mencionan, EVITA ejercicios que impacten esa zona o sugiere alternativas seguras (ej. si duele rodilla, usar prensa en lugar de sentadilla).
-      4. El formato de respuesta debe ser EXCLUSIVAMENTE un array JSON, sin texto introductorio.
+      - Enfoque (Detalles del Objetivo): "${inputsUsuario.premiumFoco || 'Cuerpo completo'}"
+        (INSTRUCCIÓN: ¡VITAL! Si el objetivo es 'rendimiento_atletico', 
+        lee este campo para ver los detalles. Si el usuario pide "pliometría" o "velocidad", 
+        DEBES incluir ejercicios como "Saltos al Cajón (Box Jumps)", "Lanzamientos de Balón Medicinal" 
+        o "Sprints cortos" en la rutina.)
 
-      --- ESTRUCTURA JSON DE RESPUESTA OBLIGATORIA ---
-      [
-        {
-          "nombreDia": "Día 1: [Enfoque del día, ej: Tren Superior]",
-          "ejercicios": [
-            {
-              "nombre": "Nombre del Ejercicio 1",
-              "series": "3",
-              "repeticiones": "10-12",
-              "descansoSeries": "60 seg",
-              "descansoEjercicios": "2 min",
-              "descripcion": "Breve descripción de la técnica."
-            },
-            {
-              "nombre": "Nombre del Ejercicio 2",
-              "series": "4",
-              "repeticiones": "8-10",
-              "descansoSeries": "90 seg",
-              "descansoEjercicios": "2 min",
-              "descripcion": "Breve descripción de la técnica."
-            }
-          ]
-        },
-        {
-          "nombreDia": "Día 2: [Enfoque del día, ej: Tren Inferior y Core]",
-          "ejercicios": [
-             {
-              "nombre": "Nombre del Ejercicio 3",
-              "series": "3",
-              "repeticiones": "12-15",
-              "descansoSeries": "60 seg",
-              "descansoEjercicios": "2 min",
-              "descripcion": "Breve descripción de la técnica."
-            }
-          ]
-        }
-        // ... (etc., hasta completar los ${inputsUsuario.premiumDiasSemana || 4} días)
-      ]
+      --- EQUIPAMIENTO Y LIMITACIONES (MUY IMPORTANTE) ---
+      - Equipamiento Disponible: ${equipamientoTexto}
+        (INSTRUCCIÓN: Diseña la rutina usando ÚNICAMENTE este material. 
+        Si dice 'solo_cuerpo', usa solo calistenia. Si dice 'gym_completo', puedes usar de todo.)
+      
+      - Limitaciones/Lesiones: "${inputsUsuario.premiumLesiones || 'Ninguna'}"
+        (INSTRUCCIÓN: ¡VITAL! Lee esto con atención. Si el usuario menciona dolor en un movimiento 
+        (ej. 'dolor rodilla al agachar'), SUSTITÚYELO por una alternativa segura 
+        (ej. 'Sentadilla isométrica' o 'Puente de glúteo'). NUNCA incluyas un ejercicio que el usuario 
+        reporte como doloroso.)
+
+      - Ejercicios a Evitar: "${inputsUsuario.premiumEjerciciosOdiados || 'Ninguno'}"
+        (INSTRUCCIÓN: NO incluyas estos ejercicios en la rutina bajo ningún concepto. 
+        Busca alternativas que trabajen el mismo grupo muscular.)
+
+      --- INSTRUCCIONES DE FORMATO JSON ---
+      Responde SÓLO con el array JSON, sin explicaciones.
+      El array debe tener ${inputsUsuario.premiumDiasSemana || 4} objetos, uno para cada día de entreno.
+      Cada objeto 'dia' debe seguir esta estructura exacta:
+      { 
+        "nombreDia": "Día 1: Pecho y Tríceps", 
+        "ejercicios": [
+          { 
+            "nombre": "Press de Banca con Mancuernas", 
+            "series": "3", 
+            "repeticiones": "8-12", 
+            "descansoSeries": "90 seg",
+            "descansoEjercicios": "2 min",
+            "descripcion": "Instrucciones de técnica o video-link..." 
+          },
+          // ... (resto de ejercicios del día)
+        ]
+      }
   `;
-  // --- FIN PROMPT MEJORADO ---
+  
   return masterPrompt;
 }
-// =================================================================
-//          FIN DE LA CORRECCIÓN
-// =================================================================
+
+
+/**
+ * [ADMIN] Aprueba un plan (flujo manual)
+ * ¡MODIFICADO! Ahora espera un JSON unificado como Dieta.
+ */
+exports.aprobarPlan = async (req, res) => {
+  const { idPlan } = req.params;
+  const { jsonString } = req.body; // Espera UN solo string JSON
+
+  if (!jsonString) {
+    return res.status(400).json({ mensaje: 'Falta el JSON generado (jsonString).' });
+  }
+
+  let planDataParseado;
+  try {
+    planDataParseado = JSON.parse(jsonString);
+    
+    // Verificamos la nueva estructura de Objeto
+    if (typeof planDataParseado !== 'object' || planDataParseado === null || Array.isArray(planDataParseado)) {
+      throw new Error('El JSON proporcionado no es un objeto válido.');
+    }
+    if (!planDataParseado.planGenerado || !Array.isArray(planDataParseado.planGenerado)) {
+      throw new Error('El JSON debe contener la clave "planGenerado" (un array).');
+    }
+    if (!planDataParseado.diasAsignados || !Array.isArray(planDataParseado.diasAsignados)) {
+      throw new Error('El JSON debe contener la clave "diasAsignados" (un array).');
+    }
+
+  } catch (error) { 
+    console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message); 
+    return res.status(400).json({ 
+      mensaje: 'El JSON pegado no es válido o no tiene la estructura { planGenerado: [], diasAsignados: [] }.', 
+      error: error.message 
+    }); 
+  }
+
+  try {
+    const plan = await PlanEntrenamiento.findByIdAndUpdate( 
+      idPlan, 
+      { 
+        planGenerado: planDataParseado.planGenerado,
+        diasAsignados: planDataParseado.diasAsignados,
+        estado: 'aprobado' 
+      }, 
+      { new: true } 
+    );
+    
+    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
+    res.status(200).json({ mensaje: 'Plan de entrenamiento aprobado.', plan });
+
+  } catch (error) {
+    console.error('Error al aprobar plan de entrenamiento:', error);
+    res.status(500).json({ mensaje: 'Error interno al guardar el plan.' });
+  }
+};
+
 
 /**
  * [ADMIN] Obtiene el prompt para un plan específico.
@@ -142,8 +208,8 @@ exports.obtenerPromptParaRevision = async (req, res) => {
     if (!plan) { return res.status(404).json({ mensaje: 'Plan no encontrado' }); }
     if (!plan.inputsUsuario) { return res.status(400).json({ mensaje: 'Datos de entrada no disponibles.' }); }
     
-    // Llama a la nueva función de prompt mejorada
-    const prompt = generarPromptParaPlan(plan.inputsUsuario); 
+    // Usamos la función helper actualizada
+    const prompt = generarPromptParaPlan(plan.inputsUsuario);
     
     res.status(200).json({ prompt: prompt });
   } catch (error) { console.error('Error al obtener prompt para revisión (entrenamiento):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
@@ -153,122 +219,134 @@ exports.obtenerPromptParaRevision = async (req, res) => {
  * [ADMIN] Obtiene planes para revisar (SOLO 'pendiente_revision')
  */
 exports.obtenerPlanesPendientes = async (req, res) => {
- try {
-    const planes = await PlanEntrenamiento.find({ estado: 'pendiente_revision' }).populate('usuario', 'nombre nombreGrupo'); // Quitamos 'pendiente_ia'
+  try {
+    const planes = await PlanEntrenamiento.find({ estado: 'pendiente_revision' })
+                            .populate('usuario', 'nombre nombreGrupo')
+                            .sort({ createdAt: -1 }); // Ordenar por más nuevos primero
     res.status(200).json(planes);
- } catch(error){ console.error('Error al obtener planes pendientes (entrenamiento):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
+  } catch(error){ console.error('Error al obtener planes pendientes (entrenamiento):', error); res.status(500).json({ mensaje: 'Error interno del servidor.' }); }
 };
 
-/**
- * [ADMIN] Aprueba un plan recibiendo JSON string y días.
- */
-exports.aprobarPlan = async (req, res) => {
-  console.log('--- APROBAR PLAN ENTREN REQ.BODY ---');
-  console.log(req.body);
-  console.log('----------------------------------');
 
-  const { idPlan } = req.params;
-  const { jsonString, diasAsignados } = req.body; 
+// --- FUNCIONES CLIENTE (Sin cambios) ---
 
-  if (!jsonString || !diasAsignados || !Array.isArray(diasAsignados) || diasAsignados.length === 0) { return res.status(400).json({ mensaje: 'Faltan el JSON generado (jsonString) o los días asignados (diasAsignados).' }); }
-
-  let planGeneradoParseado;
-  try {
-    planGeneradoParseado = JSON.parse(jsonString);
-    if (!Array.isArray(planGeneradoParseado)) { throw new Error('El JSON proporcionado no es un array válido.'); }
-  } catch (error) { console.error(`Error al parsear JSON para plan ${idPlan}:`, error.message); return res.status(400).json({ mensaje: 'El JSON pegado no es válido.', error: error.message }); }
-
-  try {
-    const plan = await PlanEntrenamiento.findByIdAndUpdate( idPlan, { planGenerado: planGeneradoParseado, diasAsignados: diasAsignados, estado: 'aprobado' }, { new: true } );
-    if (!plan) return res.status(404).json({ mensaje: 'Plan no encontrado' });
-    res.status(200).json({ mensaje: 'Plan de entrenamiento aprobado.', plan });
-  } catch(error){ console.error(`Error al aprobar plan de entrenamiento ${idPlan}:`, error); res.status(500).json({ mensaje: 'Error interno al guardar el plan.' }); }
-};
-
-/**
- * [CLIENTE] Obtiene el estado del plan del mes (para bloquear el formulario)
- */
 exports.obtenerMiPlanDelMes = async (req, res) => {
-  const plan = await PlanEntrenamiento.findOne({ 
-    usuario: req.user.id, 
-    mes: getMesActual() 
+   const plan = await PlanEntrenamiento.findOne({ usuario: req.user.id, mes: getMesActual() });
+   if (!plan) { return res.status(200).json({ estado: 'pendiente_solicitud' }); }
+   res.status(200).json({ estado: plan.estado });
+};
+
+exports.obtenerMiRutinaDelDia = async (req, res) => {
+  const { fecha } = req.query; 
+  const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
+  
+  const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const diaLiteral = diasSemana[fechaSeleccionada.getUTCDay()]; // Ej: "Miércoles"
+  
+  const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
+
+  const planAprobado = await PlanEntrenamiento.findOne({
+    usuario: req.user.id,
+    mes: mesActual,
+    estado: 'aprobado'
   });
-  if (!plan) {
-    return res.status(200).json({ estado: 'pendiente_solicitud' }); // 200 ok
+
+  if (!planAprobado || !planAprobado.diasAsignados || planAprobado.diasAsignados.length === 0) {
+    return res.status(404).json({ mensaje: 'No tienes un plan aprobado para este mes.' });
   }
-  res.status(200).json({ estado: plan.estado });
+
+  // 1. Comprobar si el día de hoy (ej: "Miércoles") está en los días asignados
+  const indiceDia = planAprobado.diasAsignados.indexOf(diaLiteral);
+  
+  if (indiceDia === -1) {
+    // No está en los días asignados, es día de descanso
+    return res.status(404).json({ mensaje: 'Día de descanso.' });
+  }
+  
+  // 2. Si está, obtener la rutina correspondiente a ese índice
+  if (!planAprobado.planGenerado || indiceDia >= planAprobado.planGenerado.length) {
+    return res.status(404).json({ mensaje: 'Error de plan: el número de rutinas no coincide con los días asignados.' });
+  }
+  
+  const rutinaDelDia = planAprobado.planGenerado[indiceDia];
+  
+  if (!rutinaDelDia || !rutinaDelDia.ejercicios || rutinaDelDia.ejercicios.length === 0) {
+    return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
+  }
+
+  if (!rutinaDelDia) {
+    return res.status(404).json({ mensaje: 'Error de plan: rutinaDelDia no encontrada.' });
+  }
+
+  // 3. Enviamos la respuesta
+  res.status(200).json(rutinaDelDia);
+};
+
+
+// --- ¡NUEVAS FUNCIONES DE ADMIN! ---
+
+/**
+ * [ADMIN] Obtiene planes APROBADOS (para editar/eliminar)
+ */
+exports.obtenerPlanesAprobados = async (req, res) => {
+  try {
+    const planes = await PlanEntrenamiento.find({ estado: 'aprobado' })
+                            .populate('usuario', 'nombre nombreGrupo')
+                            .sort({ updatedAt: -1 }); // Ordenar por más recientemente modificados
+    res.status(200).json(planes);
+  } catch(error){ 
+    console.error('Error al obtener planes aprobados (entrenamiento):', error); 
+    res.status(500).json({ mensaje: 'Error interno del servidor.' }); 
+  }
 };
 
 /**
- * [CLIENTE] Obtiene la rutina del día para el calendario
+ * [ADMIN] Obtiene los datos de un plan aprobado para poder editarlos.
  */
-exports.obtenerMiRutinaDelDia = async (req, res) => {
-  // ¡¡TRY/CATCH PARA CAPTURAR CUALQUIER ERROR!!
+exports.obtenerPlanParaEditar = async (req, res) => {
   try {
-    const { fecha } = req.query;
-    const fechaSeleccionada = fecha ? new Date(fecha) : new Date();
-    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const diaSemanaSeleccionado = dias[fechaSeleccionada.getUTCDay()];
-    const mesActual = fechaSeleccionada.toISOString().slice(0, 7);
+    const { idPlan } = req.params;
+    const plan = await PlanEntrenamiento.findById(idPlan);
 
-    const planAprobado = await PlanEntrenamiento.findOne({
-      usuario: req.user.id,
-      mes: mesActual,
-      estado: 'aprobado'
-    });
-
-    if (!planAprobado || !planAprobado.diasAsignados.includes(diaSemanaSeleccionado)) {
-      return res.status(404).json({ mensaje: `Día de descanso.` });
+    if (!plan) {
+      return res.status(404).json({ mensaje: 'Plan no encontrado' });
     }
 
-    let rutinaDelDia;
-    const indiceDia = planAprobado.diasAsignados.indexOf(diaSemanaSeleccionado);
-    
-    if (indiceDia !== -1 && planAprobado.planGenerado[indiceDia]) {
-       rutinaDelDia = planAprobado.planGenerado[indiceDia];
-    } else if (planAprobado.planGenerado.length > 0) {
-       const indiceFallback = indiceDia % planAprobado.planGenerado.length;
-       rutinaDelDia = planAprobado.planGenerado[indiceFallback];
-    } else {
-       return res.status(404).json({ mensaje: 'Error de plan: no hay ejercicios generados.' });
-    }
-
-    // Comprobación de seguridad
-    if (!rutinaDelDia) {
-      return res.status(404).json({ mensaje: 'Error de plan: rutinaDelDia no encontrada.' });
-    }
-
-    // --- ¡¡SOLUCIÓN FINAL!! ---
-    // 1. Estructura PLANA (sin 'ejercicio:' anidado)
-    // 2. Robusto: (rutinaDelDia.ejercicios || []) para evitar error si 'ejercicios' es null
-    // 3. Robusto: .filter(e => e) para evitar error si hay un ejercicio null en el array
-    
-    const respuestaJson = {
-      _id: planAprobado._id,
-      nombreDia: rutinaDelDia.nombreDia, // Clave corregida
-      ejercicios: (rutinaDelDia.ejercicios || []) 
-        .filter(e => e) // Filtra nulos
-        .map(e => ({
-          _id: new mongoose.Types.ObjectId(),
-          // --- ¡ESTA ES LA ESTRUCTURA PLANA CORRECTA! ---
-          nombre: e.nombre,
-          descripcion: e.descripcion,
-          series: e.series,
-          repeticiones: e.repeticiones,
-          descansoSeries: e.descansoSeries,
-          descansoEjercicios: e.descansoEjercicios
-        }))
+    // Devolvemos la estructura que espera la función 'aprobarPlan'
+    const jsonParaEditar = {
+      planGenerado: plan.planGenerado || [],
+      diasAsignados: plan.diasAsignados || []
     };
-    
-    // 3. Enviamos la respuesta
-    res.status(200).json(respuestaJson);
+
+    const jsonString = JSON.stringify(jsonParaEditar, null, 2);
+
+    res.status(200).json({ 
+      jsonStringParaEditar: jsonString,
+      inputsUsuario: plan.inputsUsuario 
+    });
 
   } catch (error) {
-    // Si algo falla (ej. rutinaDelDia es null), esto lo captura
-    console.error('¡¡¡CRASH AL PROCESAR LA RUTINA DEL DÍA!!!', error);
-    res.status(500).json({ 
-      mensaje: 'Error interno del servidor al procesar la rutina.', 
-      error: error.message 
-    });
+    console.error('Error al obtener plan de entrenamiento para editar:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
+  }
+};
+
+/**
+ * [ADMIN] Elimina un plan de entrenamiento permanentemente.
+ */
+exports.eliminarPlan = async (req, res) => {
+  try {
+    const { idPlan } = req.params;
+    const planEliminado = await PlanEntrenamiento.findByIdAndDelete(idPlan);
+
+    if (!planEliminado) {
+      return res.status(404).json({ mensaje: 'Plan no encontrado.' });
+    }
+
+    res.status(200).json({ mensaje: 'Plan de entrenamiento eliminado permanentemente.' });
+
+  } catch (error) {
+    console.error('Error al eliminar plan de entrenamiento:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor.' });
   }
 };

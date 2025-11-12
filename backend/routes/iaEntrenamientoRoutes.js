@@ -13,9 +13,19 @@ router.get('/mi-rutina-del-dia', proteger, iaEntrenamientoController.obtenerMiRu
 // --- ADMIN ---
 router.get('/admin/planes-pendientes', proteger, esAdministrador, iaEntrenamientoController.obtenerPlanesPendientes);
 router.put('/admin/aprobar/:idPlan', proteger, esAdministrador, iaEntrenamientoController.aprobarPlan);
-// --- NUEVA RUTA ---
 router.get('/admin/plan/:idPlan/prompt', proteger, esAdministrador, iaEntrenamientoController.obtenerPromptParaRevision);
-// --- RUTA ELIMINADA ---
-// router.post('/admin/generar-ia/:idPlan', ... );
+
+// --- ¡NUEVAS RUTAS DE ADMIN! ---
+// (Para listar, editar y borrar planes YA APROBADOS)
+
+// 1. Obtiene los planes ya aprobados
+router.get('/admin/planes-aprobados', proteger, esAdministrador, iaEntrenamientoController.obtenerPlanesAprobados);
+
+// 2. (Para EDITAR) Obtiene el JSON de un plan para que el admin lo copie
+router.get('/admin/plan/:idPlan/para-editar', proteger, esAdministrador, iaEntrenamientoController.obtenerPlanParaEditar);
+
+// 3. (Para ELIMINAR) Borra un plan
+router.delete('/admin/plan/:idPlan', proteger, esAdministrador, iaEntrenamientoController.eliminarPlan);
+
 
 module.exports = router;

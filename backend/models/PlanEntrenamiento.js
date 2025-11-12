@@ -23,19 +23,24 @@ const planEntrenamientoSchema = new mongoose.Schema({
     required: true,
   },
   mes: { type: String, required: true }, // Ej: "2025-10"
+  
+  // --- ¡INPUTS ACTUALIZADOS! ---
   inputsUsuario: {
     premiumMeta: { type: String },
     premiumFoco: { type: String },
-    premiumEquipamiento: { type: String },
+    premiumEquipamiento: { type: [String] }, // ¡Cambiado a Array!
     premiumTiempo: { type: Number },
     premiumNivel: { type: String },
     premiumDiasSemana: { type: Number },
-    premiumLesiones: { type: String }
+    premiumLesiones: { type: String },
+    premiumEjerciciosOdiados: { type: String } // ¡Añadido!
   },
+  // -----------------------------
+  
   planGenerado: [diaEntrenamientoSchema],
   estado: {
     type: String,
-    enum: ['pendiente_solicitud', 'pendiente_ia', 'pendiente_revision', 'aprobado'],
+    enum: ['pendiente_solicitud', 'pendiente_revision', 'aprobado'],
     default: 'pendiente_solicitud'
   },
   diasAsignados: { // Los días que TÚ asignas
@@ -45,5 +50,6 @@ const planEntrenamientoSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// (El enum obsoleto de 'estado' 'pendiente_ia' ha sido eliminado)
 planEntrenamientoSchema.index({ usuario: 1, mes: 1 }, { unique: true });
 module.exports = mongoose.model('PlanEntrenamiento', planEntrenamientoSchema);
