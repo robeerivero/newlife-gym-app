@@ -114,6 +114,12 @@ app.use('/api/dietas', iaDietaRoutes);
 app.use('/api/salud', saludRouter);
 app.use('/api/videos', videoRoutes); // Rutas de videos
 
+// Ruta de "Health Check" para el servicio de cron job externo
+app.get('/health', (req, res) => {
+  // console.log('PING de keep-alive recibido.'); // Descomenta esto si quieres ver los pings en tus logs
+  res.status(200).json({ status: 'ok', message: 'Servidor activo.' });
+});
+
 // Manejo de errores
 app.use((err, req, res, next) => {
   console.error(err.stack);
