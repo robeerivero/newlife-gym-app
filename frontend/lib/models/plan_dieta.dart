@@ -1,5 +1,5 @@
 // models/plan_dieta.dart
-// ¡NUEVO ARCHIVO!
+// ¡MODIFICADO! Añadido campo 'listaCompra'
 
 // Representa un plato generado por IA (texto libre)
 class PlatoGenerado {
@@ -43,9 +43,9 @@ class ComidaDia {
   factory ComidaDia.fromJson(Map<String, dynamic> json) {
     return ComidaDia(
       nombreComida: json['nombreComida'] ?? 'Comida sin nombre',
-      opciones: (json['opciones'] as List? ?? [])
-          .map((e) => PlatoGenerado.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      opciones: (json['opciones'] as List<dynamic>?) // Ajuste leve
+          ?.map((e) => PlatoGenerado.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [], // Maneja lista nula
     );
   }
   
@@ -72,9 +72,9 @@ class DiaDieta {
     return DiaDieta(
       nombreDia: json['nombreDia'] ?? 'Día sin nombre',
       kcalDiaAprox: (json['kcalDiaAprox'] as num?)?.toInt() ?? 0,
-      comidas: (json['comidas'] as List? ?? [])
-          .map((e) => ComidaDia.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      comidas: (json['comidas'] as List<dynamic>?) // Ajuste leve
+          ?.map((e) => ComidaDia.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [], // Maneja lista nula
     );
   }
   
@@ -95,7 +95,10 @@ class PlanDieta {
   final String mes;
   final Map<String, dynamic> inputsUsuario;
   final List<DiaDieta> planGenerado;
-  final String estado; // 'pendiente_solicitud', 'pendiente_ia', 'pendiente_revision', 'aprobado'
+  final String estado; // 'pendiente_solicitud', 'pendiente_revision', 'aprobado'
+
+  // --- ¡NUEVO CAMPO! ---
+  final Map<String, dynamic> listaCompra;
 
   PlanDieta({
     required this.id,
@@ -106,6 +109,7 @@ class PlanDieta {
     required this.inputsUsuario,
     required this.planGenerado,
     required this.estado,
+    required this.listaCompra, // <-- Añadido al constructor
   });
 
   factory PlanDieta.fromJson(Map<String, dynamic> json) {
@@ -135,10 +139,14 @@ class PlanDieta {
       usuarioGrupo: usuarioGrupo, // <-- Asignado
       mes: json['mes'] ?? '',
       inputsUsuario: (json['inputsUsuario'] as Map?)?.cast<String, dynamic>() ?? {},
-      planGenerado: (json['planGenerado'] as List? ?? [])
-          .map((e) => DiaDieta.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      planGenerado: (json['planGenerado'] as List<dynamic>?) // Ajuste leve
+          ?.map((e) => DiaDieta.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [], // Maneja lista nula
       estado: json['estado'] ?? 'pendiente_solicitud',
+      
+      // --- ¡NUEVO CAMPO PARSEADO! ---
+      // El backend lo envía como 'listaCompraGenerada'
+      listaCompra: (json['listaCompraGenerada'] as Map?)?.cast<String, dynamic>() ?? {},
     );
   }
 }

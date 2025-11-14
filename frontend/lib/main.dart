@@ -126,8 +126,8 @@ Future<void> scheduleAndroidTasks() async {
     kMorningNotificationTask,
     frequency: const Duration(hours: 24),
     initialDelay: delayMorning,
-    existingWorkPolicy: ExistingWorkPolicy.replace,
-    constraints: Constraints(networkType: NetworkType.not_required),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+    
   );
 
   await Workmanager().registerPeriodicTask(
@@ -135,8 +135,8 @@ Future<void> scheduleAndroidTasks() async {
     kNightNotificationTask,
     frequency: const Duration(hours: 24),
     initialDelay: delayNight,
-    existingWorkPolicy: ExistingWorkPolicy.replace,
-    constraints: Constraints(networkType: NetworkType.not_required),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+    
   );
 }
 
@@ -231,7 +231,7 @@ void main() async {
     // 4. LÓGICA DE TAREAS SEPARADA POR PLATAFORMA
     if (Platform.isAndroid) {
       // Usa Workmanager para Android
-      await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+      await Workmanager().initialize(callbackDispatcher);
       await scheduleAndroidTasks(); // Tu función original
     } else if (Platform.isIOS) {
       // Usa Notificaciones Locales Programadas para iOS

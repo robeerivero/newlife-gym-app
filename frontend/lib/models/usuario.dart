@@ -1,5 +1,5 @@
 // models/usuario.dart
-// ¡MODIFICADO! Añadidos campos de dieta y entrenamiento.
+// ¡MODIFICADO! Actualizados los campos de entrenamiento (equipamiento, etc.)
 
 import 'dart:convert';
 
@@ -13,14 +13,13 @@ class Usuario {
   final Map<String, dynamic> avatar; 
   final List<dynamic> desbloqueados;
   
-  // --- Datos Metabólicos (MODIFICADOS) ---
+  // --- Datos Metabólicos (Dieta) ---
   final String genero;
   final int edad;
   final double altura;
   final double peso;
-  // final String nivelActividad; // <-- ELIMINADO
-  final String ocupacion;      // <-- AÑADIDO (de la dieta)
-  final String ejercicio;      // <-- AÑADIDO (de la dieta)
+  final String ocupacion;
+  final String ejercicio;
   final String objetivo;
   final int kcalObjetivo;
 
@@ -29,24 +28,33 @@ class Usuario {
   final bool incluyePlanDieta;
   final bool incluyePlanEntrenamiento;
   
-  // --- Inputs Dieta (MODIFICADOS) ---
+  // --- Inputs Dieta (Base + Adherencia) ---
   final String dietaAlergias;
   final String dietaPreferencias;
   final int dietaComidas;
-  final String historialMedico;   // <-- AÑADIDO
-  final String horarios;          // <-- AÑADIDO
-  final String platosFavoritos;   // <-- AÑADIDO
+  final String historialMedico;
+  final String horarios;
+  final String platosFavoritos;
+  final String dietaTiempoCocina;
+  final String dietaHabilidadCocina;
+  final List<String> dietaEquipamiento; // (Este ya estaba como Lista)
+  final String dietaContextoComida;
+  final String dietaAlimentosOdiados;
+  final String dietaRetoPrincipal;
+  final String dietaBebidas;
   
-  // --- Inputs Entrenamiento (MODIFICADOS) ---
+  // --- ¡INPUTS DE ENTRENAMIENTO ACTUALIZADOS! ---
   final String premiumMeta;
   final String premiumFoco;
-  final String premiumEquipamiento;
+  final List<String> premiumEquipamiento; // ¡CAMBIADO! (Era String)
   final int premiumTiempo;
-  final String premiumNivel;        // <-- AÑADIDO
-  final int premiumDiasSemana;    // <-- AÑADIDO
-  final String premiumLesiones;     // <-- AÑADIDO
+  final String premiumNivel;
+  final int premiumDiasSemana;
+  final String premiumLesiones;
+  final String premiumEjerciciosOdiados; // ¡NUEVO!
+  // -------------------------------------------
 
-  // Nuevos Campos
+  // Otros Campos
   final bool haPagado;
   final String? nombreGrupo; 
 
@@ -59,37 +67,50 @@ class Usuario {
     required this.tiposDeClases,
     required this.avatar,
     required this.desbloqueados,
+    // Metabólicos
     required this.genero,
     required this.edad,
     required this.altura,
     required this.peso,
-    // required this.nivelActividad, // <-- ELIMINADO
-    required this.ocupacion,      // <-- AÑADIDO
-    required this.ejercicio,      // <-- AÑADIDO
+    required this.ocupacion,
+    required this.ejercicio,
     required this.objetivo,
     required this.kcalObjetivo,
+    // Premium
     required this.esPremium,
     required this.incluyePlanDieta,
     required this.incluyePlanEntrenamiento,
+    // Dieta
     required this.dietaAlergias,
     required this.dietaPreferencias,
     required this.dietaComidas,
-    required this.historialMedico,   // <-- AÑADIDO
-    required this.horarios,          // <-- AÑADIDO
-    required this.platosFavoritos,   // <-- AÑADIDO
+    required this.historialMedico,
+    required this.horarios,
+    required this.platosFavoritos,
+    required this.dietaTiempoCocina,
+    required this.dietaHabilidadCocina,
+    required this.dietaEquipamiento,
+    required this.dietaContextoComida,
+    required this.dietaAlimentosOdiados,
+    required this.dietaRetoPrincipal,
+    required this.dietaBebidas,
+    
+    // ¡ENTRENAMIENTO ACTUALIZADO!
     required this.premiumMeta,
     required this.premiumFoco,
-    required this.premiumEquipamiento,
+    required this.premiumEquipamiento, // ¡CAMBIADO!
     required this.premiumTiempo,
-    required this.premiumNivel,        // <-- AÑADIDO
-    required this.premiumDiasSemana,    // <-- AÑADIDO
-    required this.premiumLesiones,     // <-- AÑADIDO
+    required this.premiumNivel,
+    required this.premiumDiasSemana,
+    required this.premiumLesiones,
+    required this.premiumEjerciciosOdiados, // ¡NUEVO!
+
     required this.haPagado,
     this.nombreGrupo,
   });
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
-    // --- LÓGICA DE PARSEO DE AVATAR (sin cambios) ---
+    // (Lógica de parseo de avatar sin cambios)
     Map<String, dynamic> parsedAvatar = {}; 
     if (json['avatar'] is Map<String, dynamic>) {
       parsedAvatar = json['avatar'];
@@ -103,19 +124,18 @@ class Usuario {
         print('Warning: Could not parse avatar string: ${json['avatar']}');
       }
     }
-    // --- FIN CORRECCIÓN AVATAR ---
 
     return Usuario(
       id: json['_id'] ?? '',
       nombre: json['nombre'] ?? '',
       correo: json['correo'] ?? '',
       rol: json['rol'] ?? 'cliente',
-      cancelaciones: json['cancelaciones'] ?? 0,
-      tiposDeClases: List<String>.from(json['tiposDeClases'] ?? []),
+      cancelaciones: (json['cancelaciones'] as num?)?.toInt() ?? 0,
+      tiposDeClases: (json['tiposDeClases'] as List<dynamic>?)?.cast<String>() ?? [],
       avatar: parsedAvatar, 
-      desbloqueados: json['desbloqueados'] ?? [],
+      desbloqueados: json['desbloqueados'] as List<dynamic>? ?? [],
       
-      // Metabólicos / Dieta
+      // Metabólicos (Dieta)
       genero: json['genero'] ?? 'masculino',
       edad: (json['edad'] ?? 25).toInt(),
       altura: (json['altura'] ?? 170.0).toDouble(),
@@ -130,22 +150,31 @@ class Usuario {
       incluyePlanDieta: json['incluyePlanDieta'] ?? false,
       incluyePlanEntrenamiento: json['incluyePlanEntrenamiento'] ?? false,
       
-      // Inputs Dieta
+      // Dieta
       dietaAlergias: json['dietaAlergias'] ?? 'Ninguna',
       dietaPreferencias: json['dietaPreferencias'] ?? 'Omnívoro',
       dietaComidas: (json['dietaComidas'] ?? 4).toInt(),
       historialMedico: json['historialMedico'] ?? '',
       horarios: json['horarios'] ?? '',
       platosFavoritos: json['platosFavoritos'] ?? '',
+      dietaTiempoCocina: json['dietaTiempoCocina'] ?? '15_30_min',
+      dietaHabilidadCocina: json['dietaHabilidadCocina'] ?? 'intermedio',
+      dietaEquipamiento: (json['dietaEquipamiento'] as List<dynamic>?)?.cast<String>() ?? ['basico'],
+      dietaContextoComida: json['dietaContextoComida'] ?? 'casa',
+      dietaAlimentosOdiados: json['dietaAlimentosOdiados'] ?? 'Ninguno',
+      dietaRetoPrincipal: json['dietaRetoPrincipal'] ?? 'picoteo',
+      dietaBebidas: json['dietaBebidas'] ?? 'Principalmente agua',
 
-      // Inputs Entrenamiento
-      premiumMeta: json['premiumMeta'] ?? 'perder_peso',
-      premiumFoco: json['premiumFoco'] ?? 'general',
-      premiumEquipamiento: json['premiumEquipamiento'] ?? 'solo_cuerpo',
+      // ¡ENTRENAMIENTO ACTUALIZADO!
+      premiumMeta: json['premiumMeta'] ?? 'salud_general',
+      premiumFoco: json['premiumFoco'] ?? 'Cuerpo completo',
+      // ¡CAMBIADO! Lee una lista de strings
+      premiumEquipamiento: (json['premiumEquipamiento'] as List<dynamic>?)?.cast<String>() ?? ['solo_cuerpo'],
       premiumTiempo: (json['premiumTiempo'] ?? 45).toInt(),
-      premiumNivel: json['premiumNivel'] ?? 'principiante',        // <-- AÑADIDO
-      premiumDiasSemana: (json['premiumDiasSemana'] ?? 4).toInt(), // <-- AÑADIDO
-      premiumLesiones: json['premiumLesiones'] ?? 'Ninguna',       // <-- AÑADIDO
+      premiumNivel: json['premiumNivel'] ?? 'principiante_nuevo',
+      premiumDiasSemana: (json['premiumDiasSemana'] ?? 4).toInt(),
+      premiumLesiones: json['premiumLesiones'] ?? 'Ninguna',
+      premiumEjerciciosOdiados: json['premiumEjerciciosOdiados'] ?? 'Ninguno', // ¡NUEVO!
       
       // Otros
       haPagado: json['haPagado'] ?? false,

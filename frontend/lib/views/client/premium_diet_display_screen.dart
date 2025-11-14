@@ -1,6 +1,5 @@
 // screens/client/premium_diet_display_screen.dart
-// ¡¡VERSIÓN SIMPLIFICADA!!
-// Ahora es un StatelessWidget y depende SÓLO de PremiumDietDisplayViewModel
+// ¡¡VERSIÓN CORREGIDA!! Tu UI original + Botón Lista de Compra + Lógica de Estado
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,8 +9,6 @@ import '../../viewmodels/premium_diet_display_viewmodel.dart';
 import '../../models/plan_dieta.dart';
 import '../../models/usuario.dart';
 import 'premium_dieta_setup_screen.dart';
-// ¡¡Ya no se necesita ProfileViewModel!!
-// import '../../viewmodels/profile_viewmodel.dart'; 
 
 // Helper isSameDay (importante para TableCalendar)
 bool isSameDay(DateTime? a, DateTime? b) {
@@ -19,14 +16,12 @@ bool isSameDay(DateTime? a, DateTime? b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-// --- 1. VUELVE A SER STATELESSWIDGET ---
 class PremiumDietDisplayScreen extends StatelessWidget {
   const PremiumDietDisplayScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      // 2. Crea el VM autónomo. El constructor llamará a _initialize()
       create: (_) => PremiumDietDisplayViewModel(),
       child: Consumer<PremiumDietDisplayViewModel>(
         builder: (context, vm, _) {
@@ -41,31 +36,36 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               ),
               iconTheme: const IconThemeData(color: Colors.white),
               elevation: 0,
+              
+              // --- ¡NUEVO! Botón Lista de Compra ---
+              actions: [
+                if (vm.estadoPlan == 'aprobado' && vm.tieneListaCompra)
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                    tooltip: 'Lista de la Compra',
+                    onPressed: () {
+                      _mostrarListaCompra(context, vm.listaCompra);
+                    },
+                  ),
+              ],
+              // -----------------------------------
             ),
             
-            // 3. Ya no hay Consumer<ProfileViewModel>
             body: Column(
               children: [
-                // 4. Lógica de UI simple basada en el VM
-                
                 // Muestra el calendario SOLO si el VM cargó el usuario Y tiene el plan
                 if (vm.currentUser != null && vm.incluyePlanDieta)
                   _buildTableCalendar(context, vm),
 
                 // Contenido
                 Expanded(
-                  child: vm.isLoading
+                  child: vm.isLoading // Loading inicial
                       ? const Center(child: CircularProgressIndicator())
-                      : vm.error != null
+                      : vm.error != null // Error
                           ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: const TextStyle(color: Colors.red))))
                           
-                          // Si no hay dieta (ya sea por día de descanso o porque no tiene plan)
-                          : vm.dietaDelDia == null
-                              // Pasa el usuario del VM al _buildEmptyState
-                              ? _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser) 
-                              
-                              // Si hay dieta, la muestra
-                              : _buildDietDay(context, vm.dietaDelDia!),
+                          // ¡LÓGICA DE ESTADO MEJORADA!
+                          : _buildBodyContent(context, vm), 
                 ),
               ],
             ),
@@ -75,9 +75,42 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
   
-  // --- EL RESTO DE WIDGETS (Sin cambios) ---
+  // --- ¡NUEVO! Widget para decidir qué mostrar ---
+  /// Decide qué mostrar basado en el estado del plan
+  Widget _buildBodyContent(BuildContext context, PremiumDietDisplayViewModel vm) {
+    // Si el usuario no tiene el plan (porque no es premium o no lo incluye)
+    // _buildEmptyState se encargará de mostrar el banner de "Hazte Premium"
+    if (vm.currentUser == null || !vm.incluyePlanDieta) {
+      return _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser);
+    }
 
-  // --- WIDGET DE CALENDARIO ---
+    // Si tiene el plan, comprobamos el estado
+    switch (vm.estadoPlan) {
+      case 'aprobado':
+        // Si está aprobado, mostramos la dieta o el día de descanso
+        return vm.dietaDelDia == null
+            ? _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser) // (mostrará "Día de descanso" o "Configurar")
+            : _buildDietDay(context, vm.dietaDelDia!); // Muestra la dieta
+            
+      case 'pendiente_revision':
+        // Si está pendiente, mostramos un banner específico
+        return _buildStatusBanner(
+          context: context,
+          icon: Icons.pending_actions,
+          color: Colors.orange,
+          titulo: 'Tu dieta está en revisión',
+          subtitulo: 'Tu plan está siendo preparado por el nutricionista. ¡Vuelve pronto!',
+        );
+
+      case 'pendiente_solicitud':
+      default:
+        // Si no ha solicitado (o estado desconocido), mostramos el EmptyState
+        // que contiene el botón de "Configurar"
+        return _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser);
+    }
+  }
+
+  // --- WIDGET DE CALENDARIO (Tu código original) ---
   Widget _buildTableCalendar(BuildContext context, PremiumDietDisplayViewModel vm) {
     return Card(
       elevation: 2,
@@ -119,7 +152,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Muestra el contenido de la dieta para el día.
+  /// Muestra el contenido de la dieta para el día. (Tu código original)
   Widget _buildDietDay(BuildContext context, DiaDieta diaDieta) {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -137,9 +170,9 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Construye una Card para cada comida.
+  /// Construye una Card para cada comida. (Tu código original)
   Widget _buildMealCard(BuildContext context, ComidaDia comida) {
-     return Card(
+    return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -163,9 +196,9 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Construye los detalles de un plato.
+  /// Construye los detalles de un plato. (Tu código original)
   Widget _buildDishDetails(BuildContext context, PlatoGenerado plato) {
-     return Padding(
+    return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,9 +229,9 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Helper para fila de detalle.
+  /// Helper para fila de detalle. (Tu código original)
   Widget _buildDetailRow(IconData icon, String label, String value){
-     return Padding(
+    return Padding(
       padding: const EdgeInsets.only(top: 4.0),
       child: Row(
          crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,30 +303,59 @@ class PremiumDietDisplayScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-               TextButton.icon(
+                TextButton.icon(
                   icon: const Icon(Icons.settings_outlined),
                   label: const Text('Configurar mis preferencias'),
                   onPressed: () {
                      Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumDietaSetupScreen(usuario: usuario)))
                          .then((result) {
-                            if (result == true) {
-                              // Al volver, le decimos al VM que refresque
-                              Provider.of<PremiumDietDisplayViewModel>(context, listen: false).fetchDietaParaDia(fecha);
-                              
-                              // NOTA: Si al guardar preferencias cambia el perfil, 
-                              // el VM debería recargar su propio perfil.
-                              // Por ahora, solo recargamos la dieta.
-                            }
-                          });
+                           if (result == true) {
+                             // --- ¡¡LÍNEA CORREGIDA!! ---
+                             // Al volver, le decimos al VM que refresque
+                             Provider.of<PremiumDietDisplayViewModel>(context, listen: false).refreshData();
+                           }
+                         });
                   },
                   style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
-               ),
+                ),
             ],
           ),
         ),
       );
     }
     return const Center(child: Text('Error al cargar estado.'));
+  }
+
+  // --- ¡NUEVO! Banner de Estado Específico ---
+  /// Muestra un banner para estados como "pendiente_revision"
+  Widget _buildStatusBanner({
+    required BuildContext context,
+    required IconData icon,
+    required Color color,
+    required String titulo,
+    required String subtitulo,
+  }) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(32),
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, spreadRadius: 2)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 60, color: color),
+            const SizedBox(height: 16),
+            Text(titulo, style: Theme.of(context).textTheme.headlineSmall, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(subtitulo, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -320,8 +382,8 @@ class _PremiumUpsellWidget extends StatelessWidget {
             Text(
               '✨ Desbloquea tu Plan de Dieta ✨',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                     fontWeight: FontWeight.bold, color: Colors.amber[900], fontSize: 22
-                   ),
+                       fontWeight: FontWeight.bold, color: Colors.amber[900], fontSize: 22
+                     ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -349,4 +411,88 @@ class _PremiumUpsellWidget extends StatelessWidget {
       ),
     );
   }
+}
+
+// --- ¡NUEVA FUNCIÓN! ---
+// (Movida fuera de la clase para que sea un helper global o estático)
+/// Muestra la lista de la compra en un Modal Deslizable
+void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true, // Permite que el modal sea más alto
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7, // Empieza al 70% de la altura
+        maxChildSize: 0.9,     // Puede llegar al 90%
+        minChildSize: 0.4,     // Mínimo 40%
+        builder: (BuildContext context, ScrollController scrollController) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Lista de la Compra',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController, // ¡Importante para el drag!
+                    itemCount: listaCompra.keys.length,
+                    itemBuilder: (context, index) {
+                      String categoria = listaCompra.keys.elementAt(index);
+                      List<dynamic> items = listaCompra[categoria] ?? [];
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              categoria, // Ej: "Frutas y Verduras"
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo,
+                                  ),
+                            ),
+                            const Divider(thickness: 1.5),
+                            
+                            ...items.map((item) => Padding(
+                              padding: const EdgeInsets.only(left: 8.0, top: 6.0, bottom: 6.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey[700]),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(item.toString(), style: const TextStyle(fontSize: 16))),
+                                ],
+                              ),
+                            )).toList(),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
 }

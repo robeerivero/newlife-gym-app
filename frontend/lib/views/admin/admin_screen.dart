@@ -10,7 +10,7 @@ import 'reservation_management_screen.dart';
 // Importa la nueva pantalla de revisión
 import 'plan_review_list_screen.dart';
 import 'video_management_screen.dart'; // Mantenemos gestión de videos
-
+import '../../viewmodels/plan_review_viewmodel.dart';
 class AdminScreen extends StatelessWidget {
   const AdminScreen({Key? key}) : super(key: key);
 
@@ -48,9 +48,12 @@ class AdminScreen extends StatelessWidget {
                   color: Colors.deepPurpleAccent, // Color distintivo
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const PlanReviewListScreen()),
+                    MaterialPageRoute(builder: (_) => ChangeNotifierProvider(
+                      create: (_) => PlanReviewViewModel(),
+                      child: const PlanReviewListScreen(),
+                    ),
                   ),
-                ),
+                )),
                 const SizedBox(height: 20),
 
                 // --- Tarjetas Existentes que Mantenemos ---

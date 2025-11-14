@@ -1,22 +1,24 @@
 // services/ia_entrenamiento_service.dart
-// ¡NUEVO ARCHIVO!
+// ¡ACTUALIZADO! Con nuevas funciones de Admin y 'aprobarPlanManual' corregido.
 
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import '../config.dart';
-import '../models/plan_entrenamiento.dart'; // Importa el nuevo modelo
+import '../models/plan_entrenamiento.dart';
+
 class IAEntrenamientoService {
   final _storage = const FlutterSecureStorage();
   final String _apiUrl = '${AppConstants.baseUrl}/api/entrenamiento'; // Ruta base
 
-  // Helper para obtener headers con token
-  Future<Map<String, String>> _getHeaders() async {
+  // Helper para obtener headers con token (mejorado)
+  Future<Map<String, String>> _getHeaders({bool includeContentType = true}) async {
     final token = await _storage.read(key: 'jwt_token');
-    return {
-      'Authorization': 'Bearer $token',
-      'Content-Type': 'application/json',
-    };
+    final headers = {'Authorization': 'Bearer $token'};
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return headers;
   }
 
   /// [CLIENTE] Envía las preferencias de entrenamiento para solicitar un plan.
@@ -30,58 +32,42 @@ class IAEntrenamientoService {
     return response.statusCode == 200;
   }
 
-  /// [CLIENTE] Obtiene el estado actual del plan del mes (para saber si mostrar el form o no).
+  /// [CLIENTE] Obtiene el estado actual del plan del mes.
   Future<String> obtenerEstadoPlanDelMes() async {
-    final headers = await _getHeaders();
+    final headers = await _getHeaders(includeContentType: false);
     final response = await http.get(
       Uri.parse('$_apiUrl/mi-plan-del-mes'),
-      headers: headers,
+      headers: headers
     );
     if (response.statusCode == 200) {
       return json.decode(response.body)['estado'] ?? 'pendiente_solicitud';
     } else if (response.statusCode == 404) {
-      return 'pendiente_solicitud'; // Si no hay plan, se puede solicitar
+      return 'pendiente_solicitud';
     }
-    throw Exception('Error al obtener estado del plan');
+    throw Exception('Error al obtener estado del plan de entrenamiento');
   }
 
-  /// [CLIENTE] Obtiene la rutina detallada para un día específico.
-  /// Devuelve el objeto `DiaEntrenamiento` correspondiente a ese día.
-  Future<DiaEntrenamiento> obtenerRutinaDelDia(DateTime fecha) async {
-    final headers = await _getHeaders();
-    final String fechaQuery = fecha.toIso8601String().split('T')[0];
-    
+  /// [CLIENTE] Obtiene la rutina de entrenamiento para un día específico.
+  Future<DiaEntrenamiento?> obtenerRutinaDelDia(DateTime fecha) async {
+    final headers = await _getHeaders(includeContentType: false);
+    final fechaQuery = fecha.toIso8601String().split('T')[0];
     final response = await http.get(
-  Uri.parse('$_apiUrl/mi-rutina-del-dia?fecha=$fechaQuery'), // <--- ¡AÑADE "DEL" AQUÍ!
-  headers: headers,
-);
-
-    // --- ¡¡LOGS DE FRONTEND CON PRINT!! ---
-    print('--- [FRONTEND DEBUG: SERVICIO] ---');
-    print('Status Code: ${response.statusCode}');
-    print('Respuesta (body) RAW: ${response.body}');
-    // --- FIN DE LOGS ---
-
+      Uri.parse('$_apiUrl/mi-rutina-del-dia?fecha=$fechaQuery'),
+      headers: headers,
+    );
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-
-      // --- ¡¡LOG 2 CON PRINT!! ---
-      print('Datos (body) DECODIFICADOS: $data');
-      // --- FIN DE LOG 2 ---
-
-      return DiaEntrenamiento.fromJson(data); 
-    } else {
-      final errorData = json.decode(response.body);
-      print('Error del servidor: ${errorData['mensaje']}');
-      throw Exception(errorData['mensaje'] ?? 'Error al cargar la rutina.');
+      return DiaEntrenamiento.fromJson(json.decode(response.body));
+    } else if (response.statusCode == 404) {
+      return null; // Día de descanso o sin plan
     }
+    throw Exception('Error al obtener rutina del día');
   }
 
-  // --- MÉTODOS PARA EL ADMIN ---
+  // --- MÉTODOS DE ADMINISTRADOR ---
 
   /// [ADMIN] Obtiene la lista de planes pendientes de revisión.
   Future<List<PlanEntrenamiento>> obtenerPlanesPendientes() async {
-    final headers = await _getHeaders();
+    final headers = await _getHeaders(includeContentType: false);
     final response = await http.get(
       Uri.parse('$_apiUrl/admin/planes-pendientes'),
       headers: headers,
@@ -90,14 +76,12 @@ class IAEntrenamientoService {
       final List data = json.decode(response.body);
       return data.map((json) => PlanEntrenamiento.fromJson(json)).toList();
     }
-    throw Exception('Error al obtener planes pendientes');
+    throw Exception('Error al obtener planes de entrenamiento pendientes');
   }
 
-  // --- ¡NUEVA FUNCIÓN! ---
   /// [ADMIN] Obtiene el prompt para un plan pendiente.
   Future<Map<String, dynamic>> obtenerPromptParaRevision(String idPlan) async {
-    final headers = await _getHeaders();
-     headers.remove('Content-Type');
+    final headers = await _getHeaders(includeContentType: false);
     final response = await http.get(
       Uri.parse('$_apiUrl/admin/plan/$idPlan/prompt'),
       headers: headers,
@@ -110,14 +94,13 @@ class IAEntrenamientoService {
     }
   }
 
-
   // --- ¡FUNCIÓN MODIFICADA! ---
-  /// [ADMIN] Aprueba un plan, enviando JSON string y días asignados.
-  Future<bool> aprobarPlanManual(String idPlan, String jsonString, List<String> diasAsignados) async {
+  /// [ADMIN] Aprueba un plan, enviando UN solo string JSON.
+  Future<bool> aprobarPlanManual(String idPlan, String jsonString) async {
     final headers = await _getHeaders();
     final body = json.encode({
       'jsonString': jsonString, // El JSON como string
-      'diasAsignados': diasAsignados,
+      // 'diasAsignados' ya no se envía por separado, va DENTRO del jsonString
     });
     final response = await http.put(
       Uri.parse('$_apiUrl/admin/aprobar/$idPlan'),
@@ -130,11 +113,50 @@ class IAEntrenamientoService {
      }
     return response.statusCode == 200;
   }
+  
+  // --- ¡NUEVAS FUNCIONES DE ADMIN! ---
+  
+  /// [ADMIN] Obtiene la lista de planes de entrenamiento APROBADOS.
+  Future<List<PlanEntrenamiento>> obtenerPlanesAprobados() async {
+    final headers = await _getHeaders(includeContentType: false);
+    final response = await http.get(
+      Uri.parse('$_apiUrl/admin/planes-aprobados'), // <-- Nueva ruta
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      return data.map((json) => PlanEntrenamiento.fromJson(json)).toList();
+    }
+    throw Exception('Error al obtener planes de entrenamiento aprobados');
+  }
+  
+  /// [ADMIN] Obtiene el JSON de un plan ya aprobado para poder editarlo.
+  Future<Map<String, dynamic>> obtenerPlanParaEditar(String idPlan) async {
+    final headers = await _getHeaders(includeContentType: false); // GET
+    final response = await http.get(
+      Uri.parse('$_apiUrl/admin/plan/$idPlan/para-editar'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      // Devuelve {'jsonStringParaEditar': '...', 'inputsUsuario': {...}}
+      return json.decode(response.body);
+    } else {
+      final errorData = json.decode(response.body);
+      throw Exception(errorData['mensaje'] ?? 'Error al obtener el JSON para editar.');
+    }
+  }
 
-   // --- ELIMINADA (O COMENTADA) ---
-   /*
-   Future<bool> regenerarBorradorIA(String idPlan) async {
-     // ...
-   }
-   */
+  /// [ADMIN] Elimina un plan de entrenamiento permanentemente.
+  Future<bool> eliminarPlan(String idPlan) async {
+    final headers = await _getHeaders(includeContentType: false); // DELETE
+    final response = await http.delete(
+      Uri.parse('$_apiUrl/admin/plan/$idPlan'),
+      headers: headers,
+    );
+    if (response.statusCode != 200) {
+      final errorData = json.decode(response.body);
+      throw Exception(errorData['mensaje'] ?? 'Error al eliminar el plan.');
+    }
+    return response.statusCode == 200;
+  }
 }
