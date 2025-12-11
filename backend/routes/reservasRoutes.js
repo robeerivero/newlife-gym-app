@@ -42,7 +42,7 @@ router.delete('/clase/:idClase/usuario/:idUsuario', proteger, esAdministrador, d
 router.get('/usuario/:idUsuario', proteger, esAdministrador, obtenerClasesPorUsuario);
 
 // Obtener usuarios asignados a una clase
-router.get('/clase/:idClase', proteger, esAdministrador, obtenerUsuariosPorClase);
+router.get('/clase/:idClase', proteger, obtenerUsuariosPorClase);
 
 // Asignar usuario a clases por día y hora
 router.post('/asignarPorDiaYHora', proteger, esAdministrador, asignarUsuarioAClasesPorDiaYHora);
