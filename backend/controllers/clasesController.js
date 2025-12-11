@@ -3,7 +3,7 @@ const Clase = require('../models/Clase');
 const Reserva = require('../models/Reserva');
 
 // Utilidad para obtener fechas recurrentes
-const obtenerFechasPorDia = (diaSemana, anio,  horaInicio) => {
+const obtenerFechasPorDia = (diaSemana, anio, horaInicio) => {
   const diasMap = {
     'Lunes': 1,
     'Martes': 2,
@@ -43,7 +43,7 @@ exports.crearClasesRecurrentes = async (req, res) => {
     const anioActual = new Date().getFullYear();
     console.log("Año actual:", anioActual);
 
-    const fechas = obtenerFechasPorDia(dia, anioActual,horaInicio);
+    const fechas = obtenerFechasPorDia(dia, anioActual, horaInicio);
     console.log("Fechas generadas para el día:", dia, fechas);
 
     const clasesCreadas = [];
@@ -94,7 +94,7 @@ exports.obtenerClases = async (req, res) => {
     diaFin.setUTCDate(diaFin.getUTCDate() + 1);
     filtro.fecha = { $gte: diaInicio, $lt: diaFin };
   }
-  
+
   // ¡HEMOS ELIMINADO EL BLOQUE 'ELSE'!
   // Si no hay 'fecha', 'filtro' se queda como {} y trae todo.
 
@@ -175,7 +175,7 @@ exports.eliminarTodasLasClases = async (req, res) => {
   try {
     const resultClases = await Clase.deleteMany({});
     const resultReservas = await Reserva.deleteMany({});
-    
+
     console.log(`🧹 Clases eliminadas: ${resultClases.deletedCount}`);
     console.log(`🧹 Reservas eliminadas: ${resultReservas.deletedCount}`);
 
@@ -239,37 +239,7 @@ exports.desregistrarseDeClase = async (req, res) => {
   }
 };
 
-// Obtener clases por fecha y tipo de clase
-exports.obtenerClasesPorFechaYTipo = async (req, res) => {
-  try {
-    const { fecha } = req.query;
-    const tiposDeClases = req.user.tiposDeClases; // Supone que se incluye esta información en el token
 
-    // Validar si se proporciona la fecha
-    if (!fecha) {
-      return res.status(400).json({ mensaje: 'Fecha es requerida.' });
-    }
-
-    // Convertir la fecha a un rango para filtrar por día completo
-    const fechaSeleccionada = new Date(fecha);
-    fechaSeleccionada.setUTCHours(0, 0, 0, 0);
-    const siguienteDia = new Date(fechaSeleccionada.getTime() + 24 * 60 * 60 * 1000);
-
-    // Filtrar clases por fecha y tipos de clase
-    const clases = await Clase.find({
-      fecha: {
-        $gte: fechaSeleccionada,
-        $lt: siguienteDia,
-      },
-      nombre: { $in: tiposDeClases }, // Solo clases cuyo nombre coincide con los tipos del usuario
-    }).populate('participantes', 'nombre correo');
-
-    res.status(200).json(clases);
-  } catch (error) {
-    console.error('Error al obtener las clases:', error);
-    res.status(500).json({ mensaje: 'Error al obtener las clases', error });
-  }
-};
 exports.obtenerUsuariosConAsistencia = async (req, res) => {
   const { idClase } = req.params;
   console.log('🔍 [BACKEND] Llamada a obtenerUsuariosConAsistencia con ID:', idClase);

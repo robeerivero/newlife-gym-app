@@ -75,8 +75,6 @@ exports.obtenerClasesPorUsuario = async (req, res) => {
   }
 };
 
-
-
 exports.obtenerUsuariosPorClase = async (req, res) => {
   const { idClase } = req.params;
 
@@ -84,23 +82,6 @@ exports.obtenerUsuariosPorClase = async (req, res) => {
     const reservas = await Reserva.find({ clase: idClase }).populate('usuario');
     const usuarios = reservas.map(r => r.usuario);
     res.status(200).json(usuarios);
-  } catch (error) {
-    res.status(500).json({ mensaje: 'Error al obtener usuarios de la clase', error });
-  }
-};
-
-
-exports.obtenerUsuariosConAsistencia = async (req, res) => {
-  const { idClase } = req.params;
-  try {
-    const reservas = await Reserva.find({ clase: idClase }).populate('usuario');
-    const resultado = reservas.map(r => ({
-      _id: r.usuario._id,
-      nombre: r.usuario.nombre,
-      correo: r.usuario.correo,
-      asistio: r.asistio
-    }));
-    res.json(resultado);
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener usuarios de la clase', error });
   }
@@ -211,9 +192,9 @@ exports.cancelarClase = async (req, res) => {
 
     // Gestiona lista de espera: si hay usuarios esperando, mete al primero
     if (clase.listaEspera && clase.listaEspera.length > 0) {
-      const siguienteUsuarioId = clase.listaEspera.shift(); 
+      const siguienteUsuarioId = clase.listaEspera.shift();
       await Reserva.create({ usuario: siguienteUsuarioId, clase: idClase });
-      clase.cuposDisponibles -= 1; 
+      clase.cuposDisponibles -= 1;
     }
 
     await clase.save();
@@ -296,9 +277,6 @@ exports.registrarAsistencia = async (req, res) => {
     reserva.asistio = true;
     await reserva.save();
 
-    // Llama a chequearLogrosYDesbloquear si procede
-    // const nuevosLogros = await exports.chequearLogrosYDesbloquear(usuarioId);
-
     res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' /*, nuevosLogros*/ });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al registrar asistencia' });
@@ -307,21 +285,21 @@ exports.registrarAsistencia = async (req, res) => {
 };
 
 // Obtener total de asistencias y fechas de asistencia de un usuario
-  exports.obtenerAsistenciasPorUsuario = async (req, res) => {
-    const idUsuario = req.user._id; // o usa req.user._id para el usuario autenticado
+exports.obtenerAsistenciasPorUsuario = async (req, res) => {
+  const idUsuario = req.user._id; // o usa req.user._id para el usuario autenticado
 
-    try {
-      const reservas = await Reserva.find({ usuario: idUsuario, asistio: true }).populate('clase');
-      const totalAsistencias = reservas.length;
-      // Puedes usar la fecha de la clase para la lista de fechas de asistencia:
-      const fechas = reservas.map(r => {
-        // Puedes usar r.clase.fecha si la clase tiene un campo fecha
-        return r.clase && r.clase.fecha
-          ? r.clase.fecha
-          : r.fechaReserva;
-      });
-      res.status(200).json({ totalAsistencias, fechas });
-    } catch (error) {
-      res.status(500).json({ mensaje: 'Error al obtener asistencias', error });
-    }
-  };
+  try {
+    const reservas = await Reserva.find({ usuario: idUsuario, asistio: true }).populate('clase');
+    const totalAsistencias = reservas.length;
+    // Puedes usar la fecha de la clase para la lista de fechas de asistencia:
+    const fechas = reservas.map(r => {
+      // Puedes usar r.clase.fecha si la clase tiene un campo fecha
+      return r.clase && r.clase.fecha
+        ? r.clase.fecha
+        : r.fechaReserva;
+    });
+    res.status(200).json({ totalAsistencias, fechas });
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al obtener asistencias', error });
+  }
+};

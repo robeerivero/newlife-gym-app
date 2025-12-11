@@ -20,17 +20,16 @@ const esquemaUsuario = new mongoose.Schema({
     index: true, // Para que la ordenación sea más rápida
     default: null
   },
-  
+
   esPremium: { type: Boolean, default: false },
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
-  desbloqueados: { type: [Object], default: [] },
-  
+
   // --- Banderas de control del Admin ---
   incluyePlanDieta: { type: Boolean, default: false },
   incluyePlanEntrenamiento: { type: Boolean, default: false },
-  
+
   // --- Inputs de Dieta ---
   dietaAlergias: { type: String, default: 'Ninguna' },
   dietaPreferencias: { type: String, default: 'Omnívoro, me gusta todo' },
@@ -48,8 +47,8 @@ const esquemaUsuario = new mongoose.Schema({
     enum: ['principiante', 'intermedio', 'avanzado'],
     default: 'intermedio'
   },
-  dietaEquipamiento: { 
-    type: [String], 
+  dietaEquipamiento: {
+    type: [String],
     default: ['basico']
   },
   dietaContextoComida: {
@@ -58,13 +57,13 @@ const esquemaUsuario = new mongoose.Schema({
     default: 'casa'
   },
   dietaAlimentosOdiados: { type: String, default: 'Ninguno' },
-  dietaRetoPrincipal: { 
-    type: String, 
+  dietaRetoPrincipal: {
+    type: String,
     enum: ['picoteo', 'social', 'organizacion', 'estres', 'raciones'],
     default: 'picoteo'
   },
   dietaBebidas: { type: String, default: 'Principalmente agua' },
-  
+
   // --- ¡¡INPUTS DE ENTRENAMIENTO ACTUALIZADOS!! ---
   premiumMeta: {
     type: String,
@@ -73,7 +72,7 @@ const esquemaUsuario = new mongoose.Schema({
     default: 'salud_general'
   },
   premiumFoco: { type: String, default: 'Cuerpo completo' },
-  
+
   premiumEquipamiento: {
     type: [String], // Cambiado a Array de Strings
     default: ['solo_cuerpo']
@@ -82,7 +81,7 @@ const esquemaUsuario = new mongoose.Schema({
     // 'gym_basico', 'gym_completo'
   },
   premiumTiempo: { type: Number, default: 45 },
-  
+
   premiumNivel: {
     type: String,
     enum: ['principiante_nuevo', 'intermedio_consistente', 'avanzado_programado'],
@@ -101,7 +100,7 @@ const esquemaUsuario = new mongoose.Schema({
     default: 'Ninguno'
   },
   // -----------------------------------------
-  
+
   // --- Datos Metabólicos (Dieta) ---
   genero: {
     type: String,
@@ -142,7 +141,7 @@ const esquemaUsuario = new mongoose.Schema({
     type: Number,
     default: 2000
   },
-  
+
 }, { timestamps: true });
 
 // Middleware para encriptar la contraseña antes de guardarla
@@ -154,14 +153,34 @@ esquemaUsuario.pre('save', async function (next) {
 });
 
 // Middleware para borrar en cascada
-esquemaUsuario.pre('deleteOne', { document: true, query: false }, async function(next) {
+esquemaUsuario.pre('deleteOne', { document: true, query: false }, async function (next) {
   try {
+    const Clase = require('./Clase');
+
+    // 1. Obtener todas las reservas del usuario para incrementar cupos
+    const reservasDelUsuario = await Reserva.find({ usuario: this._id });
+
+    // 2. Incrementar cuposDisponibles en cada clase donde tenía reserva
+    for (const reserva of reservasDelUsuario) {
+      await Clase.findByIdAndUpdate(
+        reserva.clase,
+        { $inc: { cuposDisponibles: 1 } }
+      );
+    }
+
+    // 3. Eliminar datos relacionados
     await Promise.all([
       Reserva.deleteMany({ usuario: this._id }),
       PlanDieta.deleteMany({ usuario: this._id }),
       PlanEntrenamiento.deleteMany({ usuario: this._id }),
-      Salud.deleteMany({ usuario: this._id })
+      Salud.deleteMany({ usuario: this._id }),
+      // 4. Eliminar de todas las listas de espera
+      Clase.updateMany(
+        { listaEspera: this._id },
+        { $pull: { listaEspera: this._id } }
+      )
     ]);
+
     next();
   } catch (error) {
     next(error);
