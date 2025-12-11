@@ -1,7 +1,9 @@
 const Usuario = require('../models/Usuario');
 const Salud = require('../models/Salud');
 const Reserva = require('../models/Reserva');
+const bcrypt = require('bcryptjs'); // Necesario para actualizarDatosAdmin
 
+// --- RANKING MENSUAL ---
 exports.rankingMensual = async (req, res) => {
   try {
     const now = new Date();
@@ -23,7 +25,7 @@ exports.rankingMensual = async (req, res) => {
       asistenciasPorUsuario[id] = (asistenciasPorUsuario[id] || 0) + 1;
     });
 
-    // Pasos del mes por usuario (igual que antes)
+    // Pasos del mes por usuario
     const saludMes = await Salud.aggregate([
       {
         $match: {
@@ -50,7 +52,7 @@ exports.rankingMensual = async (req, res) => {
     let ranking = usuarios.map(usuario => ({
       _id: usuario._id,
       nombre: usuario.nombre,
-      avatar: usuario.avatar,
+      avatar: usuario.avatar, // Se envía el objeto avatar guardado (o vacío)
       asistenciasEsteMes: asistenciasPorUsuario[usuario._id.toString()] || 0,
       pasosEsteMes: pasosPorUsuario[usuario._id.toString()] || 0,
     }));
@@ -71,7 +73,7 @@ exports.rankingMensual = async (req, res) => {
 };
 
 
-// Ver perfil del usuario
+// --- VER PERFIL ---
 exports.obtenerPerfilUsuario = async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.user.id);
@@ -81,9 +83,10 @@ exports.obtenerPerfilUsuario = async (req, res) => {
   }
 };
 
+
+// --- CREAR USUARIO (LIMPIO) ---
 exports.crearUsuario = async (req, res) => {
-  // Extrae nombreGrupo
-  const { nombre, correo, contrasena, rol, tiposDeClases, nombreGrupo, esPremium } = req.body; // Añadido esPremium por si acaso
+  const { nombre, correo, contrasena, rol, tiposDeClases, nombreGrupo, esPremium } = req.body;
 
   try {
     const existeUsuario = await Usuario.findOne({ correo });
@@ -91,7 +94,7 @@ exports.crearUsuario = async (req, res) => {
       return res.status(400).json({ msg: 'El correo ya está registrado.' });
     }
 
-    // --- VALIDACIONES DE TIPOS DE CLASE (COMO LAS TENÍAS) ---
+    // Validación básica de tipos de clases
     if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
     }
@@ -100,48 +103,25 @@ exports.crearUsuario = async (req, res) => {
     if (!tiposValidos) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
-    // --- FIN VALIDACIONES ---
 
-    // --- LÓGICA DE PRENDAS Y AVATAR POR DEFECTO (COMO LA TENÍAS) ---
-    const mapPrendas = {};
-    for (const prenda of prendasLogros) {
-      if (!mapPrendas[prenda.key]) mapPrendas[prenda.key] = [];
-      if (!mapPrendas[prenda.key].includes(prenda.value)) {
-        mapPrendas[prenda.key].push(prenda.value);
-      }
-    }
-    const desbloqueadosPorDefecto = prendasLogros
-      .filter(p => p.desbloqueadoPorDefecto)
-      .map(p => ({ key: p.key, value: p.value }));
-    const avatar = {};
-    for (const d of desbloqueadosPorDefecto) {
-      if (!(d.key in avatar)) {
-        const valores = mapPrendas[d.key];
-        const idx = valores.indexOf(d.value);
-        if (idx !== -1) {
-          avatar[d.key] = idx;
-        }
-      }
-    }
-    // --- FIN LÓGICA PRENDAS/AVATAR ---
+    // --- CAMBIO PRINCIPAL: Eliminada lógica de "prendasLogros" ---
+    // Ya no calculamos desbloqueados ni avatar por defecto complejo.
 
-    // --- ¡¡NO SE HASHEA LA CONTRASEÑA AQUÍ!! ---
     const nuevoUsuario = new Usuario({
       nombre,
       correo,
-      contrasena, // <-- Contraseña en texto plano
-      rol: rol || 'cliente', // Rol por defecto si no se especifica
+      contrasena, // El hook pre-save lo hasheará
+      rol: rol || 'cliente',
       tiposDeClases,
       nombreGrupo: nombreGrupo || null,
-      esPremium: esPremium || false, // Asignar esPremium si viene
-      avatar: avatar, // Asignar avatar por defecto
-      desbloqueados: desbloqueadosPorDefecto // Asignar desbloqueados por defecto
-      // haPagado será false por defecto (definido en el Modelo)
+      esPremium: esPremium || false,
+      avatar: {}, // Se inicia vacío, el usuario lo editará en el frontend
+      // desbloqueados: ELIMINADO
     });
 
-    await nuevoUsuario.save(); // El hook pre('save') en Usuario.js la hashea
+    await nuevoUsuario.save();
 
-    res.status(201).json({ msg: 'Usuario creado correctamente' }); // Mensaje simple
+    res.status(201).json({ msg: 'Usuario creado correctamente' });
 
   } catch (error) {
     console.error('Error al crear usuario:', error.message);
@@ -153,10 +133,7 @@ exports.crearUsuario = async (req, res) => {
 };
 
 
-
-
-
-// Cambiar la contraseña del usuario
+// --- CAMBIAR CONTRASEÑA (USUARIO) ---
 exports.cambiarContrasena = async (req, res) => {
   const { contrasenaActual, nuevaContrasena } = req.body;
 
@@ -181,14 +158,13 @@ exports.cambiarContrasena = async (req, res) => {
 };
 
 
-// Obtener todos los usuarios
+// --- OBTENER TODOS LOS USUARIOS (ADMIN) ---
 exports.obtenerUsuarios = async (req, res) => {
   try {
-    const { nombreGrupo } = req.query; // Solo necesitamos este filtro
+    const { nombreGrupo } = req.query;
     let filterOptions = {};
-    const sortOptions = { nombre: 1 }; // Ordenar siempre por nombre
+    const sortOptions = { nombre: 1 };
 
-    // Filtro de Grupo
     if (nombreGrupo && nombreGrupo !== 'Todos') {
       if (nombreGrupo === 'Sin Grupo') {
         filterOptions.nombreGrupo = { $in: [null, '', undefined] };
@@ -196,11 +172,10 @@ exports.obtenerUsuarios = async (req, res) => {
         filterOptions.nombreGrupo = nombreGrupo;
       }
     }
-    // Si es 'Todos', no se aplica filtro
 
     const usuarios = await Usuario.find(filterOptions)
       .sort(sortOptions)
-      .select('-contrasena');
+      .select('-contrasena'); // No devolvemos la contraseña
     res.json(usuarios);
 
   } catch (error) {
@@ -209,26 +184,26 @@ exports.obtenerUsuarios = async (req, res) => {
   }
 };
 
-// --- ¡AÑADE ESTA NUEVA FUNCIÓN! ---
-// Obtiene una lista única de nombres de grupo existentes
+
+// --- OBTENER GRUPOS ---
 exports.obtenerGrupos = async (req, res) => {
   try {
-    // ¡CORRECCIÓN! Añadimos un filtro para que no incluya los 'null'
     const grupos = await Usuario.distinct('nombreGrupo', { nombreGrupo: { $ne: null } });
     res.json(grupos);
   } catch (error) {
     res.status(500).json({ msg: 'Error al obtener grupos' });
   }
 };
+
+
+// --- ACTUALIZAR DATOS (ADMIN) ---
 exports.actualizarDatosAdmin = async (req, res) => {
   const { idUsuario } = req.params;
-  // Añadimos más campos que el admin puede querer editar
   const { nombreGrupo, haPagado, nombre, correo, rol, esPremium, incluyePlanDieta, incluyePlanEntrenamiento, nuevaContrasena } = req.body;
 
   try {
     let fieldsToUpdate = {};
 
-    // Comprobar y añadir cada campo si está presente en el body
     if (nombre !== undefined) fieldsToUpdate.nombre = nombre;
     if (correo !== undefined) fieldsToUpdate.correo = correo;
     if (rol !== undefined) fieldsToUpdate.rol = rol;
@@ -238,14 +213,10 @@ exports.actualizarDatosAdmin = async (req, res) => {
     if (incluyePlanDieta !== undefined) fieldsToUpdate.incluyePlanDieta = incluyePlanDieta;
     if (incluyePlanEntrenamiento !== undefined) fieldsToUpdate.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
 
-    // Actualizar contraseña SOLO si se proporciona una nueva
     if (nuevaContrasena) {
-      // ¡IMPORTANTE! Al usar findByIdAndUpdate, el hook pre('save') NO se ejecuta.
-      // Necesitamos hashear la contraseña aquí si se va a cambiar.
       const salt = await bcrypt.genSalt(10);
       fieldsToUpdate.contrasena = await bcrypt.hash(nuevaContrasena, salt);
     }
-
 
     if (Object.keys(fieldsToUpdate).length === 0) {
       return res.status(400).json({ msg: 'No se enviaron datos para actualizar' });
@@ -254,22 +225,20 @@ exports.actualizarDatosAdmin = async (req, res) => {
     const usuario = await Usuario.findByIdAndUpdate(
       idUsuario,
       { $set: fieldsToUpdate },
-      { new: true, runValidators: true } // runValidators para asegurar que el rol sea válido
+      { new: true, runValidators: true }
     ).select('-contrasena');
 
     if (!usuario) {
       return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    res.json(usuario); // Devuelve el usuario actualizado (sin contraseña)
+    res.json(usuario);
 
   } catch (error) {
     console.error('Error al actualizar datos de admin:', error);
-    // Manejar error de validación (ej. rol inválido)
     if (error.name === 'ValidationError') {
       return res.status(400).json({ msg: error.message });
     }
-    // Manejar error de correo duplicado si se intenta cambiar a uno existente
     if (error.code === 11000) {
       return res.status(400).json({ msg: 'El correo electrónico ya está en uso por otro usuario.' });
     }
@@ -277,7 +246,8 @@ exports.actualizarDatosAdmin = async (req, res) => {
   }
 };
 
-// Obtener un usuario por ID
+
+// --- OBTENER USUARIO POR ID ---
 exports.obtenerUsuarioPorId = async (req, res) => {
   const { idUsuario } = req.params;
 
@@ -292,14 +262,13 @@ exports.obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Actualizar usuario
+
+// --- ACTUALIZAR USUARIO (GENERAL) ---
 exports.actualizarUsuario = async (req, res) => {
-  // 1. Determinar a quién actualizar y quién hace la petición
   const idDelUsuarioAActualizar = req.params.idUsuario || req.user.id;
   const esPeticionDeAdmin = req.user.rol === 'admin';
   const esAdminEditandoAOtro = esPeticionDeAdmin && req.params.idUsuario;
 
-  // 2. Obtener todos los posibles datos del body
   const {
     nombre, correo, rol, tiposDeClases, esPremium,
     incluyePlanDieta, incluyePlanEntrenamiento,
@@ -312,103 +281,73 @@ exports.actualizarUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    // --- Campos que CUALQUIERA (Admin o Cliente) puede intentar actualizar ---
+    // Campos comunes
     usuario.nombre = nombre || usuario.nombre;
-    usuario.correo = correo || usuario.correo; // El 'save' validará si el correo ya existe
+    usuario.correo = correo || usuario.correo;
 
-    // --- Campo que SÓLO el CLIENTE puede actualizar en su perfil ---
-    // (Un admin podría tener otra ruta/lógica si necesita cambiar esto)
+    // Solo cliente puede editar sus tipos de clases (o admin si quisiera implementarlo)
     if (!esPeticionDeAdmin && tiposDeClases) {
-      // Validación de tiposDeClases (como la tenías)
       if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0 || !tiposDeClases.every(tipo => ['funcional', 'pilates', 'zumba'].includes(tipo))) {
         return res.status(400).json({ mensaje: 'Tipos de clases inválidos.' });
       }
       usuario.tiposDeClases = tiposDeClases;
     }
 
-    // --- Campos que SÓLO el ADMIN puede actualizar ---
+    // Campos solo Admin
     if (esAdminEditandoAOtro) {
       usuario.rol = rol || usuario.rol;
-
-      // Actualiza booleans solo si vienen explícitamente en la petición
-      if (esPremium !== undefined) {
-        usuario.esPremium = esPremium;
-      }
-      if (incluyePlanDieta !== undefined) {
-        usuario.incluyePlanDieta = incluyePlanDieta;
-      }
-      if (incluyePlanEntrenamiento !== undefined) {
-        usuario.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
-      }
-
-      // Admin puede resetear contraseña directamente
-      if (nuevaContrasena) {
-        usuario.contrasena = nuevaContrasena; // El pre-save hook hará el hash
-      }
+      if (esPremium !== undefined) usuario.esPremium = esPremium;
+      if (incluyePlanDieta !== undefined) usuario.incluyePlanDieta = incluyePlanDieta;
+      if (incluyePlanEntrenamiento !== undefined) usuario.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
+      if (nuevaContrasena) usuario.contrasena = nuevaContrasena;
     }
-
-    // Si es un cliente actualizando su perfil (/perfil), 
-    // se ignorarán rol, esPremium, incluyePlan..., nuevaContrasena, etc. aunque los envíe.
 
     await usuario.save();
     res.status(200).json({ mensaje: 'Usuario actualizado exitosamente', usuario });
 
   } catch (error) {
     console.error('Error al actualizar el usuario:', error);
-    if (error.code === 11000) { // Error de índice único (correo duplicado)
+    if (error.code === 11000) {
       return res.status(400).json({ mensaje: 'El correo electrónico ya está en uso por otro usuario.' });
     }
     res.status(500).json({ mensaje: 'Error interno al actualizar el usuario', error: error.message });
   }
 };
 
-/**
- * [ADMIN] Elimina un usuario por ID
- */
-exports.eliminarUsuario = async (req, res) => {
-  // --- LOG AÑADIDO ---
-  console.log(`[CONTROLLER] 8. eliminarUsuario iniciado para ID: ${req.params.idUsuario}`);
-  // -------------------
 
+// --- ELIMINAR USUARIO ---
+exports.eliminarUsuario = async (req, res) => {
+  console.log(`[CONTROLLER] 8. eliminarUsuario iniciado para ID: ${req.params.idUsuario}`);
   try {
     const usuario = await Usuario.findById(req.params.idUsuario);
-
     if (!usuario) {
-      // --- LOG AÑADIDO ---
       console.log(`[CONTROLLER] 9. ERROR: Usuario no encontrado.`);
-      // -------------------
       return res.status(404).json({ msg: 'Usuario no encontrado' });
     }
 
-    // --- LOG AÑADIDO ---
-    console.log(`[CONTROLLER] 9. Usuario encontrado. Llamando a .remove()`);
-    // -------------------
-
-    // Usamos .remove() para activar el middleware 'pre("remove")' en Usuario.js
-    await usuario.deleteOne();
-
-    // --- LOG AÑADIDO ---
+    console.log(`[CONTROLLER] 9. Usuario encontrado. Eliminando...`);
+    await usuario.deleteOne(); // Activa middleware pre-delete
     console.log(`[CONTROLLER] 10. Usuario eliminado de la DB.`);
-    // -------------------
-    res.json({ msg: 'Usuario eliminado correctamente' });
 
+    res.json({ msg: 'Usuario eliminado correctamente' });
   } catch (error) {
-    // --- LOG AÑADIDO ---
     console.error('[CONTROLLER] 10. ¡ERROR! Capturado en Controller:', error);
-    // -------------------
     res.status(500).json({ msg: 'Error en el servidor' });
   }
 };
 
 
+// --- ACTUALIZAR AVATAR (NUEVO - SIN LOGROS) ---
 exports.actualizarAvatar = async (req, res) => {
   try {
-    const { avatar } = req.body; // <-- asegúrate de usar 'avatar' (no 'fluttermojiJson')
-    if (!avatar) return res.status(400).json({ mensaje: 'Falta el JSON del avatar' });
+    const { avatar } = req.body;
+    // Permitimos que avatar sea un objeto o un string, dependiendo de cómo lo envíe el frontend,
+    // pero validamos que exista.
+    if (!avatar) return res.status(400).json({ mensaje: 'Falta la configuración del avatar' });
 
     const usuario = await Usuario.findByIdAndUpdate(
       req.user.id,
-      { avatar }, // <--- guarda directamente el string del frontend
+      { avatar },
       { new: true }
     );
     res.json({ mensaje: 'Avatar actualizado', avatar: usuario.avatar });
@@ -418,17 +357,13 @@ exports.actualizarAvatar = async (req, res) => {
 };
 
 
+// --- ACTUALIZAR DATOS METABÓLICOS ---
 exports.actualizarDatosMetabolicos = async (req, res) => {
   const { id } = req.user;
-
-  // --- ¡CAMBIO! Recibimos los nuevos campos ---
   const { peso, altura, edad, genero, ocupacion, ejercicio, objetivo } = req.body;
 
-  // --- LOG DE DEBUG ---
-  console.log('[actualizarDatosMetabolicos] Recibido:', req.body);
-
   try {
-    // 1. Calcular TMB (Sin cambios)
+    // 1. Calcular TMB
     let tmb;
     if (genero === 'masculino') {
       tmb = (10 * peso) + (6.25 * altura) - (5 * edad) + 5;
@@ -436,24 +371,24 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
       tmb = (10 * peso) + (6.25 * altura) - (5 * edad) - 161;
     }
 
-    // --- ¡¡LÓGICA MEJORADA!! ---
+    // 2. Calcular TDEE
     const factoresOcupacion = {
       sedentaria: 1.2,
       ligera: 1.375,
       activa: 1.55
     };
     const caloriasEjercicio = {
-      '0': 0, '1-3': 300, '4-5': 500, '6-7': 700 // Ajusta estos valores
+      '0': 0, '1-3': 300, '4-5': 500, '6-7': 700
     };
 
     const tdee = (tmb * (factoresOcupacion[ocupacion] || 1.2)) + (caloriasEjercicio[ejercicio] || 0);
-    // --- FIN LÓGICA MEJORADA ---
 
+    // 3. Calcular Objetivo
     let kcalObjetivo;
     switch (objetivo) {
       case 'perder':
         kcalObjetivo = tdee - 500;
-        kcalObjetivo = Math.max(kcalObjetivo, tmb + 100); // No bajar de TMB
+        kcalObjetivo = Math.max(kcalObjetivo, tmb + 100);
         break;
       case 'ganar':
         kcalObjetivo = tdee + 300;
@@ -464,20 +399,19 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
     }
     kcalObjetivo = Math.round(kcalObjetivo);
 
-    // 4. Guardar TODOS los datos nuevos en el Usuario
+    // 4. Guardar
     const usuario = await Usuario.findByIdAndUpdate(
       id,
       {
         peso, altura, edad, genero, objetivo,
-        ocupacion,  // <-- NUEVO
-        ejercicio,  // <-- NUEVO
-        nivelActividad: null, // Anulamos el antiguo
+        ocupacion,
+        ejercicio,
+        nivelActividad: null,
         kcalObjetivo
       },
       { new: true }
     );
 
-    // 5. Devolver la respuesta
     res.status(200).json({
       mensaje: 'Datos metabólicos actualizados',
       kcalObjetivo: usuario.kcalObjetivo,
@@ -490,8 +424,11 @@ exports.actualizarDatosMetabolicos = async (req, res) => {
     res.status(500).json({ mensaje: 'Error en el servidor', error: error.message });
   }
 };
+
+
+// --- CAMBIAR CONTRASEÑA (ADMIN) ---
 exports.cambiarContrasenaAdmin = async (req, res) => {
-  const { contrasena } = req.body; // Recibe la nueva contraseña
+  const { contrasena } = req.body;
   const { idUsuario } = req.params;
 
   if (!contrasena || contrasena.length < 6) {
@@ -499,19 +436,13 @@ exports.cambiarContrasenaAdmin = async (req, res) => {
   }
 
   try {
-    // 1. Encontrar al usuario
     const usuario = await Usuario.findById(idUsuario);
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
     }
 
-    // 2. Asignar la nueva contraseña
-    // ¡IMPORTANTE! Solo la asignamos, no la hasheamos aquí
     usuario.contrasena = contrasena;
-
-    // 3. Guardar
-    // El .save() SÍ activa el 'pre(save)' hook en Usuario.js
-    await usuario.save();
+    await usuario.save(); // pre-save hook hashea
 
     res.status(200).json({ mensaje: 'Contraseña actualizada correctamente.' });
 
