@@ -25,7 +25,10 @@ const esquemaUsuario = new mongoose.Schema({
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
-
+  fcmTokens: {
+    type: [String], // Array porque un usuario puede tener móvil y tablet
+    default: []
+  },
   // --- Banderas de control del Admin ---
   incluyePlanDieta: { type: Boolean, default: false },
   incluyePlanEntrenamiento: { type: Boolean, default: false },

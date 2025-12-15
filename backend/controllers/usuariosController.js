@@ -356,6 +356,26 @@ exports.actualizarAvatar = async (req, res) => {
   }
 };
 
+exports.registrarFcmToken = async (req, res) => {
+  const { token } = req.body;
+  const usuarioId = req.user._id; // Viene del middleware 'proteger'
+
+  if (!token) {
+    return res.status(400).json({ mensaje: 'El token es obligatorio' });
+  }
+
+  try {
+    // Usamos $addToSet para no guardar tokens duplicados si el usuario reinstala
+    await Usuario.findByIdAndUpdate(usuarioId, {
+      $addToSet: { fcmTokens: token }
+    });
+
+    res.status(200).json({ mensaje: 'Token FCM registrado correctamente' });
+  } catch (error) {
+    console.error('Error al registrar token FCM:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
 
 // --- ACTUALIZAR DATOS METABÓLICOS ---
 exports.actualizarDatosMetabolicos = async (req, res) => {

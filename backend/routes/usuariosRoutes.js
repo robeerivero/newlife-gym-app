@@ -16,6 +16,7 @@ const {
   rankingMensual,
   actualizarDatosMetabolicos,
   actualizarDatosAdmin,
+  registrarFcmToken,
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -31,6 +32,8 @@ router.get('/ranking-mensual', proteger, rankingMensual);
 // Ruta calculo kcal objetivo (DEBE IR ANTES DE /:idUsuario)
 router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
 router.put('/:idUsuario/admin-contrasena', proteger, esAdministrador, cambiarContrasenaAdmin);
+
+router.post('/register-fcm-token', proteger, registrarFcmToken);
 
 // RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
 router.get('/grupos', proteger, esAdministrador, obtenerGrupos);

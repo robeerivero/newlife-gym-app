@@ -1,13 +1,37 @@
-# Ignorar .env del backend
-backend/.env
+# --- SEGURIDAD Y FIRMAS (CRÍTICO) ---
+# Ignora el archivo de contraseñas de la firma de Android
+android/key.properties
+# Ignora cualquier archivo de llave (keystore) que guardes en el proyecto
+*.jks
+*.keystore
+# Ignora configuraciones locales del SDK de Android
+android/local.properties
 
-# Flutter y Node typical ignores
-**/build/
-**/node_modules/
+# --- BACKEND (Node.js) ---
+backend/.env
+backend/node_modules/
+backend/npm-debug.log*
+backend/yarn-error.log*
+backend/dist/
+backend/config/serviceAccountKey.json
+# --- FRONTEND (Flutter) ---
 .dart_tool/
 .packages
-.idea/
-.vscode/
 .flutter-plugins
 .flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# --- ANDROID ESPECÍFICO ---
+android/app/build/
+android/app/src/main/res/raw/
+*.apk
+*.aab
+
+# --- IDEs Y SISTEMA ---
+.idea/
+.vscode/
+*.swp
+*.lock
 .DS_Store

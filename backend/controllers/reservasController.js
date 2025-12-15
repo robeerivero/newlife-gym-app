@@ -1,6 +1,8 @@
 const Clase = require('../models/Clase');
 const Usuario = require('../models/Usuario');
 const Reserva = require('../models/Reserva');
+// 👇 1. IMPORTAMOS EL NOTIFICADOR
+const { enviarNotificacion } = require('../utils/notificador');
 
 exports.asignarUsuarioAClase = async (req, res) => {
   const { idClase, idUsuario } = req.body;
@@ -31,6 +33,9 @@ exports.asignarUsuarioAClase = async (req, res) => {
     clase.cuposDisponibles -= 1;
     await clase.save();
 
+    // Opcional: Notificar al usuario asignado manualmente
+    // enviarNotificacion(idUsuario, "Reserva Confirmada", `Te han asignado a la clase de ${clase.nombre}`);
+
     res.status(201).json({ mensaje: 'Usuario asignado a la clase con éxito' });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al asignar usuario a la clase', error });
@@ -55,6 +60,26 @@ exports.desasignarUsuarioDeClase = async (req, res) => {
     }
 
     clase.cuposDisponibles += 1;
+
+    // --- LÓGICA DE LISTA DE ESPERA (También aquí por si el admin saca a alguien) ---
+    if (clase.listaEspera && clase.listaEspera.length > 0) {
+      const siguienteUsuarioId = clase.listaEspera.shift();
+
+      // Creamos la reserva para el siguiente
+      await Reserva.create({ usuario: siguienteUsuarioId, clase: idClase });
+
+      // No sumamos cupo disponible porque entró uno nuevo inmediatamente
+      clase.cuposDisponibles -= 1;
+
+      // 👇 NOTIFICAR AL AFORTUNADO
+      await enviarNotificacion(
+        siguienteUsuarioId,
+        "¡Plaza Conseguida! 🎉",
+        `Se ha liberado un hueco en ${clase.nombre}. ¡Ya tienes tu reserva confirmada!`
+      );
+    }
+    // -----------------------------------------------------------------------------
+
     await clase.save();
 
     res.status(200).json({ mensaje: 'Usuario desasignado de la clase con éxito' });
@@ -89,34 +114,31 @@ exports.obtenerUsuariosPorClase = async (req, res) => {
 
 exports.obtenerMisReservasPorRango = async (req, res) => {
   const idUsuario = req.user._id;
-  const { fechaInicio, fechaFin } = req.query; // Ej: '2025-10-01' y '2025-10-31'
+  const { fechaInicio, fechaFin } = req.query;
 
   if (!fechaInicio || !fechaFin) {
     return res.status(400).json({ mensaje: 'Se requieren fechaInicio y fechaFin' });
   }
 
   try {
-    // 1. Convertir fechas a objetos Date (asegurando que cubran todo el día)
     const inicio = new Date(fechaInicio);
     inicio.setUTCHours(0, 0, 0, 0);
 
     const fin = new Date(fechaFin);
     fin.setUTCHours(23, 59, 59, 999);
 
-    // 2. Encontrar las IDs de las clases que caen en ese rango de fechas
     const clasesEnRango = await Clase.find({
       fecha: { $gte: inicio, $lte: fin }
-    }).select('_id'); // Solo nos interesan sus IDs
+    }).select('_id');
 
     const idsClasesEnRango = clasesEnRango.map(c => c._id);
 
-    // 3. Buscar las reservas del usuario que coincidan con esas IDs de clases
     const reservas = await Reserva.find({
       usuario: idUsuario,
       clase: { $in: idsClasesEnRango }
     }).populate({
-      path: 'clase', // Rellenar los detalles de la clase
-      select: 'nombre dia horaInicio horaFin fecha cuposDisponibles maximoParticipantes' // Seleccionar solo campos útiles
+      path: 'clase',
+      select: 'nombre dia horaInicio horaFin fecha cuposDisponibles maximoParticipantes'
     });
 
     res.status(200).json(reservas);
@@ -172,30 +194,39 @@ exports.cancelarClase = async (req, res) => {
       return res.status(404).json({ mensaje: 'No tienes reserva para esta clase' });
     }
 
-    // --- ¡LÓGICA CORREGIDA! ---
-    const ahora = new Date(); // Hora actual (UTC)
-    const fechaClase = new Date(clase.fecha); // Hora de inicio de la clase (ya en UTC)
+    const ahora = new Date();
+    const fechaClase = new Date(clase.fecha);
 
-    // Calcula la diferencia en milisegundos y luego en horas
     const diferenciaMilisegundos = fechaClase - ahora;
     const diferenciaHoras = diferenciaMilisegundos / (1000 * 60 * 60);
 
     // Si la clase aún no ha pasado Y la cancela con 3 o más horas de antelación
     if (diferenciaHoras >= 3) {
       const usuario = await Usuario.findById(idUsuario);
-      usuario.cancelaciones += 1; // Devuelve el crédito de cancelación
+      usuario.cancelaciones += 1;
       await usuario.save();
     }
-    // --- FIN DE LA LÓGICA CORREGIDA ---
 
     clase.cuposDisponibles += 1;
 
-    // Gestiona lista de espera: si hay usuarios esperando, mete al primero
+    // --- GESTIÓN DE LISTA DE ESPERA ---
     if (clase.listaEspera && clase.listaEspera.length > 0) {
       const siguienteUsuarioId = clase.listaEspera.shift();
+
+      // Crear reserva al siguiente
       await Reserva.create({ usuario: siguienteUsuarioId, clase: idClase });
+
+      // Restar el cupo que acabamos de liberar (porque lo ocupa el nuevo)
       clase.cuposDisponibles -= 1;
+
+      // 👇 NOTIFICAR AL USUARIO QUE HA ENTRADO
+      await enviarNotificacion(
+        siguienteUsuarioId,
+        "¡Estás dentro! 💪",
+        `Un usuario ha cancelado y has conseguido plaza en ${clase.nombre}.`
+      );
     }
+    // ----------------------------------
 
     await clase.save();
 
@@ -217,7 +248,6 @@ exports.reservarClase = async (req, res) => {
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
-    // Comprueba tipos de clase y créditos de cancelaciones
     const tiposDeClases = usuario.tiposDeClases.map(t => t.toLowerCase().trim());
     if (!tiposDeClases.includes(clase.nombre.toLowerCase().trim())) {
       return res.status(403).json({ mensaje: 'No tienes permiso para reservar este tipo de clase.' });
@@ -226,13 +256,11 @@ exports.reservarClase = async (req, res) => {
       return res.status(403).json({ mensaje: 'No tienes reservas pendientes.' });
     }
 
-    // Verifica reserva existente
     const reservaExistente = await Reserva.findOne({ usuario: idUsuario, clase: idClase });
     if (reservaExistente) {
       return res.status(400).json({ mensaje: 'Ya estás inscrito en esta clase' });
     }
 
-    // Cupo libre
     if (clase.cuposDisponibles > 0) {
       await Reserva.create({ usuario: idUsuario, clase: idClase });
       clase.cuposDisponibles -= 1;
@@ -242,7 +270,7 @@ exports.reservarClase = async (req, res) => {
       return res.status(201).json({ mensaje: 'Clase reservada con éxito' });
     }
 
-    // Sin cupo: añadir a lista de espera si no está ya
+    // Sin cupo: añadir a lista de espera
     if (clase.listaEspera.includes(idUsuario)) {
       return res.status(400).json({ mensaje: 'Ya estás en la lista de espera para esta clase' });
     }
@@ -277,23 +305,21 @@ exports.registrarAsistencia = async (req, res) => {
     reserva.asistio = true;
     await reserva.save();
 
-    res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' /*, nuevosLogros*/ });
+    res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al registrar asistencia' });
   }
 
 };
 
-// Obtener total de asistencias y fechas de asistencia de un usuario
 exports.obtenerAsistenciasPorUsuario = async (req, res) => {
-  const idUsuario = req.user._id; // o usa req.user._id para el usuario autenticado
+  const idUsuario = req.user._id;
 
   try {
     const reservas = await Reserva.find({ usuario: idUsuario, asistio: true }).populate('clase');
     const totalAsistencias = reservas.length;
-    // Puedes usar la fecha de la clase para la lista de fechas de asistencia:
+
     const fechas = reservas.map(r => {
-      // Puedes usar r.clase.fecha si la clase tiene un campo fecha
       return r.clase && r.clase.fecha
         ? r.clase.fecha
         : r.fechaReserva;

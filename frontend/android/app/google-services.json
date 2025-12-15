@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "190819176818",
+    "project_id": "newlife-gym-mj",
+    "storage_bucket": "newlife-gym-mj.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:190819176818:android:12592efe6acbc0df230deb",
+        "android_client_info": {
+          "package_name": "com.newlife_gym_mj.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIKxeLl7eIgCmOTTZ0grOXMjNSy9EqNI0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

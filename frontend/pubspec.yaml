@@ -41,6 +41,8 @@ dependencies:
   intl: ^0.20.2
   # HealthKit / Health Connect
   percent_indicator: ^4.2.5
+  firebase_core: ^4.3.0
+  firebase_messaging: ^16.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
