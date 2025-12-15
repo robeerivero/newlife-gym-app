@@ -1,12 +1,9 @@
 // screens/client/reserve_class_screen.dart
-// ¡VERSIÓN FINAL CORREGIDA! (Icono de calendario eliminado y lógica de navegación revertida)
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../viewmodels/reserve_class_viewmodel.dart';
 
-// Helper isSameDay (importante para TableCalendar)
 bool isSameDay(DateTime? a, DateTime? b) {
   if (a == null || b == null) return false;
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -38,18 +35,17 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
   Widget build(BuildContext context) {
     return Consumer<ReserveClassViewModel>(
       builder: (context, vm, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+
         return Scaffold(
-          // Fondo celeste
-          backgroundColor: const Color(0xFFE3F2FD), 
+          // backgroundColor eliminado (Theme default)
           appBar: AppBar(
             title: Text(
               vm.cancelaciones > 0
                 ? 'Reservar Clase (${vm.cancelaciones} créditos)'
                 : 'Reservar Clase', 
-              style: const TextStyle(color: Colors.white)
             ),
-            backgroundColor: const Color(0xFF1E88E5), // Azul primario
-            iconTheme: const IconThemeData(color: Colors.white), // Flecha back blanca
+            // backgroundColor eliminado (Theme default)
           ),
           body: Column(
             children: [
@@ -84,28 +80,26 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
                   return !dayUtc.isBefore(today) && !dayUtc.isAfter(futureLimit);
                 },
                 
-                // --- ¡FIX! eventLoader y calendarBuilders ELIMINADOS ---
-
                 headerStyle: HeaderStyle(
                   titleCentered: true,
                   formatButtonVisible: true,
                   formatButtonShowsNext: false,
                   formatButtonDecoration: BoxDecoration(
-                    color: Colors.blueAccent,
+                    color: colorScheme.primary, // AzulAccent -> Primary
                     borderRadius: const BorderRadius.all(Radius.circular(12.0)),
                   ),
-                  formatButtonTextStyle: const TextStyle(color: Colors.white),
-                  titleTextStyle: const TextStyle(fontSize: 16.0),
-                  leftChevronIcon: const Icon(Icons.chevron_left, color: Colors.black54),
-                  rightChevronIcon: const Icon(Icons.chevron_right, color: Colors.black54),
+                  formatButtonTextStyle: TextStyle(color: colorScheme.onPrimary),
+                  titleTextStyle: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                  leftChevronIcon: const Icon(Icons.chevron_left),
+                  rightChevronIcon: const Icon(Icons.chevron_right),
                 ),
                 calendarStyle: CalendarStyle(
                   todayDecoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: colorScheme.primary.withOpacity(0.3),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
-                    color: Colors.blue[700],
+                    color: colorScheme.primary, // Blue[700] -> Primary
                     shape: BoxShape.circle,
                   ),
                   disabledTextStyle: TextStyle(color: Colors.grey[400]),
@@ -114,12 +108,11 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
               ),
               const Divider(height: 1),
 
-              // Lista de clases
               Expanded(
                 child: vm.isLoading && vm.classes.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : vm.errorMessage.isNotEmpty && vm.classes.isEmpty
-                    ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(vm.errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 16))))
+                    ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(vm.errorMessage, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.error, fontSize: 16))))
                     : vm.classes.isEmpty
                       ? const Center(child: Padding(
                           padding: EdgeInsets.all(16.0),
@@ -135,40 +128,33 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
                               clase: clase,
                               isLoading: vm.isLoading,
                               onPressed: () async {
-                                // Lógica de 0 cupos (navegar atrás)
                                 final int cuposDisponibles = (clase['cuposDisponibles'] as int?) ?? 0;
-                                if (cuposDisponibles == 0) {
-                                  if (mounted) {
-                                    Navigator.pop(context);
-                                  }
-                                  return; 
-                                }
-
                                 final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                
                                 final success = await vm.reserveClass(clase['_id']);
                                 
                                 if (success && mounted) {
                                   scaffoldMessenger.showSnackBar(
-                                    const SnackBar(
-                                      content: Text('¡Clase reservada con éxito!'),
-                                      backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 1),
+                                    SnackBar(
+                                      content: Text(cuposDisponibles == 0 
+                                        ? '¡Te has unido a la lista de espera!' 
+                                        : '¡Clase reservada con éxito!'),
+                                      backgroundColor: Colors.green, // Semántico: Éxito
+                                      duration: const Duration(seconds: 1),
                                     ),
                                   );
 
-                                  // --- ¡FIX DE NAVEGACIÓN! ---
-                                  // Revertido a la lógica original.
-                                  // Comprueba los créditos DESPUÉS de que el VM se haya actualizado.
-                                  if (vm.cancelaciones == 0) {
+                                  if (cuposDisponibles == 0 || vm.cancelaciones == 0) {
                                     Future.delayed(const Duration(milliseconds: 1200), () {
-                                      if (mounted) { Navigator.pop(context); } // Cierra si 0 créditos
+                                      if (mounted) {
+                                        Navigator.pop(context);
+                                      }
                                     });
                                   }
-                                  // --- FIN FIX ---
 
                                 } else if (vm.errorMessage.isNotEmpty && mounted) {
                                   scaffoldMessenger.showSnackBar(
-                                    SnackBar( content: Text(vm.errorMessage), backgroundColor: Colors.red),
+                                    SnackBar(content: Text(vm.errorMessage), backgroundColor: colorScheme.error),
                                   );
                                 }
                               },
@@ -184,9 +170,6 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
   }
 }
 
-// --- WIDGET _NewClassCard ---
-// (Este widget no ha cambiado, es el mismo de la vez anterior)
-
 class _NewClassCard extends StatelessWidget {
   final Map<String, dynamic> clase;
   final bool isLoading; 
@@ -201,9 +184,8 @@ class _NewClassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF1E88E5); 
-    const Color accentColor = Color(0xFFFFAB00); 
-    final TextTheme textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     final int maximo = (clase['maximoParticipantes'] as int?) ?? 0;
     final int cuposDisponibles = (clase['cuposDisponibles'] as int?) ?? 0;
@@ -219,22 +201,22 @@ class _NewClassCard extends StatelessWidget {
     final bool hayCupos = cuposDisponibles > 0;
     final bool sePuedeApuntarEnEspera = !hayCupos; 
     
-    Color statusColor = hayCupos ? Colors.green[600]! : (sePuedeApuntarEnEspera ? accentColor : Colors.red[700]!);
+    // Colores semánticos / Tema
+    // Verde -> Éxito (cupos)
+    // Secondary (Orange) -> Espera
+    // Error -> Lleno total (si no hubiera espera)
+    final Color statusColor = hayCupos ? Colors.green[600]! : (sePuedeApuntarEnEspera ? colorScheme.secondary : colorScheme.error);
 
     return Card(
-      elevation: 5,
+      elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
       clipBehavior: Clip.antiAlias, 
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, const Color(0xFFF0F4F8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Theme.of(context).cardColor,
           border: Border(
-            left: BorderSide(color: primaryColor, width: 6),
+            left: BorderSide(color: colorScheme.primary, width: 6),
           ),
         ),
         child: Padding(
@@ -246,7 +228,7 @@ class _NewClassCard extends StatelessWidget {
                 nombre.toUpperCase(),
                 style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: primaryColor,
+                  color: colorScheme.primary,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -255,20 +237,23 @@ class _NewClassCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildInfoIcon(
+                    context,
                     icon: Icons.access_time_filled_rounded,
-                    color: primaryColor,
+                    color: colorScheme.primary,
                     label: 'Hora',
                     value: '$horaInicio - $horaFin',
                   ),
                   _buildInfoIcon(
+                    context,
                     icon: Icons.groups_rounded,
-                    color: primaryColor,
+                    color: colorScheme.primary,
                     label: 'Asistentes',
                     value: '$asistentes / $maximo',
                   ),
                   _buildInfoIcon(
+                    context,
                     icon: Icons.hourglass_top_rounded,
-                    color: accentColor,
+                    color: colorScheme.secondary,
                     label: 'En Espera',
                     value: '$enEspera',
                   ),
@@ -280,15 +265,19 @@ class _NewClassCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   icon: Icon(
                     hayCupos ? Icons.check_circle_outline : Icons.pending_actions_outlined,
-                    color: Colors.white,
+                    color: colorScheme.onPrimary, // Ajustado para contraste
                   ),
                   label: Text(
                     isLoading ? 'Procesando...' : (hayCupos ? 'Reservar Plaza' : 'Apuntarse en Espera'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onPrimary),
                   ),
                   onPressed: isLoading ? null : onPressed, 
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isLoading ? Colors.grey : statusColor,
+                    // Si el color es orange (secondary), aseguramos contraste con onSecondary si es necesario, 
+                    // o forzamos blanco si el tema es consistente. Aquí usamos onPrimary para simplificar 
+                    // asumiendo que statusColor es oscuro/fuerte, o Colors.white fijo si prefieres.
+                    foregroundColor: Colors.white, 
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -303,7 +292,7 @@ class _NewClassCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoIcon({
+  Widget _buildInfoIcon(BuildContext context, {
     required IconData icon,
     required Color color,
     required String label,
@@ -314,7 +303,7 @@ class _NewClassCard extends StatelessWidget {
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ],
     );

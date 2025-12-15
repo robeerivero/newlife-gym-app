@@ -1,22 +1,20 @@
-// screens/client/class_screen.dart
-// ¡VERSIÓN FINAL CON BOTÓN QR EN LA TARJETA!
-
+import 'dart:convert'; // Necesario para jsonEncode
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart'; // Para formatear fecha
-// ViewModels y Modelos
+import 'package:intl/intl.dart'; 
 import '../../viewmodels/class_viewmodel.dart'; 
 import '../../models/reserva.dart';
-import '../../models/clase.dart'; // Es necesario
+import '../../models/clase.dart'; 
 import '../../models/plan_entrenamiento.dart';
-// Otras Pantallas
+import '../../models/usuario.dart'; // Importar modelo Usuario
+import '../../services/class_service.dart'; // Importar servicio
+import '../../fluttermoji/fluttermojiCircleAvatar.dart'; // Tu avatar local
+
 import 'qr_scan_screen.dart';
 import 'reserve_class_screen.dart';
-// Pantallas de Setup Premium
 import 'premium_entrenamiento_setup_screen.dart';
 
-// Helper isSameDay (importante para TableCalendar)
 bool isSameDay(DateTime? a, DateTime? b) {
   if (a == null || b == null) return false;
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -32,34 +30,39 @@ class ClassScreen extends StatelessWidget {
       child: Consumer<ClassViewModel>(
         builder: (context, vm, child) {
           return Scaffold(
-            backgroundColor: const Color(0xFFE3F2FD), 
             appBar: AppBar(
-              backgroundColor: const Color(0xFF1E88E5), 
-              title: const Text('Mi Calendario', style: TextStyle(color: Colors.white)),
+              title: const Text('Mi Calendario'),
               elevation: 0,
               actions: [
-                // --- ¡¡CAMBIO!! Botón QR eliminado de aquí ---
-                IconButton(icon: const Icon(Icons.exit_to_app, color: Colors.white), tooltip: 'Cerrar Sesión', onPressed: () => vm.logout(context)),
+                IconButton(
+                  icon: const Icon(Icons.exit_to_app),
+                  tooltip: 'Cerrar Sesión',
+                  onPressed: () => vm.logout(context),
+                ),
               ],
             ),
-            floatingActionButton: vm.cancelaciones > 0 // Botón Reservar
+            floatingActionButton: vm.cancelaciones > 0
                 ? FloatingActionButton.extended(
                     onPressed: () => _navigateToReserveScreen(context, vm),
                     label: Text('Reservar (${vm.cancelaciones})'),
                     icon: const Icon(Icons.add),
-                    backgroundColor: Colors.green,
+                    backgroundColor: Colors.green, 
                   )
                 : null,
             body: vm.isLoading && vm.getReservasParaDia(vm.selectedDay).isEmpty 
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
                     children: [
-                      _buildTableCalendar(vm),
+                      _buildTableCalendar(vm, context),
                       const Divider(height: 1, thickness: 1),
                       if (vm.error != null && !vm.isRutinaLoading)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                          child: Text(vm.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                          child: Text(
+                            vm.error!, 
+                            style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold), 
+                            textAlign: TextAlign.center
+                          ),
                         ),
                       Expanded(
                         child: _buildInfoPanel(context, vm),
@@ -72,10 +75,7 @@ class ClassScreen extends StatelessWidget {
     );
   }
 
-  // --- Navegaciones ---
-
   void _navigateToReserveScreen(BuildContext context, ClassViewModel vm, {bool replace = false}) {
-    // (Tu función original sin cambios)
     final route = MaterialPageRoute(builder: (context) => const ReserveClassScreen());
     final navigator = Navigator.of(context);
     final classViewModel = Provider.of<ClassViewModel>(context, listen: false);
@@ -93,10 +93,7 @@ class ClassScreen extends StatelessWidget {
     });
   }
 
-  /// Navega a la pantalla de escanear QR.
-  /// Esta función es genérica; el VM se encarga de validar el QR.
   void _escanearQR(BuildContext context, ClassViewModel vm) async {
-    // (Tu lógica original sin cambios)
     final String? qrCode = await Navigator.push<String>(context, MaterialPageRoute(builder: (context) => const QRScanScreen()));
     if (qrCode != null && qrCode.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Procesando QR...')));
@@ -108,13 +105,11 @@ class ClassScreen extends StatelessWidget {
     }
   }
 
-  // --- Widgets de UI ---
-
-  Widget _buildTableCalendar(ClassViewModel vm) {
-    // (Tu versión final y correcta del calendario, sin cambios)
+  Widget _buildTableCalendar(ClassViewModel vm, BuildContext context) {
     final DateTime firstDay = vm.firstCalendarDay; 
     final DateTime now = DateTime.now();
-    final DateTime lastDay = DateTime.utc(now.year, now.month + 1, 0); 
+    final DateTime lastDay = DateTime.utc(now.year, now.month + 1, 0);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return TableCalendar<Reserva>(
       locale: 'es_ES',
@@ -128,27 +123,27 @@ class ClassScreen extends StatelessWidget {
       calendarFormat: vm.calendarFormat,
       onFormatChanged: vm.onFormatChanged,
       availableCalendarFormats: const {
-        CalendarFormat.month: 'Mes',
         CalendarFormat.week: 'Semana',
+        CalendarFormat.month: 'Mes',
       },
       enabledDayPredicate: (day) {
         final dayUtc = DateTime.utc(day.year, day.month, day.day);
         return !dayUtc.isBefore(firstDay);
       },
       calendarStyle: CalendarStyle(
-        markerDecoration: BoxDecoration(color: Colors.deepOrangeAccent, shape: BoxShape.circle),
-        todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.3), shape: BoxShape.circle),
-        selectedDecoration: BoxDecoration(color: Colors.blue[700], shape: BoxShape.circle),
+        markerDecoration: BoxDecoration(color: colorScheme.secondary, shape: BoxShape.circle),
+        todayDecoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.5), shape: BoxShape.circle),
+        selectedDecoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
         disabledTextStyle: TextStyle(color: Colors.grey[400]),
         outsideDaysVisible: false, 
       ),
-      headerStyle: const HeaderStyle(
+      headerStyle: HeaderStyle(
         formatButtonVisible: true, titleCentered: true,
-        titleTextStyle: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-        leftChevronIcon: Icon(Icons.chevron_left, color: Colors.black54),
-        rightChevronIcon: Icon(Icons.chevron_right, color: Colors.black54),
-        formatButtonTextStyle: TextStyle(color: Colors.white, fontSize: 14),
-          formatButtonDecoration: BoxDecoration(color: Colors.blueAccent, borderRadius: BorderRadius.all(Radius.circular(12.0))),
+        titleTextStyle: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+        leftChevronIcon: const Icon(Icons.chevron_left),
+        rightChevronIcon: const Icon(Icons.chevron_right),
+        formatButtonTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 14),
+        formatButtonDecoration: BoxDecoration(color: colorScheme.primary, borderRadius: const BorderRadius.all(Radius.circular(12.0))),
       ),
       calendarBuilders: CalendarBuilders(
         markerBuilder: (context, date, events) {
@@ -156,8 +151,8 @@ class ClassScreen extends StatelessWidget {
               if (reservas.isNotEmpty) {
                 return Positioned( right: 1, bottom: 1,
                   child: Container( padding: const EdgeInsets.all(1.0),
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.deepOrangeAccent),
-                      child: const Icon(Icons.fitness_center, size: 10.0, color: Colors.white),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.secondary),
+                      child: Icon(Icons.fitness_center, size: 10.0, color: colorScheme.onSecondary),
                   ),
                 );
               } return null;
@@ -167,7 +162,6 @@ class ClassScreen extends StatelessWidget {
   }
 
   Widget _buildInfoPanel(BuildContext context, ClassViewModel vm) {
-    // (Lógica sin cambios)
     final reservasDelDia = vm.getReservasParaDia(vm.selectedDay);
     if (reservasDelDia.isNotEmpty) {
       return _buildListaClases(context, vm, reservasDelDia);
@@ -180,24 +174,19 @@ class ClassScreen extends StatelessWidget {
     }
   }
 
-  // --- ¡¡FUNCIÓN MODIFICADA!! ---
-  /// Muestra la lista de tarjetas de clases presenciales reservadas.
   Widget _buildListaClases(BuildContext context, ClassViewModel vm, List<Reserva> reservas) {
     return ListView.builder(
       itemCount: reservas.length,
       padding: const EdgeInsets.only(bottom: 80.0, top: 8.0), 
       itemBuilder: (context, index) {
         final reserva = reservas[index];
-
         return _MyBookingCard(
           reserva: reserva,
           isCancelLoading: vm.isLoading, 
           onCancel: () {
             _confirmarCancelacion(context, vm, reserva);
           },
-          // --- ¡¡CAMBIO!! Se pasa la función de escanear QR ---
           onScanQR: () {
-             // Llama a la función genérica de escaneo
             _escanearQR(context, vm);
           },
         );
@@ -205,9 +194,7 @@ class ClassScreen extends StatelessWidget {
     );
   }
 
-  /// Muestra diálogo de confirmación y maneja la navegación post-cancelación.
   void _confirmarCancelacion(BuildContext context, ClassViewModel vm, Reserva reserva) {
-    // (Tu función original sin cambios)
     if (vm.isLoading) return;
 
     showDialog(
@@ -222,25 +209,23 @@ class ClassScreen extends StatelessWidget {
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
-              child: const Text('Sí, Cancelar', style: TextStyle(color: Colors.red)),
+              child: Text('Sí, Cancelar', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onPressed: () async {
                 Navigator.of(dialogContext).pop(); 
                 final bool exito = await vm.cancelarClase(reserva.clase.id);
-
                 if (exito && context.mounted) {
-                    if (vm.cancelSuccessCreditGranted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Clase cancelada. Crédito devuelto. Elige tu nueva clase.'), backgroundColor: Colors.green, duration: Duration(seconds: 3)),
-                      );
-                      _navigateToReserveScreen(context, vm, replace: true);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Clase cancelada (sin devolución de crédito por poca antelación).'), backgroundColor: Colors.orange, duration: Duration(seconds: 3)),
-                      );
-                    }
+                  if (vm.cancelSuccessCreditGranted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Clase cancelada. Crédito devuelto.'), backgroundColor: Colors.green, duration: Duration(seconds: 3)),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Clase cancelada (sin devolución de crédito por poca antelación).'), backgroundColor: Colors.orange, duration: Duration(seconds: 3)),
+                    );
+                  }
                 } else if (!exito && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(vm.error ?? 'Error al cancelar'), backgroundColor: Colors.red),
+                    SnackBar(content: Text(vm.error ?? 'Error al cancelar'), backgroundColor: Theme.of(context).colorScheme.error),
                   );
                 }
               },
@@ -251,14 +236,13 @@ class ClassScreen extends StatelessWidget {
     );
   }
 
-
-  /// Construye el widget que muestra la rutina de IA
   Widget _buildRutinaPremiumIA(BuildContext context, ClassViewModel vm, DateTime fecha) {
-    // (Tu función original sin cambios)
     if (vm.isRutinaLoading) {
       return const Center(child: CircularProgressIndicator());
     }
     final rutinaDia = vm.rutinaDelDia;
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (rutinaDia == null || rutinaDia.ejercicios.isEmpty) {
       return Center(
         child: Padding(
@@ -288,7 +272,7 @@ class ClassScreen extends StatelessWidget {
                      Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumEntrenamientoSetupScreen(usuario: vm.currentUser!)))
                        .then((_) => vm.onDaySelected(vm.selectedDay, vm.focusedDay));
                    },
-                   style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
+                   style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
                  ),
             ],
           ),
@@ -300,7 +284,7 @@ class ClassScreen extends StatelessWidget {
       children: [
         Padding( 
           padding: const EdgeInsets.only(bottom: 12.0, left: 4.0),
-          child: Text('💪 ${rutinaDia.nombreDia}', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blue[800])),
+          child: Text('💪 ${rutinaDia.nombreDia}', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary)),
         ),
         ...rutinaDia.ejercicios.map((ej) => Card( 
           margin: const EdgeInsets.only(bottom: 12), elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -311,10 +295,10 @@ class ClassScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Wrap( spacing: 12.0, runSpacing: 4.0,
                       children: [
-                        _buildDetailChip(Icons.repeat, 'Series: ${ej.series}'),
-                        _buildDetailChip(Icons.fitness_center, 'Reps: ${ej.repeticiones}'),
-                        _buildDetailChip(Icons.timer_outlined, 'Descanso Series: ${ej.descansoSeries}'),
-                        _buildDetailChip(Icons.hourglass_bottom, 'Descanso Ejercicio: ${ej.descansoEjercicios}'),
+                        _buildDetailChip(context, Icons.repeat, 'Series: ${ej.series}'),
+                        _buildDetailChip(context, Icons.fitness_center, 'Reps: ${ej.repeticiones}'),
+                        _buildDetailChip(context, Icons.timer_outlined, 'Descanso Series: ${ej.descansoSeries}'),
+                        _buildDetailChip(context, Icons.hourglass_bottom, 'Descanso Ejercicio: ${ej.descansoEjercicios}'),
                       ],
                   ),
                   if (ej.descripcion.isNotEmpty) ...[
@@ -329,29 +313,25 @@ class ClassScreen extends StatelessWidget {
     );
   }
   
-  /// Helper para crear los chips de detalles del ejercicio.
-  Widget _buildDetailChip(IconData icon, String text) {
-    // (Tu función original sin cambios)
+  Widget _buildDetailChip(BuildContext context, IconData icon, String text) {
     return Chip(
-      avatar: Icon(icon, size: 16, color: Colors.blue[800]),
+      avatar: Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
       label: Text(text),
-      backgroundColor: Colors.blue[50],
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      labelStyle: TextStyle(fontSize: 13, color: Colors.blue[900]),
+      labelStyle: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
       visualDensity: VisualDensity.compact,
     );
   }
 
-  /// Muestra un mensaje indicando que el servicio específico no está incluido.
   Widget _buildMensajeServicioNoIncluido(BuildContext context, String tipoServicio) {
-    // (Tu función original sin cambios)
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(tipoServicio == 'entrenamiento' ? Icons.fitness_center : Icons.restaurant_menu, size: 50, color: Colors.orangeAccent),
+            Icon(tipoServicio == 'entrenamiento' ? Icons.fitness_center : Icons.restaurant_menu, size: 50, color: Theme.of(context).colorScheme.secondary),
             const SizedBox(height: 16),
             Text(
               'Plan de $tipoServicio no incluido',
@@ -370,9 +350,8 @@ class ClassScreen extends StatelessWidget {
     );
   }
 
-  /// Muestra el banner para que los usuarios gratuitos se hagan premium.
   Widget _buildBannerPremium(BuildContext context) {
-    // (Tu función original sin cambios)
+    final colorScheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
     child: Padding(
       padding: const EdgeInsets.all(24.0),
@@ -380,12 +359,12 @@ class ClassScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center, 
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.star_border_purple500_sharp, color: Colors.amber[800], size: 50),
+          Icon(Icons.star_border_purple500_sharp, color: colorScheme.secondary, size: 50),
           const SizedBox(height: 16),
           Text(
             '✨ Desbloquea tu Plan Personalizado ✨',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold, color: Colors.amber[900]
+                  fontWeight: FontWeight.bold, color: colorScheme.secondary
                 ),
             textAlign: TextAlign.center,
           ),
@@ -397,14 +376,13 @@ class ClassScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            icon: const Icon(Icons.star, color: Colors.white),
-            label: const Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            icon: Icon(Icons.star, color: colorScheme.onSecondary),
+            label: Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSecondary)),
             onPressed: () {
               // TODO: Navegar a la pantalla de suscripción premium
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber[700], // Botón naranja
-              foregroundColor: Colors.white,
+              backgroundColor: colorScheme.secondary, 
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
@@ -416,29 +394,24 @@ class ClassScreen extends StatelessWidget {
   }
 }
 
-// --- ¡¡WIDGET MODIFICADO!! ---
-// Acepta 'onScanQR' y muestra ambos botones
-
 class _MyBookingCard extends StatelessWidget {
   final Reserva reserva;
   final bool isCancelLoading;
   final VoidCallback onCancel;
-  final VoidCallback onScanQR; // <-- ¡CAMBIO! Añadido callback para QR
+  final VoidCallback onScanQR; 
 
   const _MyBookingCard({
     Key? key,
     required this.reserva,
     required this.isCancelLoading,
     required this.onCancel,
-    required this.onScanQR, // <-- ¡CAMBIO! Añadido al constructor
+    required this.onScanQR, 
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF1E88E5); 
-    const Color cancelColor = Color(0xFFD32F2F); 
-    const Color qrColor = Color(0xFF303F9F); // Color Indigo para QR
-    final TextTheme textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     final String horaInicio = reserva.clase.horaInicio;
     final String horaFin = reserva.clase.horaFin;
@@ -451,13 +424,9 @@ class _MyBookingCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.white, const Color(0xFFF0F4F8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Theme.of(context).cardColor,
           border: Border(
-            left: BorderSide(color: primaryColor, width: 6),
+            left: BorderSide(color: colorScheme.primary, width: 6),
           ),
         ),
         child: Padding(
@@ -465,21 +434,19 @@ class _MyBookingCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Título
               Text(
                 nombre.toUpperCase(),
                 style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: primaryColor,
+                  color: colorScheme.primary,
                   letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 12), 
 
-              // Fila de Información (Hora)
               Row(
                 children: [
-                  Icon(Icons.access_time_filled_rounded, color: primaryColor, size: 20),
+                  Icon(Icons.access_time_filled_rounded, color: colorScheme.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Hora: ',
@@ -491,22 +458,36 @@ class _MyBookingCard extends StatelessWidget {
                   ),
                 ],
               ),
+              
+              // --- INTEGRACIÓN VISUAL DE AVATARES ---
+              const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                "Compañeros de clase:",
+                style: textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 8),
+              
+              // Aquí incrustamos el widget que carga los avatares
+              _ParticipantesClase(classId: reserva.clase.id),
+              // -------------------------------------
+
               const SizedBox(height: 20),
 
-              // --- ¡¡CAMBIO!! Botones en Fila ---
               Row(
                 children: [
-                  // Botón de Cancelar
                   Expanded(
                     child: ElevatedButton.icon(
-                      icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 18),
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
                       label: Text(
-                        isCancelLoading ? '...' : 'Cancelar', // Texto más corto
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        isCancelLoading ? '...' : 'Cancelar',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       onPressed: isCancelLoading ? null : onCancel,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isCancelLoading ? Colors.grey : cancelColor,
+                        backgroundColor: isCancelLoading ? Colors.grey : colorScheme.error,
+                        foregroundColor: colorScheme.onError,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -514,20 +495,18 @@ class _MyBookingCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12), // Espacio entre botones
-                  // Botón Canjear QR
+                  const SizedBox(width: 12), 
                   Expanded(
                     child: ElevatedButton.icon(
-                      icon: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 18),
-                      label: const Text(
+                      icon: Icon(Icons.qr_code_scanner, color: colorScheme.onPrimary, size: 18),
+                      label: Text(
                         'Canjear QR',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorScheme.onPrimary),
                       ),
-                      // Deshabilitado si hay una cancelación en curso
                       onPressed: isCancelLoading ? null : onScanQR, 
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isCancelLoading ? Colors.grey : qrColor,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isCancelLoading ? Colors.grey : colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
@@ -541,6 +520,125 @@ class _MyBookingCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// --- WIDGET PARA CARGAR Y MOSTRAR LOS AVATARES DE LA CLASE ---
+// --- WIDGET PARA CARGAR Y MOSTRAR LOS AVATARES DE LA CLASE ---
+class _ParticipantesClase extends StatefulWidget {
+  final String classId;
+  const _ParticipantesClase({Key? key, required this.classId}) : super(key: key);
+
+  @override
+  State<_ParticipantesClase> createState() => _ParticipantesClaseState();
+}
+
+class _ParticipantesClaseState extends State<_ParticipantesClase> {
+  late Future<List<Usuario>> _participantesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _participantesFuture = ClassService().fetchUsuariosPorClase(widget.classId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Usuario>>(
+      future: _participantesFuture,
+      builder: (context, snapshot) {
+        // --- ESTADO DE CARGA ---
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 60, 
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 100, 
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            ),
+          );
+        }
+        
+        // --- ESTADO SIN DATOS O VACÍO ---
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              "Sé el primero en llegar", 
+              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
+            ),
+          );
+        }
+
+        final participantes = snapshot.data!;
+        
+        // --- ESTADO CON DATOS (LISTA DE AVATARES + NOMBRE) ---
+        // Aumentamos la altura a 85 para que quepa el avatar y el texto debajo
+        return SizedBox(
+          height: 85, 
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: participantes.length,
+            itemBuilder: (context, index) {
+              final user = participantes[index];
+              
+              // Truco estético: Usar solo el primer nombre para que no ocupe mucho
+              final String primerNombre = user.nombre.contains(' ') 
+                  ? user.nombre.split(' ')[0] 
+                  : user.nombre;
+
+              // Capitalizar primera letra (por si acaso viene en minúscula)
+              final nombreBonito = primerNombre.isNotEmpty
+                  ? "${primerNombre[0].toUpperCase()}${primerNombre.substring(1).toLowerCase()}"
+                  : "";
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 12.0), // Un poco más de espacio entre usuarios
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Borde decorativo opcional para que resalte
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: FluttermojiCircleAvatar(
+                        radius: 26, // Avatar ligeramente más grande
+                        backgroundColor: Colors.grey[100],
+                        avatarJson: jsonEncode(user.avatar), 
+                      ),
+                    ),
+                    const SizedBox(height: 6), // Espacio entre avatar y nombre
+                    
+                    // Nombre limitado en ancho
+                    SizedBox(
+                      width: 60, // Ancho máximo para el texto
+                      child: Text(
+                        nombreBonito,
+                        style: TextStyle(
+                          fontSize: 11, 
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis, // Si es muy largo pone "..."
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

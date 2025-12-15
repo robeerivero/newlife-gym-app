@@ -11,7 +11,6 @@ class Usuario {
   final int cancelaciones;
   final List<String> tiposDeClases;
   final Map<String, dynamic> avatar; 
-  final List<dynamic> desbloqueados;
   
   // --- Datos Metabólicos (Dieta) ---
   final String genero;
@@ -66,7 +65,6 @@ class Usuario {
     required this.cancelaciones,
     required this.tiposDeClases,
     required this.avatar,
-    required this.desbloqueados,
     // Metabólicos
     required this.genero,
     required this.edad,
@@ -133,7 +131,6 @@ class Usuario {
       cancelaciones: (json['cancelaciones'] as num?)?.toInt() ?? 0,
       tiposDeClases: (json['tiposDeClases'] as List<dynamic>?)?.cast<String>() ?? [],
       avatar: parsedAvatar, 
-      desbloqueados: json['desbloqueados'] as List<dynamic>? ?? [],
       
       // Metabólicos (Dieta)
       genero: json['genero'] ?? 'masculino',

@@ -1,16 +1,11 @@
 // screens/qr_scan_screen.dart
-// --- ¡AJUSTADO! ---
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../viewmodels/qr_scan_viewmodel.dart';
 
 class QRScanScreen extends StatelessWidget {
-  // final String codigoClase; // <-- ELIMINAMOS ESTO
-
-  // const QRScanScreen({Key? key, required this.codigoClase}) : super(key: key); // <-- ELIMINAMOS ESTO
-  const QRScanScreen({Key? key}) : super(key: key); // <-- AÑADIMOS ESTE
+  const QRScanScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -48,8 +43,6 @@ class _QRScanBodyState extends State<_QRScanBody> {
 
     if (scannedData != null && !vm.alreadyScanned) {
       vm.alreadyScanned = true;
-      // Esta función (que ya tenías) envía el código escaneado
-      // directamente al backend para su validación.
       vm.registrarAsistencia(scannedData);
     }
   }
@@ -61,11 +54,11 @@ class _QRScanBodyState extends State<_QRScanBody> {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Escanear QR'),
-            backgroundColor: const Color(0xFF1E88E5),
+            // backgroundColor eliminado, usa el tema por defecto (Primary/Teal)
             actions: [
               if (vm.mensaje != null)
                 IconButton(
-                  icon: Icon(Icons.refresh),
+                  icon: const Icon(Icons.refresh),
                   tooltip: 'Escanear otro QR',
                   onPressed: () {
                     vm.reset();

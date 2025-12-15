@@ -1,18 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
+// Asegúrate de que estos imports apunten a tus archivos LOCALES
 import 'defaults.dart';
-import 'fluttermojiSaveWidget.dart';
 import 'fluttermojiThemeData.dart';
 import 'fluttermoji_assets/fluttermojimodel.dart';
-import 'package:get/get.dart';
 import 'fluttermojiController.dart';
 
 class FluttermojiCustomizer extends StatefulWidget {
-  final Map<String, Set<int>> prendasDesbloqueadasPorAtributo;
+  // ELIMINADO: final Map<String, Set<int>> prendasDesbloqueadasPorAtributo;
+
   FluttermojiCustomizer({
     Key? key,
-    required this.prendasDesbloqueadasPorAtributo,
+    // ELIMINADO: required this.prendasDesbloqueadasPorAtributo,
     this.scaffoldHeight,
     this.scaffoldWidth,
     FluttermojiThemeData? theme,
@@ -53,15 +54,16 @@ class _FluttermojiCustomizerState extends State<FluttermojiCustomizer>
   late FluttermojiController fluttermojiController;
   late TabController tabController;
   final attributesCount = 11;
-  var heightFactor = 0.4, widthFactor = 0.95;
+  var heightFactor = 0.95, widthFactor = 0.95;
 
   @override
   void initState() {
     super.initState();
-
-    var _fluttermojiController;
-    Get.put(FluttermojiController());
-    _fluttermojiController = Get.find<FluttermojiController>();
+    // Inyectamos el controlador (o lo buscamos si ya existe)
+    if (!Get.isRegistered<FluttermojiController>()) {
+      Get.put(FluttermojiController());
+    }
+    var _fluttermojiController = Get.find<FluttermojiController>();
 
     setState(() {
       tabController = TabController(length: attributesCount, vsync: this);
@@ -73,11 +75,13 @@ class _FluttermojiCustomizerState extends State<FluttermojiCustomizer>
     });
   }
 
-  @override
-  void dispose() {
-    fluttermojiController.restoreState();
-    super.dispose();
-  }
+  // ELIMINADO: dispose() que restauraba estado. 
+  // Queremos que si sales y vuelves, se mantenga lo que estabas editando hasta que guardes.
+  // @override
+  // void dispose() {
+  //   fluttermojiController.restoreState();
+  //   super.dispose();
+  // }
 
   void onTapOption(int index, int? i, AttributeItem attribute) {
     if (index != i) {
@@ -205,30 +209,24 @@ class _FluttermojiCustomizerState extends State<FluttermojiCustomizer>
           mainAxisSpacing: 4.0,
         ),
         itemBuilder: (BuildContext context, int index) {
-          final desbloqueados = widget.prendasDesbloqueadasPorAtributo[attribute.key] ?? {};
-          final estaDesbloqueado = desbloqueados.contains(index);
+          
+          // --- AQUÍ ESTABA LA LÓGICA DE BLOQUEO (ELIMINADA) ---
+          // Ahora todos los items son clickeables y visibles
 
           return InkWell(
-            onTap: estaDesbloqueado
-                ? () => onTapOption(index, i, attribute)
-                : () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('¡Desbloquéalo cumpliendo el logro!')),
-                  ),
-            child: Opacity(
-              opacity: estaDesbloqueado ? 1.0 : 0.3,
-              child: Container(
-                decoration: index == i
-                    ? widget.theme.selectedTileDecoration
-                    : widget.theme.unselectedTileDecoration,
-                margin: widget.theme.tileMargin,
-                padding: widget.theme.tilePadding,
-                child: SvgPicture.string(
-                  fluttermojiController.getComponentSVG(attribute.key, index),
-                  height: 20,
-                  semanticsLabel: 'Your Fluttermoji',
-                  placeholderBuilder: (context) => Center(
-                    child: CupertinoActivityIndicator(),
-                  ),
+            onTap: () => onTapOption(index, i, attribute),
+            child: Container(
+              decoration: index == i
+                  ? widget.theme.selectedTileDecoration
+                  : widget.theme.unselectedTileDecoration,
+              margin: widget.theme.tileMargin,
+              padding: widget.theme.tilePadding,
+              child: SvgPicture.string(
+                fluttermojiController.getComponentSVG(attribute.key, index),
+                height: 20,
+                semanticsLabel: 'Your Fluttermoji',
+                placeholderBuilder: (context) => Center(
+                  child: CupertinoActivityIndicator(),
                 ),
               ),
             ),
@@ -240,7 +238,7 @@ class _FluttermojiCustomizerState extends State<FluttermojiCustomizer>
           padding: EdgeInsets.symmetric(vertical: 2.0, horizontal: 12),
           child: SvgPicture.asset(
             attribute.iconAsset!,
-            package: 'fluttermoji',
+            package: 'fluttermoji', // Esto carga los iconos del paquete base, está bien
             height: attribute.iconsize ??
                 (widget.scaffoldHeight != null
                     ? widget.scaffoldHeight! / heightFactor * 0.03

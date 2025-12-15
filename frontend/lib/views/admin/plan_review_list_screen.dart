@@ -1,13 +1,11 @@
 // screens/admin/plan_review_list_screen.dart
-// ¡ACTUALIZADO! Con buscador y listas de Aprobados.
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async'; // Para el Debouncer
 import '../../viewmodels/plan_review_viewmodel.dart';
 import '../../models/plan_entrenamiento.dart';
 import '../../models/plan_dieta.dart';
-import 'plan_entrenamiento_edit_screen.dart'; // (Asumo que existe)
+import 'plan_entrenamiento_edit_screen.dart';
 import 'plan_dieta_edit_screen.dart';
 
 class PlanReviewListScreen extends StatefulWidget {
@@ -25,7 +23,6 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
   @override
   void initState() {
     super.initState();
-    // Obtenemos el VM (sin escuchar) para añadir el listener
     _viewModel = Provider.of<PlanReviewViewModel>(context, listen: false);
     
     _searchController.addListener(() {
@@ -55,14 +52,14 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
       ),
     ).then((didChange) {
       if (didChange == true) {
-        vm.fetchPlans(); // Refresca todas las listas
+        vm.fetchPlans(); // CORREGIDO: Usar fetchPlans en lugar de cargarTodosLosPlanes
       }
     });
   }
   
   /// Navega a la pantalla de edición de ENTRENAMIENTO
   void _navigateToEntrenamientoDetail(BuildContext context, PlanReviewViewModel vm, PlanEntrenamiento plan) {
-     Navigator.push(
+      Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PlanEntrenamientoEditScreen(
@@ -72,29 +69,27 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
       ),
     ).then((didChange) {
       if (didChange == true) {
-        vm.fetchPlans(); // Refresca todas las listas
+        vm.fetchPlans(); // CORREGIDO: Usar fetchPlans en lugar de cargarTodosLosPlanes
       }
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final Color appBarColor = const Color(0xFF1E88E5);
-    final Color scaffoldBgColor = const Color(0xFFE3F2FD);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: scaffoldBgColor,
+        // backgroundColor eliminado, el tema se encarga
         appBar: AppBar(
-          title: const Text('Gestión de Planes Premium', style: TextStyle(color: Colors.white)),
-          backgroundColor: appBarColor,
-          iconTheme: const IconThemeData(color: Colors.white),
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
+          title: const Text('Gestión de Planes Premium'),
+          // backgroundColor eliminado, el tema se encarga (Teal)
+          bottom: TabBar(
+            labelColor: colorScheme.onPrimary,
+            unselectedLabelColor: colorScheme.onPrimary.withOpacity(0.7),
+            indicatorColor: colorScheme.secondary, // Naranja para el indicador
+            tabs: const [
               Tab(text: 'Entrenamiento', icon: Icon(Icons.fitness_center)),
               Tab(text: 'Dieta', icon: Icon(Icons.restaurant_menu)),
             ],
@@ -113,7 +108,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
                   child: vm.isLoading && vm.planesDietaPendientes.isEmpty && vm.planesDietaAprobados.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : vm.error != null
-                          ? Center(child: Text('Error: ${vm.error}'))
+                          ? Center(child: Text('Error: ${vm.error}', style: TextStyle(color: colorScheme.error)))
                           : TabBarView(
                               children: [
                                 // --- Pestaña Entrenamiento ---
@@ -148,13 +143,14 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
 
   /// Widget de Búsqueda
   Widget _buildSearchBar(BuildContext context, PlanReviewViewModel vm) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Buscar por nombre o grupo...',
-          prefixIcon: const Icon(Icons.search),
+          prefixIcon: Icon(Icons.search, color: colorScheme.primary),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear),
@@ -165,7 +161,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
                 )
               : null,
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Theme.of(context).cardColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
             borderSide: BorderSide.none,
@@ -190,7 +186,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
           searchTerm.isEmpty 
             ? 'No hay planes para mostrar.' 
             : 'No se encontraron planes.', 
-          style: const TextStyle(fontSize: 16, color: Colors.grey)
+          style: TextStyle(fontSize: 16, color: Theme.of(context).disabledColor)
         ),
       );
     }
@@ -201,11 +197,11 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // --- SECCIÓN PENDIENTES ---
-          _buildSectionTitle('Pendientes de Revisión', pendientes.length),
+          _buildSectionTitle(context, 'Pendientes de Revisión', pendientes.length),
           if (pendientes.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: Text('No hay planes pendientes.', style: TextStyle(color: Colors.grey))),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(child: Text('No hay planes pendientes.', style: TextStyle(color: Theme.of(context).disabledColor))),
             )
           else
             ListView.builder(
@@ -214,6 +210,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
               physics: const NeverScrollableScrollPhysics(), 
               itemBuilder: (context, index) {
                 return _buildPlanItem(
+                  context: context,
                   plan: pendientes[index],
                   onTap: onTap,
                 );
@@ -224,11 +221,11 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
           const Divider(),
 
           // --- SECCIÓN APROBADOS ---
-          _buildSectionTitle('Planes Aprobados (Editar)', aprobados.length),
+          _buildSectionTitle(context, 'Planes Aprobados (Editar)', aprobados.length),
            if (aprobados.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: Text('No hay planes aprobados.', style: TextStyle(color: Colors.grey))),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(child: Text('No hay planes aprobados.', style: TextStyle(color: Theme.of(context).disabledColor))),
             )
           else
             ListView.builder(
@@ -237,6 +234,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemBuilder: (context, index) {
                 return _buildPlanItem(
+                  context: context,
                   plan: aprobados[index],
                   onTap: onTap,
                   isApproved: true, 
@@ -249,15 +247,15 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
   }
   
   /// Título de sección
-  Widget _buildSectionTitle(String title, int count) {
+  Widget _buildSectionTitle(BuildContext context, String title, int count) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8), 
       child: Text(
         '$title ($count)',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 18, 
           fontWeight: FontWeight.bold, 
-          color: Colors.indigo
+          color: Theme.of(context).colorScheme.primary // Indigo -> Primary
         ),
       ),
     );
@@ -265,6 +263,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
 
   /// Widget para un item de plan (Dieta o Entrenamiento)
   Widget _buildPlanItem({
+    required BuildContext context,
     required dynamic plan,
     required Function(dynamic) onTap,
     bool isApproved = false,
@@ -273,7 +272,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
     String? nombreGrupo = '';
     String tipoPlan = '';
     String mes = '';
-    IconData icon = Icons.help_outline; // Icono por defecto
+    IconData icon = Icons.help_outline;
 
     if (plan is PlanDieta) {
       nombreUsuario = plan.usuarioNombre;
@@ -292,6 +291,8 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
     final String textoGrupo = (nombreGrupo != null && nombreGrupo.isNotEmpty)
         ? ' ($nombreGrupo)'
         : '';
+    
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4.0),
@@ -300,7 +301,8 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
       child: ListTile(
         leading: Icon(
           icon,
-          color: isApproved ? Colors.green[700] : Colors.blue[700],
+          // Verde si aprobado, Primary (antes azul) si pendiente
+          color: isApproved ? Colors.green[700] : colorScheme.primary,
         ),
         title: Text(
           '$nombreUsuario$textoGrupo',
@@ -308,7 +310,7 @@ class _PlanReviewListScreenState extends State<PlanReviewListScreen> {
         ),
         subtitle: Text(
           'Plan $tipoPlan - $mes',
-          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey[700]),
+          style: TextStyle(fontStyle: FontStyle.italic, color: Theme.of(context).textTheme.bodySmall?.color),
         ),
         trailing: Icon(
           isApproved ? Icons.edit_note : Icons.chevron_right, 

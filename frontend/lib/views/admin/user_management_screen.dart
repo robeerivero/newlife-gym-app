@@ -1,8 +1,4 @@
 // screens/admin/user_management_screen.dart
-// ¡VERSIÓN FINAL CORREGIDA!
-// 1. Botón de contraseña añadido.
-// 2. Campo de contraseña eliminado de "Editar".
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/user_management_viewmodel.dart'; 
@@ -25,15 +21,15 @@ class _UserManagementBody extends StatelessWidget {
   // Opciones para el diálogo de añadir (simplificado)
   final List<String> _tiposDeClasesDefault = ['funcional', 'pilates', 'zumba'];
 
-
   @override
   Widget build(BuildContext context) {
     final vm = Provider.of<UserManagementViewModel>(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Usuarios'),
-        backgroundColor: Colors.indigo,
+        // backgroundColor eliminado, lo maneja el tema (Teal/Primary)
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -46,13 +42,14 @@ class _UserManagementBody extends StatelessWidget {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: vm.grupoSeleccionado,
-                icon: const Icon(Icons.filter_list, color: Colors.white),
-                dropdownColor: Colors.indigo[700],
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                // Usamos onPrimary para asegurar que se vea bien sobre el color del AppBar
+                icon: Icon(Icons.filter_list, color: colorScheme.onPrimary),
+                dropdownColor: colorScheme.primaryContainer, // O el color que prefieras del tema
+                style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 16),
                 items: vm.gruposDisponibles.map((String grupo) {
                   return DropdownMenuItem<String>(
                     value: grupo,
-                    child: Text(grupo, style: const TextStyle(color: Colors.white)),
+                    child: Text(grupo, style: TextStyle(color: colorScheme.onSurface)),
                   );
                 }).toList(),
                 onChanged: vm.loading ? null : (String? nuevoGrupo) {
@@ -66,7 +63,7 @@ class _UserManagementBody extends StatelessWidget {
       
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddUserDialog(context, vm),
-        backgroundColor: Colors.indigo,
+        // backgroundColor eliminado, usa el color Secondary/Accent del tema por defecto
         child: const Icon(Icons.add),
       ),
       body: _buildUserList(context, vm),
@@ -78,7 +75,7 @@ class _UserManagementBody extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (vm.error != null) {
-      return Center(child: Text(vm.error!, style: const TextStyle(color: Colors.red)));
+      return Center(child: Text(vm.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)));
     }
     if (vm.usuarios.isEmpty) {
       return const Center(child: Text('No se encontraron usuarios.'));
@@ -93,10 +90,6 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
-  /// 
-  /// ¡¡ESTA FUNCIÓN YA LA TENÍAS, ESTÁ PERFECTA!!
-  /// (Solo la incluyo para que veas que el botón de la tarjeta la llama)
-  ///
   void _showChangePasswordDialog(BuildContext context, UserManagementViewModel vm, Usuario user) {
     final TextEditingController passwordController = TextEditingController();
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -105,20 +98,20 @@ class _UserManagementBody extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('Cambiar Contraseña'),
+          title: const Text('Cambiar Contraseña'),
           content: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('Usuario: ${user.nombre}'),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Nueva Contraseña',
-                    border: OutlineInputBorder(),
+                    // Bordes eliminados, el tema se encarga
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -135,19 +128,18 @@ class _UserManagementBody extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              child: Text('Cancelar'),
+              child: const Text('Cancelar'),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             ElevatedButton(
-              child: Text('Guardar'),
+              child: const Text('Guardar'),
               onPressed: () async {
                 if (formKey.currentState?.validate() ?? false) {
                   final newPassword = passwordController.text;
                   
-                  // Llama al ViewModel
                   final success = await vm.cambiarContrasena(user.id, newPassword);
                   
-                  Navigator.of(dialogContext).pop(); // Cierra el diálogo
+                  Navigator.of(dialogContext).pop();
                   
                   if (context.mounted) {
                     if (success) {
@@ -156,7 +148,7 @@ class _UserManagementBody extends StatelessWidget {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: ${vm.error}'), backgroundColor: Colors.red),
+                        SnackBar(content: Text('Error: ${vm.error}'), backgroundColor: Theme.of(context).colorScheme.error),
                       );
                     }
                   }
@@ -169,52 +161,50 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
-  /// Construye la tarjeta para un usuario en la lista
   Widget _buildUserCard(BuildContext context, UserManagementViewModel vm, Usuario user) {
-    final titleStyle = Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold);
-    final subtitleStyle = Theme.of(context).textTheme.bodyLarge;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Card(
-      elevation: 2,
+      elevation: 2, // Puedes dejar que el tema maneje la elevación si prefieres quitar esto
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      // Mantenemos la lógica visual del borde por estado de pago, pero adaptamos colores
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: user.haPagado ? Colors.green.shade300 : (user.rol == 'admin' ? Colors.transparent : Colors.red.shade300),
+          color: user.haPagado ? Colors.green.shade300 : (user.rol == 'admin' ? Colors.transparent : colorScheme.error),
           width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(8), // O usa el default del tema eliminando esta línea
       ),
       child: ListTile(
         leading: Icon(
           Icons.circle,
           size: 18,
-          color: user.rol == 'admin' ? Colors.indigo : (user.haPagado ? Colors.green : Colors.red),
+          // Indigo reemplazado por Primary (Teal)
+          color: user.rol == 'admin' ? colorScheme.primary : (user.haPagado ? Colors.green : colorScheme.error),
         ),
-        title: Text(user.nombre, style: titleStyle),
+        title: Text(user.nombre, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         subtitle: Text(
           '${user.nombreGrupo ?? 'Sin Grupo'}  •  ${user.rol}',
-          style: subtitleStyle?.copyWith(color: user.nombreGrupo == null ? Colors.grey[600] : Colors.black87),
+          style: textTheme.bodyMedium?.copyWith(color: user.nombreGrupo == null ? textTheme.bodySmall?.color : null),
         ),
         
-        // --- ¡¡CAMBIO AQUÍ!! ---
-        // Se ha añadido el botón de la llave (Icons.key)
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: Icon(Icons.edit, color: Colors.blueGrey[600]),
+              icon: const Icon(Icons.edit), // El color lo maneja el tema (normalmente gris o primary)
               tooltip: 'Editar Datos',
               onPressed: () => _showEditUserDialog(context, vm, user),
             ),
-            // --- ¡¡BOTÓN AÑADIDO!! ---
             IconButton(
-              icon: Icon(Icons.key, color: Colors.orange[800]),
+              // Usamos Secondary (Orange) para acciones destacadas
+              icon: Icon(Icons.key, color: colorScheme.secondary),
               tooltip: 'Cambiar Contraseña',
-              onPressed: () => _showChangePasswordDialog(context, vm, user), // <-- Llama a la nueva función
+              onPressed: () => _showChangePasswordDialog(context, vm, user),
             ),
-            // --- FIN DEL CAMBIO ---
             IconButton(
-              icon: Icon(Icons.delete, color: Colors.red[700]),
+              icon: Icon(Icons.delete, color: colorScheme.error),
               tooltip: 'Eliminar',
               onPressed: () => _confirmDeleteUser(context, vm, user),
             ),
@@ -224,9 +214,7 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
-  /// Muestra el diálogo para AÑADIR un nuevo usuario
   void _showAddUserDialog(BuildContext context, UserManagementViewModel vm) {
-    // ... (Esta función estaba perfecta, no necesita cambios)
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController();
     final _correoController = TextEditingController();
@@ -296,13 +284,13 @@ class _UserManagementBody extends StatelessWidget {
                     tiposDeClases: _tiposDeClasesDefault,
                     nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
                   );
-                  // ... (manejo del resultado)
+                  
                       if (context.mounted) {
                         Navigator.of(context).pop();
                         if (!success && vm.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al crear: ${vm.error!}"), backgroundColor: Colors.red));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al crear: ${vm.error!}"), backgroundColor: Theme.of(context).colorScheme.error));
                         } else if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
                         }
                       }
                 }
@@ -315,14 +303,10 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
-  /// Muestra el diálogo para EDITAR un usuario (¡MODIFICADO!)
   void _showEditUserDialog(BuildContext context, UserManagementViewModel vm, Usuario user) {
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController(text: user.nombre);
     final _correoController = TextEditingController(text: user.correo);
-    // --- ¡¡CAMBIO AQUÍ!! ---
-    // final _contrasenaController = TextEditingController(); // <-- ¡ELIMINADO!
-    // --- FIN DEL CAMBIO ---
     
     final _grupoController = TextEditingController(text: user.nombreGrupo);
     bool _haPagado = user.haPagado;
@@ -331,6 +315,7 @@ class _UserManagementBody extends StatelessWidget {
     bool _esPremium = user.esPremium;
     bool _incluyeDieta = user.incluyePlanDieta;
     bool _incluyeEntreno = user.incluyePlanEntrenamiento;
+    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
@@ -349,7 +334,10 @@ class _UserManagementBody extends StatelessWidget {
                       SwitchListTile(
                         title: Text(
                           _haPagado ? 'Pagado' : 'Pendiente de Pago',
-                          style: TextStyle(color: _haPagado ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: _haPagado ? Colors.green : colorScheme.error, 
+                            fontWeight: FontWeight.bold
+                          ),
                         ),
                         value: _haPagado,
                         onChanged: (bool value) {
@@ -374,11 +362,6 @@ class _UserManagementBody extends StatelessWidget {
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) => (value == null || !value.contains('@')) ? 'Correo inválido' : null,
                       ),
-                      
-                      // --- ¡¡CAMBIO AQUÍ!! ---
-                      // --- Campo de Contraseña Opcional ELIMINADO ---
-                      // TextFormField( ... ),
-                      // --- FIN DEL CAMBIO ---
 
                       DropdownButtonFormField<String>(
                         value: _selectedRol,
@@ -439,11 +422,7 @@ class _UserManagementBody extends StatelessWidget {
                         nombre: _nombreController.text,
                         correo: _correoController.text,
                         rol: _selectedRol,
-                        
-                        // --- ¡¡CAMBIO AQUÍ!! ---
-                        nuevaContrasena: null, // <-- ¡ELIMINADO! Se pasa null
-                        // --- FIN DEL CAMBIO ---
-                        
+                        nuevaContrasena: null,
                         esPremium: _esPremium,
                         incluyePlanDieta: _incluyeDieta,
                         incluyePlanEntrenamiento: _incluyeEntreno,
@@ -453,7 +432,7 @@ class _UserManagementBody extends StatelessWidget {
                       if (context.mounted) {
                         Navigator.of(context).pop();
                         if (!success && vm.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Colors.red));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Theme.of(context).colorScheme.error));
                         }
                       }
                     }
@@ -468,9 +447,7 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
-   /// Muestra diálogo de confirmación antes de eliminar.
   void _confirmDeleteUser(BuildContext context, UserManagementViewModel vm, Usuario user) {
-     // (Tu función original sin cambios)
      showDialog(
        context: context,
        builder: (BuildContext dialogContext) {
@@ -483,12 +460,12 @@ class _UserManagementBody extends StatelessWidget {
                onPressed: () => Navigator.of(dialogContext).pop(),
              ),
              TextButton(
-               child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+               child: Text('Eliminar', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                onPressed: () async {
                  Navigator.of(dialogContext).pop(); 
                  await vm.deleteUsuario(user.id); 
                  if (context.mounted && vm.error != null) { 
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Theme.of(context).colorScheme.error));
                  }
                },
              ),

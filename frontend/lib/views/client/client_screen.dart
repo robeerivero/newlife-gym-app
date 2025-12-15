@@ -48,8 +48,10 @@ class _ClientScreenState extends State<ClientScreen> {
             bottomNavigationBar: BottomNavigationBar(
               currentIndex: _selectedIndex,
               onTap: (index) => setState(() => _selectedIndex = index),
-              selectedItemColor: const Color(0xFF1E88E5),
-              unselectedItemColor: Colors.grey,
+              // Usa el color primario del tema (Teal)
+              selectedItemColor: Theme.of(context).colorScheme.primary,
+              // Usa un color sutil del tema para los no seleccionados
+              unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               type: BottomNavigationBarType.fixed,
               items: const [
                 BottomNavigationBarItem(

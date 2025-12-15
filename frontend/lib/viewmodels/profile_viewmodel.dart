@@ -28,11 +28,16 @@ class ProfileViewModel extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         usuario = Usuario.fromJson(data);
+        
+        // Obtenemos el avatar (puede ser String JSON o Map)
         avatarJson = data['avatar'] is String
             ? data['avatar']
             : jsonEncode(data['avatar'] ?? {});
-        // Guarda el avatar para fluttermoji
-        if (avatarJson != null && avatarJson!.isNotEmpty) {
+            
+        // IMPORTANTE: Sincronizar editor local
+        // Si lo que viene de la BD es un JSON de opciones (ej. {top:1, eye:3}),
+        // lo guardamos en las preferencias para que FluttermojiController lo lea.
+        if (avatarJson != null && avatarJson!.isNotEmpty && avatarJson!.contains('{')) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('fluttermojiSelectedOptions', avatarJson!);
         }
@@ -47,8 +52,44 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  // ---- EDITAR PERFIL ----
+  // ---- GUARDAR AVATAR ----
+  Future<bool> guardarAvatar(String avatarJsonNew) async {
+    loading = true;
+    notifyListeners();
+    final token = await _storage.read(key: 'jwt_token');
+    
+    // Aquí 'avatarJsonNew' es el JSON de opciones {top:1...}
+    
+    final response = await http.put(
+      Uri.parse('${AppConstants.baseUrl}/api/usuarios/avatar'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      // Enviamos el objeto JSON tal cual
+      body: jsonEncode({'avatar': avatarJsonNew}),
+    );
+
+    if (response.statusCode == 200) {
+      avatarJson = avatarJsonNew;
+      // No necesitamos escribir en SharedPreferences aquí, 
+      // porque el dato 'avatarJsonNew' YA viene de SharedPreferences (leído en la vista).
+      
+      await fetchProfile(); // Refrescar para asegurar sincronía
+      loading = false;
+      notifyListeners();
+      return true;
+    } else {
+      error = 'Error al guardar el avatar';
+      loading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // ---- EDITAR PERFIL (Texto) ----
   Future<bool> editarPerfil({required String nombre, required String correo}) async {
+    // ... (Mismo código que tenías) ...
     loading = true;
     notifyListeners();
     final token = await _storage.read(key: 'jwt_token');
@@ -73,61 +114,11 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  // ---- GUARDAR AVATAR ----
-  Future<bool> guardarAvatar(String avatarJsonNew) async {
-    loading = true;
-    notifyListeners();
-    final token = await _storage.read(key: 'jwt_token');
-    final response = await http.put(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios/avatar'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'avatar': avatarJsonNew}),
-    );
-    if (response.statusCode == 200) {
-      avatarJson = avatarJsonNew;
-      // Actualiza local para fluttermoji
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fluttermojiSelectedOptions', avatarJsonNew);
-      await fetchProfile(); // Vuelve a traer datos actualizados
-      loading = false;
-      notifyListeners();
-      return true;
-    } else {
-      error = 'Error al guardar el avatar';
-      loading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // ---- PRENDAS DESBLOQUEADAS ----
-  Future<Map<String, Set<int>>> fetchPrendasDesbloqueadas() async {
-    final token = await _storage.read(key: 'jwt_token');
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/usuarios/prendas/desbloqueadas'),
-      headers: { 'Authorization': 'Bearer $token' },
-    );
-    if (response.statusCode == 200) {
-      final prendas = jsonDecode(response.body) as List;
-      Map<String, Set<int>> map = {};
-      for (final prenda in prendas) {
-        final key = prenda['key'];
-        final idx = prenda['idx'];
-        if (idx != null && idx is int) {
-          map.putIfAbsent(key, () => <int>{}).add(idx);
-        }
-      }
-      return map;
-    }
-    throw Exception('Error al cargar prendas desbloqueadas');
-  }
-
   // ---- LOGOUT ----
   Future<void> logout(BuildContext context) async {
     await _storage.delete(key: 'jwt_token');
-    Navigator.of(context).pushReplacementNamed('/login');
+    if (context.mounted) {
+       Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 }

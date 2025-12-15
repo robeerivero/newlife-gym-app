@@ -1,6 +1,4 @@
 // screens/client/edit_profile_screen.dart
-// ¡ACTUALIZADO! Pasa 'tiposDeClases' al ViewModel.
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/edit_profile_viewmodel.dart';
@@ -8,13 +6,13 @@ import '../../viewmodels/edit_profile_viewmodel.dart';
 class EditProfileScreen extends StatefulWidget {
   final String initialName;
   final String initialEmail;
-  final List<String> initialTiposDeClases; // <-- ¡NUEVO!
+  final List<String> initialTiposDeClases; 
 
   const EditProfileScreen({
     Key? key,
     required this.initialName,
     required this.initialEmail,
-    required this.initialTiposDeClases, // <-- ¡NUEVO!
+    required this.initialTiposDeClases,
   }) : super(key: key);
 
   @override
@@ -29,12 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // --- ¡NUEVO! ---
-  // Guardamos los tipos de clase actuales (puede que no los edites aquí,
-  // pero el servicio los necesita para la actualización)
   late List<String> _currentTiposDeClases;
-  // --- FIN NUEVO ---
-
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
@@ -45,7 +38,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
     _emailController = TextEditingController(text: widget.initialEmail);
-    _currentTiposDeClases = List.from(widget.initialTiposDeClases); // Copia la lista inicial
+    _currentTiposDeClases = List.from(widget.initialTiposDeClases);
   }
 
   @override
@@ -64,12 +57,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       create: (_) => EditProfileViewModel(),
       child: Consumer<EditProfileViewModel>(
         builder: (context, vm, _) {
+          final colorScheme = Theme.of(context).colorScheme;
+
           return Scaffold(
-            backgroundColor: const Color(0xFFE3F2FD),
+            // backgroundColor: eliminado (Theme default)
             appBar: AppBar(
-              backgroundColor: const Color(0xFF1E88E5),
-              title: const Text('Editar Perfil', style: TextStyle(color: Colors.white)),
-              iconTheme: const IconThemeData(color: Colors.white),
+              // backgroundColor: eliminado (Theme default)
+              title: const Text('Editar Perfil'),
+              // iconTheme: eliminado (Theme default)
             ),
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
@@ -79,7 +74,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // --- Sección Datos Básicos ---
-                    Text('Datos Personales', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Datos Personales', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: colorScheme.primary)),
                     const SizedBox(height: 15),
                     TextFormField(
                       controller: _nameController,
@@ -100,7 +95,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(height: 30),
 
                     // --- Sección Cambio de Contraseña (Opcional) ---
-                     Text('Cambiar Contraseña (Opcional)', style: Theme.of(context).textTheme.headlineSmall),
+                     Text('Cambiar Contraseña (Opcional)', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: colorScheme.primary)),
                      const SizedBox(height: 15),
                     TextFormField(
                       controller: _currentPasswordController,
@@ -158,34 +153,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     if (vm.error != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 15.0),
-                        child: Text(vm.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        child: Text(vm.error!, style: TextStyle(color: colorScheme.error, fontWeight: FontWeight.bold)),
                       ),
 
                     // --- Botón Guardar ---
                     ElevatedButton.icon(
-                      icon: vm.loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Icon(Icons.save),
+                      icon: vm.loading 
+                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: colorScheme.onPrimary, strokeWidth: 3)) 
+                          : const Icon(Icons.save),
                       label: Text(vm.loading ? 'Guardando...' : 'Guardar Cambios'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
+                        // Eliminado backgroundColor fijo, hereda Primary del tema
+                        // Eliminado foregroundColor fijo, hereda onPrimary del tema
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       onPressed: vm.loading ? null : () async {
-                        if (!_formKey.currentState!.validate()) return; // No válido
+                        if (!_formKey.currentState!.validate()) return; 
 
-                        bool profileSuccess = true; // Asume éxito si no hay cambios
-                        bool passwordSuccess = true; // Asume éxito si no se intenta cambiar
+                        bool profileSuccess = true; 
+                        bool passwordSuccess = true; 
 
                         // 1. Guarda perfil básico si cambió
                         if (_nameController.text != widget.initialName || _emailController.text != widget.initialEmail) {
                           profileSuccess = await vm.editarPerfilBasico(
                             nombre: _nameController.text,
                             correo: _emailController.text,
-                            tiposDeClases: _currentTiposDeClases // <-- ¡AÑADIDO! Pasa la lista
+                            tiposDeClases: _currentTiposDeClases 
                           );
                         }
-
 
                         // 2. Cambia contraseña si se rellenaron los campos
                         if (_currentPasswordController.text.isNotEmpty && _newPasswordController.text.isNotEmpty) {
@@ -203,11 +199,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           Navigator.of(context).pop(true); // Devuelve true para indicar que hubo cambios
                         } else if (!profileSuccess && mounted){
                            ScaffoldMessenger.of(context).showSnackBar(
-                             SnackBar(content: Text(vm.error ?? 'Error al guardar perfil.'), backgroundColor: Colors.red),
+                             SnackBar(content: Text(vm.error ?? 'Error al guardar perfil.'), backgroundColor: colorScheme.error),
                            );
                         } else if (!passwordSuccess && mounted){
                            ScaffoldMessenger.of(context).showSnackBar(
-                             SnackBar(content: Text(vm.error ?? 'Error al cambiar contraseña.'), backgroundColor: Colors.red),
+                             SnackBar(content: Text(vm.error ?? 'Error al cambiar contraseña.'), backgroundColor: colorScheme.error),
                            );
                         }
                       },

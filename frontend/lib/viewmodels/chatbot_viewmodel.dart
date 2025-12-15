@@ -5,91 +5,53 @@ class ChatBotViewModel extends ChangeNotifier {
   final TextEditingController questionController = TextEditingController();
   final List<Map<String, dynamic>> chatHistory = [];
 
+  // Opciones rápidas
+  final List<String> quickOptions = [
+    'Información',
+    'Horarios',
+    'Precios',
+    'Matrícula',
+    '¿Qué traer?',
+    'Ubicación',
+    'Contacto'
+  ];
+
   final Map<String, dynamic> knowledgeBase = {
+    'funcional_info': {
+      'response': '💪 ENTRENAMIENTO FUNCIONAL:\n\nEs una disciplina de alta intensidad adaptada a tu nivel en NewLife. Son clases dirigidas por un instructor certificado con una duración de 60 minutos. Trabajamos fuerza y agilidad usando movimientos naturales del cuerpo.',
+    },
+    'pilates_info': {
+      'response': '🧘 PILATES:\n\nSe enfoca en el control del cuerpo y la corrección postural. Son clases dirigidas por un instructor certificado con una duración de 60 minutos. Es un método ideal para fortalecer la espalda y el abdomen de forma segura y eficaz.',
+    },
     'horarios': {
       'funcional': {
-        'response': 'Horarios de Funcional:\n'
-            '• Lunes, Miércoles y Viernes:\n'
-            '   - 8:00-9:00\n'
-            '   - 9:00-10:00\n'
-            '   - 10:00-11:00\n'
-            '   - 18:30-19:30\n'
-            '   - 19:30-20:30\n'
-            '   - 20:30-21:30\n'
-            '• Martes y Jueves:\n'
-            '   - 18:00-19:00',
+        'response': '🕒 HORARIOS FUNCIONAL:\n\n• Lunes, Miércoles y Viernes:\n 8:00 a 9:00,\n 9:00 a 10:00,\n 10:00 a 11:00,\n 18:30 a 19:30,\n 19:30 a 20:30,\n 20:30 a 21:30.\n• Martes y Jueves:\n 9:00 a 10:00,\n 18:00 a 19:00.',
       },
       'pilates': {
-        'response': 'Horarios de Pilates:\n'
-            '• Martes y Jueves:\n'
-            '   - 8:00-9:00\n'
-            '   - 9:00-10:00\n'
-            '   - 10:00-11:00\n'
-            '   - 11:00-12:00\n'
-            '   - 19:00-20:00\n'
-            '   - 20:00-21:00',
+        'response': '🕒 HORARIOS PILATES:\n\n• Lunes y Miércoles:\n 17:30 a 18:30.\n• Martes y Jueves:\n 8:00 a 9:00,\n 9:00 a 10:00,\n 10:00 a 11:00,\n 11:00 a 12:00,\n 19:00 a 20:00,\n 20:00 a 21:00.',
       },
     },
-    'servicios': {
-      'response': 'Otros servicios disponibles:\n'
-          '• Planes de dieta personalizados\n'
-          '• Videos adicionales de entrenamiento\n'
-          '• Entrenamiento online en vivo\n'
-          '• Seguimiento de progreso',
+    // --- PRECIOS DIVIDIDOS ---
+    'precios_pilates': {
+      'response': '💰 TARIFAS PILATES:\n\n• 2 sesiones semanales: 39€/mes.\n\nSi necesitas un plan personalizado, consúltanos por WhatsApp.',
     },
-    'reservas': {
-      'response': 'Para poder reservar ponte en contacto con nosotros:\n'
-          '• Por WhatsApp: 647449493',
+    'precios_funcional': {
+      'response': '💰 TARIFAS FUNCIONAL:\n\n• 2 sesiones semanales: 43€/mes.\n• 3 sesiones semanales: 51€/mes.\n\nSi necesitas un plan personalizado, consúltanos por WhatsApp.',
     },
-    'requisitos': {
-      'response': 'Para asistir a clase solo necesitas:\n'
-          '• Ropa deportiva\n'
-          '• Toalla\n'
-          '• Agua\n'
-          'Todo el material extra te lo proporcionamos en el centro.',
+    'matricula': {
+      'response': '📝 MATRÍCULA:\n\nLa matrícula es de 15€.',
     },
-    'cancelacion': {
-      'response': 'Puedes cancelar una clase con al menos 3 horas de antelación.\n'
-          'Si cancelas más tarde, no podrás recuperar esa reserva.',
+    'requisitos_pilates': {
+      'response': '🎒 ¿QUÉ TRAER A PILATES?\n\n1. Ropa deportiva cómoda.\n2. Toalla grande.\n3. Botella de agua.\n4. La actividad se realiza en calcetines.\n\nTodo el material de entrenamiento lo ponemos nosotros.',
     },
-    'duracion': {
-      'response': 'Cada clase tiene una duración de 1 hora.',
+    'requisitos_funcional': {
+      'response': '🎒 ¿QUÉ TRAER A FUNCIONAL?\n\n1. Ropa deportiva cómoda.\n2. Toalla pequeña para el sudor.\n3. Botella de agua.\n4. Guantes.\n\nTodo el material de entrenamiento lo ponemos nosotros.',
     },
-    'precios': {
-      'response': 'Para conocer los precios actuales, contáctanos por WhatsApp al 647449493.',
+    'ubicacion': {
+      'response': '📍 UBICACIÓN:\n\nEl centro deportivo NewLife se encuentra en la calle C. Sor Angela de la Cruz, Chiclana.',
     },
     'contacto': {
-      'response': 'Puedes contactarnos a través de:\n'
-          '• WhatsApp: 647449493\n'
-          '• Dirección: C. Sor Angela de la Cruz, 11130 Chiclana de la Frontera, Cádiz\n'
-          '• Google Maps: https://maps.app.goo.gl/KpFojsnn44baaN7SA',
-    },
-    'modalidad': {
-      'response': 'Ofrecemos clases tanto presenciales como online.\n'
-          'También tienes acceso a videos en la app para entrenar cuando y donde quieras.',
-    },
-    'cambio': {
-      'response': 'No puedes cambiar directamente de tipo de clase.\n'
-          'Para cambiar de Pilates a Funcional (o viceversa), deberás contratar ese servicio.',
-    },
-    'nivel': {
-      'response': 'Las clases están adaptadas para todos los niveles.\n'
-          'No necesitas experiencia previa para comenzar.',
-    },
-    'puntualidad': {
-      'response': 'Puedes llegar tarde, pero perderás parte del entrenamiento.\n'
-          '¡Intenta llegar puntual para aprovechar al máximo tu clase!',
-    },
-    'general': {
-      'response': '¿En qué más puedo ayudarte?\n'
-          'Puedes preguntar sobre:\n'
-          '• Horarios de clases\n'
-          '• Servicios adicionales\n'
-          '• Reservas\n'
-          '• Requisitos para clases\n'
-          '• Modalidad presencial/online\n'
-          '• Contacto y ubicación\n'
-          '• Niveles, duración, precios, etc.',
+      'response': '📞 CONTACTO:\n\n• Tel/WhatsApp: 647 449 493\n• Ubicación: C. Sor Angela de la Cruz, Chiclana.',
     },
   };
 
@@ -99,54 +61,19 @@ class ChatBotViewModel extends ChangeNotifier {
 
   void _addInitialMessage() {
     chatHistory.add({
-      'text': '¡Hola! Soy tu asistente de NewLife. ¿En qué puedo ayudarte?',
+      'text': '¡Hola! Bienvenido a NewLife 💪. Soy tu asistente para la sección de $section.\n\n¿En qué puedo ayudarte? Pulsa un botón o escribe tu duda.',
       'isBot': true,
       'timestamp': DateTime.now(),
     });
-    chatHistory.add(_buildSectionInfo());
   }
 
-  Map<String, dynamic> _buildSectionInfo() {
-    String info;
-    switch (section.toLowerCase()) {
-      case 'pilates':
-        info = 'Funcionalidades de Pilates:\n'
-            '• Clases guiadas por profesionales\n'
-            '• Rutinas personalizadas\n'
-            '• Seguimiento de progreso';
-        break;
-      case 'funcional':
-        info = 'Funcionalidades de Entrenamiento Funcional:\n'
-            '• Entrenamiento intensivo\n'
-            '• Mejora de condición física\n'
-            '• Ejercicios con peso corporal';
-        break;
-      default:
-        info = 'Funcionalidades generales:\n'
-            '• Acceso a todas las clases\n'
-            '• Registro de actividad\n'
-            '• Seguimiento nutricional';
-    }
-    return {
-      'text': info,
-      'isBot': true,
-      'timestamp': DateTime.now(),
-    };
-  }
+  void processInput(String text, VoidCallback onUpdate) {
+    if (text.trim().isEmpty) return;
 
-  void handleUserQuestion(VoidCallback onUpdate) {
-    final userQuestion = questionController.text.trim();
-    if (userQuestion.isEmpty) return;
+    chatHistory.add({'text': text, 'isBot': false, 'timestamp': DateTime.now()});
+    final response = _processQuestion(text);
 
-    chatHistory.add({
-      'text': userQuestion,
-      'isBot': false,
-      'timestamp': DateTime.now(),
-    });
-
-    final response = _processQuestion(userQuestion);
-
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(const Duration(milliseconds: 400), () {
       chatHistory.add({
         'text': response,
         'isBot': true,
@@ -162,43 +89,51 @@ class ChatBotViewModel extends ChangeNotifier {
   String _processQuestion(String question) {
     final lower = question.toLowerCase();
 
-    if (lower.contains('horario')) {
-      return knowledgeBase['horarios'][section.toLowerCase()]['response'];
-    }
-    if (lower.contains(RegExp(r'servicios|dieta|video|online'))) {
-      return knowledgeBase['servicios']['response'];
-    }
-    if (lower.contains(RegExp(r'reserva|reservar|reservación'))) {
-      return knowledgeBase['reservas']['response'];
-    }
-    if (lower.contains(RegExp(r'requisito|llevar|necesito'))) {
-      return knowledgeBase['requisitos']['response'];
-    }
-    if (lower.contains(RegExp(r'cancelar|cancelación|penalización'))) {
-      return knowledgeBase['cancelacion']['response'];
-    }
-    if (lower.contains(RegExp(r'duración|cuánto dura'))) {
-      return knowledgeBase['duracion']['response'];
-    }
-    if (lower.contains(RegExp(r'precio|cuesta|tarifa|plan'))) {
-      return knowledgeBase['precios']['response'];
-    }
-    if (lower.contains(RegExp(r'contacto|teléfono|dirección|ubicación|dónde'))) {
-      return knowledgeBase['contacto']['response'];
-    }
-    if (lower.contains(RegExp(r'online|presencial|modalidad'))) {
-      return knowledgeBase['modalidad']['response'];
-    }
-    if (lower.contains(RegExp(r'cambio|cambiar|otra clase|otra rutina'))) {
-      return knowledgeBase['cambio']['response'];
-    }
-    if (lower.contains(RegExp(r'nivel|principiante|experiencia'))) {
-      return knowledgeBase['nivel']['response'];
-    }
-    if (lower.contains(RegExp(r'tarde|puntualidad|retraso'))) {
-      return knowledgeBase['puntualidad']['response'];
+    // 1. Información dinámica
+    if (lower.contains('informaci') || lower.contains('info')) {
+      if (section.toLowerCase().contains('pilates')) {
+        return knowledgeBase['pilates_info']['response'];
+      } else {
+        return knowledgeBase['funcional_info']['response'];
+      }
     }
 
-    return knowledgeBase['general']['response'];
+    // 2. Horarios
+    if (lower.contains('horario')) return knowledgeBase['horarios'][section.toLowerCase()]['response'];
+
+    // 3. Precios DINÁMICOS SEGÚN SECCIÓN
+    if (lower.contains('precio') || lower.contains('tarifa') || lower.contains('cuanto vale') || lower.contains('cuesta')) {
+      if (section.toLowerCase().contains('pilates')) {
+        return knowledgeBase['precios_pilates']['response'];
+      } else {
+        return knowledgeBase['precios_funcional']['response'];
+      }
+    }
+
+    // 4. Matrícula
+    if (lower.contains('matrícula') || lower.contains('matricula')) {
+      return knowledgeBase['matricula']['response'];
+    }
+
+    // 5. Qué traer (Dinámico según sección)
+    if (lower.contains('traer') || lower.contains('necesito') || lower.contains('llevar')) {
+      if (section.toLowerCase().contains('pilates')) {
+        return knowledgeBase['requisitos_pilates']['response'];
+      } else {
+        return knowledgeBase['requisitos_funcional']['response'];
+      }
+    }
+
+    // 6. Ubicación
+    if (lower.contains('donde') || lower.contains('ubicación') || lower.contains('ubicacion') || lower.contains('sitio')) {
+      return knowledgeBase['ubicacion']['response'];
+    }
+
+    // 7. Contacto
+    if (lower.contains('contacto') || lower.contains('whatsapp') || lower.contains('telefono')) {
+      return knowledgeBase['contacto']['response'];
+    }
+
+    return 'No estoy seguro de cómo responder a eso. Prueba a pulsar uno de los botones de arriba para obtener información detallada. 😊';
   }
 }

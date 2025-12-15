@@ -24,12 +24,13 @@ class _ReservationManagementView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ReservationManagementViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
+      // El backgroundColor lo maneja el tema por defecto
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
-        title: const Text('Gestión de Reservas', style: TextStyle(color: Colors.white)),
+        title: const Text('Gestión de Reservas'),
         elevation: 0,
       ),
       body: Padding(
@@ -39,7 +40,7 @@ class _ReservationManagementView extends StatelessWidget {
             if (vm.error != null)
               Text(
                 vm.error!,
-                style: const TextStyle(color: Colors.red, fontSize: 16),
+                style: TextStyle(color: colorScheme.error, fontSize: 16),
               ),
             ElevatedButton.icon(
               onPressed: () async {
@@ -55,10 +56,7 @@ class _ReservationManagementView extends StatelessWidget {
               },
               icon: const Icon(Icons.calendar_today),
               label: const Text('Seleccionar Fecha'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF42A5F5),
-                foregroundColor: Colors.white,
-              ),
+              // Estilo eliminado para heredar del Theme (Primary/Teal)
             ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
@@ -70,10 +68,7 @@ class _ReservationManagementView extends StatelessWidget {
               ),
               icon: const Icon(Icons.person_add),
               label: const Text('Añadir Usuario a Clases'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
+              // Estilo eliminado para heredar del Theme
             ),
             const SizedBox(height: 10),
             vm.loading
@@ -88,11 +83,11 @@ class _ReservationManagementView extends StatelessWidget {
                           curve: Curves.easeInOut,
                           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
+                                color: Theme.of(context).shadowColor.withOpacity(0.1),
                                 spreadRadius: 2,
                                 blurRadius: 5,
                                 offset: const Offset(0, 3),
@@ -106,20 +101,19 @@ class _ReservationManagementView extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.event_available, color: Color(0xFF42A5F5)),
+                                    Icon(Icons.event_available, color: colorScheme.primary),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         '${classItem.dia.toUpperCase()} - ${classItem.horaInicio.toUpperCase()}',
-                                        style: const TextStyle(
-                                          fontSize: 18,
+                                        style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1E88E5),
+                                          color: colorScheme.primary,
                                         ),
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.people, color: Colors.indigo),
+                                      icon: Icon(Icons.people, color: colorScheme.primary),
                                       onPressed: () {
                                         Navigator.push(
                                           context,
@@ -136,28 +130,30 @@ class _ReservationManagementView extends StatelessWidget {
                                 const SizedBox(height: 10),
                                 Text(
                                   '📅 Fecha: ${classItem.fecha.toLocal().toString().split(" ")[0]}',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                                  style: textTheme.bodyMedium,
                                 ),
                                 Text(
                                   '🏷️ Tipo: ${(classItem.nombre.isNotEmpty ? classItem.nombre : 'Sin nombre').toUpperCase()}',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                                  style: textTheme.bodyMedium,
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Row(
                                       children: [
+                                        // Mantenemos verde semántico para cupos/éxito
                                         const Icon(Icons.group, size: 16, color: Colors.green),
                                         const SizedBox(width: 6),
-                                        Text('Cupos: ${classItem.cuposDisponibles}'),
+                                        Text('Cupos: ${classItem.cuposDisponibles}', style: textTheme.bodyMedium),
                                       ],
                                     ),
                                     const SizedBox(width: 20),
                                     Row(
                                       children: [
+                                        // Mantenemos rojo semántico para alertas/lleno
                                         const Icon(Icons.people_alt, size: 16, color: Colors.red),
                                         const SizedBox(width: 6),
-                                        Text('Asistentes: ${classItem.maximoParticipantes - classItem.cuposDisponibles}'),
+                                        Text('Asistentes: ${classItem.maximoParticipantes - classItem.cuposDisponibles}', style: textTheme.bodyMedium),
                                       ],
                                     ),
                                   ],
@@ -176,10 +172,7 @@ class _ReservationManagementView extends StatelessWidget {
                                     },
                                     icon: const Icon(Icons.qr_code),
                                     label: const Text("Generar QR"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF42A5F5),
-                                      foregroundColor: Colors.white,
-                                    ),
+                                    // Estilo eliminado para heredar del Theme
                                   ),
                                 ),
                               ],

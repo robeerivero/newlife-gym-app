@@ -38,7 +38,7 @@ class ClassViewModel extends ChangeNotifier {
                           : DateTime.now();
   DateTime get focusedDay => _focusedDay;
   DateTime get selectedDay => _selectedDay;
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+  CalendarFormat _calendarFormat = CalendarFormat.week;
   CalendarFormat get calendarFormat => _calendarFormat;
   // --- NUEVO: Fecha de inicio para el calendario ---
   DateTime get firstCalendarDay => DateTime.utc(DateTime.now().year, DateTime.now().month, DateTime.now().day);

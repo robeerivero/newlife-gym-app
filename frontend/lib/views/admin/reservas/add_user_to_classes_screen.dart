@@ -1,3 +1,4 @@
+// screens/admin/reservas/add_user_to_classes_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../viewmodels/add_user_to_classes_viewmodel.dart';
@@ -20,11 +21,13 @@ class _AddUserToClassesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<AddUserToClassesViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      // backgroundColor eliminado (Theme default)
       appBar: AppBar(
         title: const Text('Añadir Usuario a Clases'),
-        backgroundColor: const Color(0xFF42A5F5),
+        // backgroundColor eliminado (Theme default - Teal)
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -33,7 +36,7 @@ class _AddUserToClassesView extends StatelessWidget {
             if (vm.error != null && vm.error!.isNotEmpty)
               Text(
                 vm.error!,
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: colorScheme.error),
               ),
             const SizedBox(height: 10),
             // Dropdown para seleccionar usuario
@@ -79,6 +82,8 @@ class _AddUserToClassesView extends StatelessWidget {
                     labelText: vm.selectedTime == null
                         ? 'Seleccionar Hora de Inicio'
                         : 'Hora: ${vm.selectedTime!.hour.toString().padLeft(2, '0')}:${vm.selectedTime!.minute.toString().padLeft(2, '0')}',
+                    // Icono añadido para mejor UX
+                    suffixIcon: Icon(Icons.access_time, color: colorScheme.primary),
                   ),
                 ),
               ),
@@ -86,22 +91,30 @@ class _AddUserToClassesView extends StatelessWidget {
             const SizedBox(height: 20),
             vm.loading
                 ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: () async {
-                      final error = await vm.addUserToClasses();
-                      if (error == null) {
-                        // Éxito
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Usuario añadido a las clases con éxito.')),
-                        );
-                        Navigator.pop(context, true);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(error)),
-                        );
-                      }
-                    },
-                    child: const Text('Añadir Usuario a Clases'),
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final error = await vm.addUserToClasses();
+                        if (error == null) {
+                          // Éxito
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Usuario añadido a las clases con éxito.'), backgroundColor: Colors.green),
+                            );
+                            Navigator.pop(context, true);
+                          }
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error), backgroundColor: colorScheme.error),
+                            );
+                          }
+                        }
+                      },
+                      // Estilo eliminado para heredar del Theme (Primary)
+                      child: const Text('Añadir Usuario a Clases'),
+                    ),
                   ),
           ],
         ),

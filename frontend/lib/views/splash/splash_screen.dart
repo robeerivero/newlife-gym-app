@@ -21,6 +21,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _handleNavigation() {
+    // Lógica original intacta
     if (!splashVM.isLoading && splashVM.nextRoute != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         switch (splashVM.nextRoute) {
@@ -49,6 +50,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    // Capturamos el color primario del tema
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return ChangeNotifierProvider.value(
       value: splashVM,
       child: Consumer<SplashViewModel>(
@@ -60,9 +64,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 return Container(
                   width: double.infinity,
                   height: double.infinity,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF90CAF9), Color(0xFF42A5F5)],
+                      // CAMBIO: Gradiente Teal consistente con el Login
+                      colors: [
+                        primaryColor.withOpacity(0.6), 
+                        primaryColor,
+                      ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -74,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         ScaleTransition(
                           scale: vm.scaleAnimation,
                           child: Image.asset(
-                            'assets/images/NewLifeLogo.png',
+                            'assets/images/NewLifeLogo2026.png',
                             height: 200.h,
                             width: 200.w,
                           ),

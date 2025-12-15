@@ -1,73 +1,169 @@
+// lib/views/client/video_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+// Importaciones con rutas corregidas (subiendo dos niveles)
 import '../../viewmodels/video_viewmodel.dart';
 import '../../models/video.dart';
+import '../../theme/app_theme.dart';
+import 'video_player_screen.dart';
 
-class VideoScreen extends StatelessWidget {
+class VideoScreen extends StatefulWidget {
   const VideoScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => VideoViewModel()..fetchVideos(),
-      child: const _VideoScreenBody(),
-    );
-  }
+  State<VideoScreen> createState() => _VideoScreenState();
 }
 
-class _VideoScreenBody extends StatefulWidget {
-  const _VideoScreenBody({Key? key}) : super(key: key);
+class _VideoScreenState extends State<VideoScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Persistencia: Solo cargamos de la API si la lista en memoria está vacía
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final vm = Provider.of<VideoViewModel>(context, listen: false);
+      if (vm.videos.isEmpty) {
+        vm.fetchVideos();
+      }
+    });
+  }
 
   @override
-  State<_VideoScreenBody> createState() => _VideoScreenBodyState();
-}
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mis Videos'),
+        actions: [
+          // Botón de búsqueda que utiliza el Delegate de abajo
+          Consumer<VideoViewModel>(
+            builder: (context, vm, child) {
+              return IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () {
+                  showSearch(
+                    context: context,
+                    delegate: VideoSearchDelegate(vm.videos),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      body: Consumer<VideoViewModel>(
+        builder: (context, vm, child) {
+          if (vm.loading && vm.videos.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (vm.error != null && vm.videos.isEmpty) {
+            return Center(child: Text(vm.error!));
+          }
 
-class _VideoScreenBodyState extends State<_VideoScreenBody> {
-  void _showPlayer(BuildContext context, Video video, List<Video> allVideos) {
-    final videoId = YoutubePlayer.convertUrlToId(video.url);
-
-    if (videoId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enlace no válido')),
-      );
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VideoPlayerScreen(
-          idVideo: videoId,
-          tituloVideo: video.titulo,
-          todosVideos: allVideos,
-        ),
+          return RefreshIndicator(
+            onRefresh: () => vm.fetchVideos(forceRefresh: true),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: vm.videos.length,
+              itemBuilder: (context, index) {
+                final video = vm.videos[index];
+                return _VideoLargeCard(video: video, playlist: vm.videos);
+              },
+            ),
+          );
+        },
       ),
     );
   }
+}
 
-  Widget _buildVideoCard(Video video, List<Video> allVideos) {
+/// Widget interno para la Tarjeta Grande del Video
+class _VideoLargeCard extends StatelessWidget {
+  final Video video;
+  final List<Video> playlist;
+
+  const _VideoLargeCard({required this.video, required this.playlist});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showPlayer(context, video, allVideos),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VideoPlayerScreen(
+              initialVideo: video,
+              playlist: playlist,
+            ),
+          ),
+        );
+      },
       child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.only(bottom: 20),
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Image.network(
-                video.thumbnail ?? 'https://via.placeholder.com/150',
-                fit: BoxFit.cover,
-              ),
+            // Imagen con Icono de Play superpuesto
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Image.network(
+                  video.thumbnail,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 200,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.videocam_off, size: 50),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+                ),
+              ],
             ),
+            // Título e Información
             Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                video.titulo,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.titulo,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Entrenamiento disponible",
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                      Text(
+                        "VER AHORA",
+                        style: TextStyle(
+                          color: AppTheme.secondary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -75,297 +171,54 @@ class _VideoScreenBodyState extends State<_VideoScreenBody> {
       ),
     );
   }
-
-  Widget _buildGrid(List<Video> videos, int columns, List<Video> allVideos) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: videos.length,
-      itemBuilder: (context, idx) => _buildVideoCard(videos[idx], allVideos),
-    );
-  }
-
-  Widget _buildRecommended(List<Video> videos, List<Video> allVideos) {
-    final recomendados = videos.take(5).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Text(
-            'Recomendados para ti',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(
-          height: 200,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: recomendados.length,
-            itemBuilder: (context, idx) {
-              final video = recomendados[idx];
-              return Container(
-                width: 160,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                child: _buildVideoCard(video, allVideos),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<VideoViewModel>(
-      builder: (context, vm, _) {
-        if (vm.loading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (vm.error != null) {
-          return Center(child: Text(vm.error!));
-        }
-        if (vm.videos.isEmpty) {
-          return const Center(child: Text('No hay videos disponibles'));
-        }
-        final orientation = MediaQuery.of(context).orientation;
-        return Scaffold(
-          backgroundColor: const Color(0xFFE3F2FD),
-          appBar: AppBar(
-            title: const Text('Video Tutoriales'),
-            backgroundColor: const Color(0xFF1E88E5),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.white),
-                onPressed: () => showSearch(
-                  context: context,
-                  delegate: VideoSearchDelegate(
-                    videos: vm.videos,
-                    onSelected: (video) => _showPlayer(context, video, vm.videos),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          body: orientation == Orientation.portrait
-              ? SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildGrid(vm.videos, 2, vm.videos),
-                      _buildRecommended(vm.videos, vm.videos),
-                    ],
-                  ),
-                )
-              : _buildGrid(vm.videos, 4, vm.videos),
-        );
-      },
-    );
-  }
 }
 
-// --- Video Player (igual que antes, pero con modelo) ---
-class VideoPlayerScreen extends StatefulWidget {
-  final String idVideo;
-  final String tituloVideo;
-  final List<Video> todosVideos;
-
-  const VideoPlayerScreen({
-    required this.idVideo,
-    required this.tituloVideo,
-    required this.todosVideos,
-  });
-
-  @override
-  State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
-}
-
-class _VideoPlayerScreenState extends State<VideoPlayerScreen>
-    with AutomaticKeepAliveClientMixin {
-  late YoutubePlayerController _controller;
-  late String _currentId;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentId = widget.idVideo;
-    _controller = YoutubePlayerController(
-      initialVideoId: _currentId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        enableCaption: true,
-        forceHD: true,
-      ),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant VideoPlayerScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.idVideo != _currentId) {
-      _currentId = widget.idVideo;
-      _controller.load(_currentId);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onDoubleTap(TapDownDetails details, BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final dx = details.globalPosition.dx;
-    final pos = _controller.value.position;
-    if (dx < width / 2) {
-      _controller.seekTo(pos - const Duration(seconds: 10) > Duration.zero ? pos - const Duration(seconds: 10) : Duration.zero);
-    } else {
-      _controller.seekTo(pos + const Duration(seconds: 10));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final orientation = MediaQuery.of(context).orientation;
-    return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
-      appBar: orientation == Orientation.portrait
-          ? AppBar(
-              backgroundColor: const Color(0xFF1E88E5),
-              iconTheme: const IconThemeData(color: Colors.white),
-              title: Text(
-                widget.tituloVideo,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          : null,
-      body: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: orientation == Orientation.portrait
-                ? 16 / 9
-                : MediaQuery.of(context).size.aspectRatio,
-            child: GestureDetector(
-              onDoubleTapDown: (details) => _onDoubleTap(details, context),
-              child: YoutubePlayer(
-                controller: _controller,
-                onReady: () {},
-              ),
-            ),
-          ),
-          if (orientation == Orientation.portrait)
-            ...[
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Videos Recomendados', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ),
-              SizedBox(
-                height: 200,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: widget.todosVideos
-                      .where((v) => YoutubePlayer.convertUrlToId(v.url) != _currentId)
-                      .take(5)
-                      .map((video) => GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _currentId = YoutubePlayer.convertUrlToId(video.url)!;
-                                _controller.load(_currentId);
-                              });
-                            },
-                            child: Card(
-                              child: SizedBox(
-                                width: 160,
-                                child: Column(
-                                  children: [
-                                    Image.network(video.thumbnail ?? 'https://via.placeholder.com/150'),
-                                    Text(
-                                      video.titulo,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ))
-                      .toList(),
-                ),
-              ),
-            ]
-        ],
-      ),
-    );
-  }
-}
-
-// --- Buscador de videos usando modelo ---
+/// Lógica de Búsqueda
 class VideoSearchDelegate extends SearchDelegate {
-  final List<Video> videos;
-  final Function(Video) onSelected;
+  final List<Video> allVideos;
 
-  VideoSearchDelegate({required this.videos, required this.onSelected});
-
-  @override
-  String get searchFieldLabel => 'Buscar por título...';
+  VideoSearchDelegate(this.allVideos);
 
   @override
-  List<Widget> buildActions(BuildContext context) => [
-        IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () => query = '',
-        )
-      ];
+  String get searchFieldLabel => 'Buscar por nombre...';
 
   @override
-  Widget buildLeading(BuildContext context) => IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => close(context, null),
-      );
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')
+    ];
+  }
 
   @override
-  Widget buildResults(BuildContext context) => _buildResults();
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null),
+    );
+  }
 
   @override
-  Widget buildSuggestions(BuildContext context) => _buildResults();
+  Widget buildResults(BuildContext context) => _buildSearchResults();
 
-  Widget _buildResults() {
-    final resultados = videos.where((video) =>
-        video.titulo.toLowerCase().contains(query.toLowerCase())).toList();
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildSearchResults();
+
+  Widget _buildSearchResults() {
+    final filtered = allVideos
+        .where((v) => v.titulo.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
+    if (filtered.isEmpty) {
+      return const Center(child: Text("No se encontraron resultados"));
+    }
 
     return ListView.builder(
-      itemCount: resultados.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final video = resultados[index];
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundImage: NetworkImage(video.thumbnail ?? 'https://via.placeholder.com/150'),
-          ),
-          title: Text(video.titulo),
-          subtitle: const Text('Haz clic para reproducir'),
-          onTap: () {
-            close(context, null);
-            onSelected(video);
-          },
-        );
+        final video = filtered[index];
+        // Usamos la misma tarjeta para mantener la estética
+        return _VideoLargeCard(video: video, playlist: allVideos);
       },
     );
   }

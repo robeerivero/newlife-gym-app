@@ -14,6 +14,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'theme/app_theme.dart';
+
+import 'viewmodels/video_viewmodel.dart';
 import 'viewmodels/profile_viewmodel.dart';
 import 'viewmodels/client_viewmodel.dart';
 import 'views/splash/splash_screen.dart';
@@ -247,6 +250,7 @@ void main() async {
           create: (_) => ProfileViewModel()..fetchProfile(),
         ),
         ChangeNotifierProvider(create: (_) => ClientViewModel()),
+        ChangeNotifierProvider(create: (_) => VideoViewModel()),
       ],
       child: ScreenUtilInit(
         designSize: const Size(360, 690),
@@ -264,10 +268,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gestión de Clases',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      theme: AppTheme.lightTheme,
       home: SplashScreen(),
       routes: {
         '/login': (context) => LoginScreen(),

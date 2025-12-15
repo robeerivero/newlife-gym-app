@@ -24,8 +24,10 @@ class _SaludScreenBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SaludViewModel>(
       builder: (context, vm, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+
         if (vm.permisoDenegado) {
-          return _buildPermisoDenegado();
+          return _buildPermisoDenegado(context);
         }
 
         if (vm.loading) {
@@ -75,26 +77,27 @@ class _SaludScreenBody extends StatelessWidget {
         );
         final double progreso = (pasosSemana / (vm.objetivoSemanal > 0 ? vm.objetivoSemanal : 1)).clamp(0.0, 1.0);
 
+        // Lógica visual del progreso adaptada al tema
         Color colorProgreso;
         if (progreso >= 1.0) {
-          colorProgreso = Colors.green;
+          colorProgreso = Colors.green; // Éxito
         } else if (progreso > 0.7) {
-          colorProgreso = Colors.lightGreen;
+          colorProgreso = Colors.lightGreen; // Casi
         } else if (progreso > 0.4) {
-          colorProgreso = Colors.orangeAccent;
+          colorProgreso = colorScheme.secondary; // Naranja (Progreso medio)
         } else {
-          colorProgreso = Colors.redAccent;
+          colorProgreso = colorScheme.error; // Rojo (Bajo)
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFE3F2FD),
+          // backgroundColor eliminado (Theme default)
           appBar: AppBar(
-            backgroundColor: const Color(0xFF1E88E5),
+            // backgroundColor eliminado (Theme default - Teal)
             elevation: 0,
-            title: const Text('Salud', style: TextStyle(color: Colors.white)),
+            title: const Text('Salud'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.flag, color: Colors.white),
+                icon: const Icon(Icons.flag),
                 onPressed: () async {
                   final ctrl = TextEditingController(text: vm.objetivoSemanal.toString());
                   final nuevo = await showDialog<int>(
@@ -126,7 +129,7 @@ class _SaludScreenBody extends StatelessWidget {
                 tooltip: "Cambiar objetivo semanal",
               ),
               IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.white),
+                icon: const Icon(Icons.refresh),
                 onPressed: () => vm.inicializarTodo(forzar: true),
                 tooltip: "Sincronizar",
               ),
@@ -171,25 +174,25 @@ class _SaludScreenBody extends StatelessWidget {
                     ],
                   ),
                   progressColor: colorProgreso,
-                  backgroundColor: Colors.grey[300]!,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
                 ),
                 const SizedBox(height: 22),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _infoCard("👣", "Hoy", pasosHoy.toString(), Colors.blue[700]!),
-                    _infoCard("🔥", "Kcal quem.", kcalQuemadasHoy.toStringAsFixed(0), Colors.redAccent),
-                    _infoCard("🍽️", "Kcal cons.", kcalConsumidasHoy.toStringAsFixed(0), Colors.green),
+                    // Pasos: Primary (Teal)
+                    _infoCard(context, "👣", "Hoy", pasosHoy.toString(), colorScheme.primary),
+                    // Kcal Quemadas: Secondary (Orange/Fuego)
+                    _infoCard(context, "🔥", "Kcal quem.", kcalQuemadasHoy.toStringAsFixed(0), colorScheme.secondary),
+                    // Kcal Consumidas: Green (Semántico comida/salud)
+                    _infoCard(context, "🍽️", "Kcal cons.", kcalConsumidasHoy.toStringAsFixed(0), Colors.green),
                   ],
                 ),
                 const SizedBox(height: 26),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.fitness_center),
                   label: const Text("Añadir kcal de clase"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
-                  ),
+                  // Estilo eliminado para heredar del Theme (Primary)
                   onPressed: vm.loading
                       ? null
                       : () async {
@@ -225,13 +228,15 @@ class _SaludScreenBody extends StatelessWidget {
                         },
                 ),
                 const SizedBox(height: 26),
-                const Text(
+                Text(
                   'Historial (semana actual)',
-                  style: TextStyle(
-                      fontSize: 19, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary, // Azul -> Primary
+                  ),
                 ),
                 const SizedBox(height: 13),
-                _buildHistorial(semana),
+                _buildHistorial(context, semana),
                 const SizedBox(height: 20),
               ],
             ),
@@ -241,24 +246,27 @@ class _SaludScreenBody extends StatelessWidget {
     );
   }
 
-  Widget _buildPermisoDenegado() => Scaffold(
+  Widget _buildPermisoDenegado(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.error, size: 70, color: Colors.redAccent),
-              SizedBox(height: 16),
+            children: [
+              Icon(Icons.error, size: 70, color: colorScheme.error),
+              const SizedBox(height: 16),
               Text(
                 'El permiso de actividad es necesario\ny ha sido denegado.',
-                style: TextStyle(fontSize: 17, color: Colors.redAccent),
+                style: TextStyle(fontSize: 17, color: colorScheme.error),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
       );
+  }
 
-  Widget _infoCard(String emoji, String label, String value, Color color) {
+  Widget _infoCard(BuildContext context, String emoji, String label, String value, Color color) {
     return Card(
       elevation: 5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -290,7 +298,9 @@ class _SaludScreenBody extends StatelessWidget {
     );
   }
 
-  Widget _buildHistorial(List<Salud> semana) {
+  Widget _buildHistorial(BuildContext context, List<Salud> semana) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     if (semana.isEmpty) {
       return Column(
         children: const [
@@ -315,7 +325,10 @@ class _SaludScreenBody extends StatelessWidget {
             leading: Text(
               "👣",
               style: TextStyle(
-                  fontSize: 36, color: Colors.blue[700], fontWeight: FontWeight.bold),
+                  fontSize: 36, 
+                  color: colorScheme.primary, // Azul -> Primary
+                  fontWeight: FontWeight.bold
+              ),
             ),
             title: Text(fecha,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),

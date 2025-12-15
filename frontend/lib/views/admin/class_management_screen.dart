@@ -24,11 +24,13 @@ class _ClassManagementView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = Provider.of<ClassManagementViewModel>(context);
+    // Accedemos al tema actual
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Clases'),
-        backgroundColor: Colors.blueAccent,
+        // Eliminado backgroundColor: Colors.blueAccent -> Usa el del tema (Teal)
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
@@ -38,6 +40,7 @@ class _ClassManagementView extends StatelessWidget {
                 initialDate: vm.selectedDate ?? DateTime.now(),
                 firstDate: DateTime(2000),
                 lastDate: DateTime(2100),
+                // El DatePicker usará automáticamente los colores del tema
               );
               if (pickedDate != null) {
                 vm.selectedDate = pickedDate;
@@ -56,7 +59,10 @@ class _ClassManagementView extends StatelessWidget {
                   content: const Text('¿Estás seguro de eliminar todas las clases?'),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar', style: TextStyle(color: Colors.red))),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true), 
+                      child: Text('Eliminar', style: TextStyle(color: theme.colorScheme.error))
+                    ),
                   ],
                 ),
               );
@@ -73,6 +79,7 @@ class _ClassManagementView extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditClassDialog(context, vm),
+        // El color vendrá del theme (Secondary/Naranja)
         child: const Icon(Icons.add),
       ),
       body: vm.loading
@@ -85,7 +92,12 @@ class _ClassManagementView extends StatelessWidget {
                     final classItem = vm.clases[index];
                     return Card(
                       margin: const EdgeInsets.all(8),
+                      // El Card usa el estilo del tema
                       child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                          child: Icon(Icons.fitness_center, color: theme.colorScheme.primary),
+                        ),
                         title: Text(classItem.nombre),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,11 +111,13 @@ class _ClassManagementView extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              // Usamos el color secundario (Naranja) para editar
+                              icon: Icon(Icons.edit, color: theme.colorScheme.secondary),
                               onPressed: () => _showAddEditClassDialog(context, vm, clase: classItem),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              // Usamos el color de error para borrar
+                              icon: Icon(Icons.delete, color: theme.colorScheme.error),
                               onPressed: () async {
                                 final confirm = await showDialog<bool>(
                                   context: context,
@@ -112,7 +126,10 @@ class _ClassManagementView extends StatelessWidget {
                                     content: Text('¿Eliminar "${classItem.nombre}"?'),
                                     actions: [
                                       TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar')),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true), 
+                                        child: Text('Eliminar', style: TextStyle(color: theme.colorScheme.error))
+                                      ),
                                     ],
                                   ),
                                 );
@@ -177,6 +194,7 @@ class _ClassManagementView extends StatelessWidget {
                           labelText: startTime == null
                               ? 'Seleccionar Hora de Inicio'
                               : 'Hora Inicio: ${_formatTime(startTime!)}',
+                          // El InputDecoration del theme manejará el estilo
                         ),
                         validator: (v) => startTime == null ? 'Requerido' : null,
                       ),
@@ -253,5 +271,4 @@ class _ClassManagementView extends StatelessWidget {
     final parts = time.split(':');
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
-
 }

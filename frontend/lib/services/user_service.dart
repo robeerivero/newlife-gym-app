@@ -7,7 +7,6 @@ import 'dart:convert';
 import '../config.dart';
 import '../models/usuario.dart';         
 import '../models/usuario_ranking.dart';
-import '../models/logro_prenda.dart';
 
 class UserService {
   final _storage = const FlutterSecureStorage();
@@ -110,22 +109,6 @@ class UserService {
     }
     return null;
   }
-
-  /// Logros y prendas
-  Future<List<LogroPrenda>?> getLogros() async {
-    // (Asegúrate de que esta lógica es correcta según tu app)
-    final headers = await _getHeaders(includeContentType: false);
-    final response = await http.get(
-      Uri.parse('$_apiUrl/prendas/progreso'), 
-      headers: headers,
-    );
-     if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map<LogroPrenda>((json) => LogroPrenda.fromJson(json)).toList();
-    }
-    return null;
-  }
-
 
   // --- ¡NUEVAS FUNCIONES DE ADMINISTRADOR! ---
 

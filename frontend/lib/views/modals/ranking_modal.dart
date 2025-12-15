@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/ranking_viewmodel.dart';
 import '../../models/usuario_ranking.dart';
-import '../../fluttermoji/fluttermojiCircleAvatar.dart';
+// Import local
+import '../../fluttermoji/fluttermojiCircleAvatar.dart'; 
 
 class RankingModal extends StatelessWidget {
   @override
@@ -11,112 +12,117 @@ class RankingModal extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => RankingViewModel()..fetchRanking(),
       child: Dialog(
-        insetPadding: EdgeInsets.all(24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.all(24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Consumer<RankingViewModel>(
             builder: (context, vm, _) {
-              if (vm.loading) return const Center(child: CircularProgressIndicator());
-              if (vm.error != null) return Center(child: Text('Error: ${vm.error}'));
+              final colorScheme = Theme.of(context).colorScheme;
+              
+              if (vm.loading) return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+              if (vm.error != null) return Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: TextStyle(color: colorScheme.error)));
+              
               final ranking = vm.ranking;
-              if (ranking == null || ranking.isEmpty) return const Text("Aún no hay asistencias este mes");
+              if (ranking == null || ranking.isEmpty) return const Padding(padding: EdgeInsets.all(20), child: Text("Aún no hay asistencias este mes"));
 
-              final coloresPodio = [Colors.amber, Colors.grey, Colors.brown];
+              // Podio
               final podio = List.generate(
                 ranking.length < 3 ? ranking.length : 3,
                 (i) {
                   final usuario = ranking[i];
-                  return Column(
-                    children: [
-                      Text(['🥇', '🥈', '🥉'][i], style: TextStyle(fontSize: 32)),
-                      SizedBox(height: 8),
-                      FluttermojiCircleAvatar(
-                        radius: i == 0 ? 40 : 32,
-                        avatarJson: jsonEncode(usuario.avatar),
-                        backgroundColor: coloresPodio[i][100],
-                      ),
-                      SizedBox(height: 8),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          usuario.nombre,
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          style: TextStyle(fontWeight: FontWeight.bold, color: coloresPodio[i], fontSize: 14),
+                  final colorMedalla = [const Color(0xFFFFD700), const Color(0xFFC0C0C0), const Color(0xFFCD7F32)][i];
+                  final size = i == 0 ? 90.0 : 70.0;
+                  final fontSize = i == 0 ? 30.0 : 20.0;
+                  
+                  return Expanded(
+                    child: Column(
+                      children: [
+                        Text(['🥇', '🥈', '🥉'][i], style: TextStyle(fontSize: fontSize)),
+                        const SizedBox(height: 4),
+                        Stack(
+                           alignment: Alignment.bottomRight,
+                           children: [
+                             FluttermojiCircleAvatar(
+                               radius: size / 2,
+                               // Enviamos el avatar del usuario del ranking
+                               avatarJson: jsonEncode(usuario.avatar),
+                             ),
+                             CircleAvatar(
+                               radius: 12,
+                               backgroundColor: colorMedalla,
+                               child: Text('${i+1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black)),
+                             )
+                           ]
                         ),
-                      ),
-                      Text('Asistencias: ${usuario.asistenciasEsteMes}', style: TextStyle(fontSize: 12)),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(usuario.nombre, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                        Text('${usuario.asistenciasEsteMes}', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   );
                 },
               );
 
+              // Resto de la lista
+              final resto = ranking.length > 3 ? ranking.sublist(3) : <UsuarioRanking>[];
+
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Text(
-                      'RANKING MENSUAL',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1),
-                    ),
-                  ),
-                  SizedBox(height: 16),
+                  Text('🏆 Ranking del Mes', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: podio,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                        if (podio.length > 1) podio[1],
+                        if (podio.isNotEmpty) podio[0],
+                        if (podio.length > 2) podio[2],
+                    ],
                   ),
-                  SizedBox(height: 20),
-                  SizedBox(
-                    height: 350,
-                    child: ListView.builder(
-                      itemCount: ranking.length,
-                      itemBuilder: (context, index) {
-                        if (index < 3) return SizedBox.shrink();
-                        final usuario = ranking[index];
-                        return Card(
-                          margin: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                          color: Colors.blue[50], // mismo color que el encabezado
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                  if (resto.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        itemCount: resto.length,
+                        itemBuilder: (context, index) {
+                          final usuario = resto[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Container(
+                               width: 30, 
+                               alignment: Alignment.center,
+                               child: Text('${index + 4}.', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant))
+                            ),
+                            title: Row(
                               children: [
-                                Text(
-                                  '${index + 1}.',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                SizedBox(width: 12),
                                 FluttermojiCircleAvatar(
-                                  radius: 22,
+                                  radius: 16,
                                   avatarJson: jsonEncode(usuario.avatar),
+                                  backgroundColor: Colors.transparent, 
                                 ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    usuario.nombre,
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  '${usuario.asistenciasEsteMes} asist.',
-                                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                                ),
+                                const SizedBox(width: 10),
+                                Expanded(child: Text(usuario.nombre)),
                               ],
                             ),
-                          ),
-                        );
-                      },
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
+                              child: Text('${usuario.asistenciasEsteMes}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
+                  ],
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cerrar'),
+                  )
                 ],
               );
             },

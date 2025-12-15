@@ -1,6 +1,4 @@
 // screens/client/premium_diet_display_screen.dart
-// ¡¡VERSIÓN CORREGIDA!! Tu UI original + Botón Lista de Compra + Lógica de Estado
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +8,6 @@ import '../../models/plan_dieta.dart';
 import '../../models/usuario.dart';
 import 'premium_dieta_setup_screen.dart';
 
-// Helper isSameDay (importante para TableCalendar)
 bool isSameDay(DateTime? a, DateTime? b) {
   if (a == null || b == null) return false;
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -25,46 +22,41 @@ class PremiumDietDisplayScreen extends StatelessWidget {
       create: (_) => PremiumDietDisplayViewModel(),
       child: Consumer<PremiumDietDisplayViewModel>(
         builder: (context, vm, _) {
+          final colorScheme = Theme.of(context).colorScheme;
           
           return Scaffold(
-            backgroundColor: const Color(0xFFE3F2FD),
+            // backgroundColor: eliminado (Theme default)
             appBar: AppBar(
-              backgroundColor: const Color(0xFF1E88E5),
+              // backgroundColor: eliminado (Theme default)
               title: Text(
                 'Dieta - ${DateFormat('EEEE d', 'es_ES').format(vm.fechaSeleccionada)}',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                style: const TextStyle(fontWeight: FontWeight.bold)
               ),
-              iconTheme: const IconThemeData(color: Colors.white),
               elevation: 0,
               
-              // --- ¡NUEVO! Botón Lista de Compra ---
+              // --- Botón Lista de Compra ---
               actions: [
                 if (vm.estadoPlan == 'aprobado' && vm.tieneListaCompra)
                   IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                    icon: Icon(Icons.shopping_cart_outlined, color: colorScheme.onPrimary),
                     tooltip: 'Lista de la Compra',
                     onPressed: () {
                       _mostrarListaCompra(context, vm.listaCompra);
                     },
                   ),
               ],
-              // -----------------------------------
             ),
             
             body: Column(
               children: [
-                // Muestra el calendario SOLO si el VM cargó el usuario Y tiene el plan
                 if (vm.currentUser != null && vm.incluyePlanDieta)
                   _buildTableCalendar(context, vm),
 
-                // Contenido
                 Expanded(
-                  child: vm.isLoading // Loading inicial
+                  child: vm.isLoading 
                       ? const Center(child: CircularProgressIndicator())
-                      : vm.error != null // Error
-                          ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: const TextStyle(color: Colors.red))))
-                          
-                          // ¡LÓGICA DE ESTADO MEJORADA!
+                      : vm.error != null 
+                          ? Center(child: Padding(padding: const EdgeInsets.all(16), child: Text('Error: ${vm.error}', style: TextStyle(color: colorScheme.error))))
                           : _buildBodyContent(context, vm), 
                 ),
               ],
@@ -75,43 +67,35 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
   
-  // --- ¡NUEVO! Widget para decidir qué mostrar ---
-  /// Decide qué mostrar basado en el estado del plan
   Widget _buildBodyContent(BuildContext context, PremiumDietDisplayViewModel vm) {
-    // Si el usuario no tiene el plan (porque no es premium o no lo incluye)
-    // _buildEmptyState se encargará de mostrar el banner de "Hazte Premium"
     if (vm.currentUser == null || !vm.incluyePlanDieta) {
       return _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser);
     }
 
-    // Si tiene el plan, comprobamos el estado
     switch (vm.estadoPlan) {
       case 'aprobado':
-        // Si está aprobado, mostramos la dieta o el día de descanso
         return vm.dietaDelDia == null
-            ? _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser) // (mostrará "Día de descanso" o "Configurar")
-            : _buildDietDay(context, vm.dietaDelDia!); // Muestra la dieta
+            ? _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser) 
+            : _buildDietDay(context, vm.dietaDelDia!); 
             
       case 'pendiente_revision':
-        // Si está pendiente, mostramos un banner específico
         return _buildStatusBanner(
           context: context,
           icon: Icons.pending_actions,
-          color: Colors.orange,
+          color: Colors.orange, // Semántico: Pendiente = Naranja
           titulo: 'Tu dieta está en revisión',
           subtitulo: 'Tu plan está siendo preparado por el nutricionista. ¡Vuelve pronto!',
         );
 
       case 'pendiente_solicitud':
       default:
-        // Si no ha solicitado (o estado desconocido), mostramos el EmptyState
-        // que contiene el botón de "Configurar"
         return _buildEmptyState(context, vm.fechaSeleccionada, vm.currentUser);
     }
   }
 
-  // --- WIDGET DE CALENDARIO (Tu código original) ---
   Widget _buildTableCalendar(BuildContext context, PremiumDietDisplayViewModel vm) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Card(
       elevation: 2,
       margin: const EdgeInsets.all(8.0),
@@ -120,30 +104,54 @@ class PremiumDietDisplayScreen extends StatelessWidget {
         locale: 'es_ES',
         firstDay: DateTime.now().subtract(const Duration(days: 365)),
         lastDay: DateTime.now().add(const Duration(days: 365)),
+        
         focusedDay: vm.focusedDay,
-        calendarFormat: CalendarFormat.week,
         selectedDayPredicate: (day) => isSameDay(vm.fechaSeleccionada, day),
         
+        // --- CAMBIO CLAVE 1: Usar variable del ViewModel ---
+        calendarFormat: vm.calendarFormat, 
+        
+        // --- CAMBIO CLAVE 2: Configurar formatos disponibles ---
+        availableCalendarFormats: const {
+          CalendarFormat.month: 'Mes',    // Muestra "Mes"
+          CalendarFormat.week: 'Semana',  // Muestra "Semana"
+        },
+
+        // --- CAMBIO CLAVE 3: Manejar el cambio ---
+        onFormatChanged: (format) {
+          vm.onFormatChanged(format);
+        },
+
         onDaySelected: (selectedDay, focusedDay) {
-          // Llama al VM (que ya sabe si tiene permiso)
           vm.cambiarDia(selectedDay);
         },
         onPageChanged: (focusedDay) {
           vm.setFocusedDay(focusedDay);
         },
         
-        headerStyle: const HeaderStyle(
+        headerStyle: HeaderStyle( // Quitamos 'const' porque colorScheme.onPrimary no es constante
           titleCentered: true,
-          formatButtonVisible: false,
-          titleTextStyle: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+          // Habilitamos el botón de formato (antes estaba false)
+          formatButtonVisible: true, 
+          titleTextStyle: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+          
+          // Estilo del botón "Mes/Semana" (copiado de class_screen para consistencia)
+          formatButtonTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 14),
+          formatButtonDecoration: BoxDecoration(
+            color: colorScheme.primary, 
+            borderRadius: const BorderRadius.all(Radius.circular(12.0))
+          ),
+          leftChevronIcon: const Icon(Icons.chevron_left),
+          rightChevronIcon: const Icon(Icons.chevron_right),
         ),
+        
         calendarStyle: CalendarStyle(
           selectedDecoration: BoxDecoration(
-            color: Theme.of(context).primaryColor,
+            color: colorScheme.primary,
             shape: BoxShape.circle,
           ),
           todayDecoration: BoxDecoration(
-            color: Colors.blue[200],
+            color: colorScheme.primary.withOpacity(0.5),
             shape: BoxShape.circle,
           ),
           outsideDaysVisible: false,
@@ -152,8 +160,8 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Muestra el contenido de la dieta para el día. (Tu código original)
   Widget _buildDietDay(BuildContext context, DiaDieta diaDieta) {
+    final colorScheme = Theme.of(context).colorScheme;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       children: [
@@ -161,7 +169,10 @@ class PremiumDietDisplayScreen extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
           child: Text(
             '${diaDieta.nombreDia} (~${diaDieta.kcalDiaAprox} Kcal)',
-             style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blue[800]),
+             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+               fontWeight: FontWeight.bold, 
+               color: colorScheme.primary // Azul reemplazado por Primary
+             ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -170,7 +181,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Construye una Card para cada comida. (Tu código original)
   Widget _buildMealCard(BuildContext context, ComidaDia comida) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -183,7 +193,10 @@ class PremiumDietDisplayScreen extends StatelessWidget {
           children: [
             Text(
               comida.nombreComida,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, color: Colors.blue[700]),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600, 
+                color: Theme.of(context).colorScheme.primary // Azul reemplazado por Primary
+              ),
             ),
             const Divider(height: 15),
             if (comida.opciones.isEmpty)
@@ -196,8 +209,8 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
-  /// Construye los detalles de un plato. (Tu código original)
   Widget _buildDishDetails(BuildContext context, PlatoGenerado plato) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Column(
@@ -215,41 +228,41 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               const SizedBox(width: 8),
               Chip(
                 label: Text('${plato.kcalAprox} Kcal'),
-                backgroundColor: Colors.orange[100],
-                labelStyle: TextStyle(fontSize: 12, color: Colors.orange[800]),
+                // Naranja/Amber adaptado al theme Secondary
+                backgroundColor: colorScheme.secondaryContainer,
+                labelStyle: TextStyle(fontSize: 12, color: colorScheme.onSecondaryContainer),
                 visualDensity: VisualDensity.compact,
               ),
             ],
           ),
           const SizedBox(height: 6),
-          _buildDetailRow(Icons.list_alt_outlined, 'Ingredientes:', plato.ingredientes),
-          _buildDetailRow(Icons.menu_book_outlined, 'Receta:', plato.receta),
+          _buildDetailRow(context, Icons.list_alt_outlined, 'Ingredientes:', plato.ingredientes),
+          _buildDetailRow(context, Icons.menu_book_outlined, 'Receta:', plato.receta),
         ],
       ),
     );
   }
 
-  /// Helper para fila de detalle. (Tu código original)
-  Widget _buildDetailRow(IconData icon, String label, String value){
+  Widget _buildDetailRow(BuildContext context, IconData icon, String label, String value){
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 4.0),
       child: Row(
          crossAxisAlignment: CrossAxisAlignment.start,
          children: [
-           Icon(icon, size: 18, color: Colors.grey[700]),
+           Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
            const SizedBox(width: 8),
            Text('$label ', style: const TextStyle(fontWeight: FontWeight.w600)),
-           Expanded(child: Text(value.isNotEmpty ? value : 'N/A', style: TextStyle(color: Colors.grey[800]))),
+           Expanded(child: Text(value.isNotEmpty ? value : 'N/A', style: TextStyle(color: colorScheme.onSurface))),
          ],
       ),
     );
   }
 
-  /// --- Función de estado vacío (Tu lógica original) ---
-  /// Ahora usa el 'usuario' que viene del VM
   Widget _buildEmptyState(BuildContext context, DateTime fecha, Usuario? usuario) {
+    final colorScheme = Theme.of(context).colorScheme;
     
-    // 1. Si NO es premium (o el usuario es nulo)
+    // 1. Si NO es premium
     if (usuario == null || !usuario.esPremium) {
       return const _PremiumUpsellWidget();
     }
@@ -310,13 +323,11 @@ class PremiumDietDisplayScreen extends StatelessWidget {
                      Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumDietaSetupScreen(usuario: usuario)))
                          .then((result) {
                            if (result == true) {
-                             // --- ¡¡LÍNEA CORREGIDA!! ---
-                             // Al volver, le decimos al VM que refresque
                              Provider.of<PremiumDietDisplayViewModel>(context, listen: false).refreshData();
                            }
                          });
                   },
-                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).primaryColor),
+                  style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
                 ),
             ],
           ),
@@ -326,8 +337,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     return const Center(child: Text('Error al cargar estado.'));
   }
 
-  // --- ¡NUEVO! Banner de Estado Específico ---
-  /// Muestra un banner para estados como "pendiente_revision"
   Widget _buildStatusBanner({
     required BuildContext context,
     required IconData icon,
@@ -335,14 +344,16 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     required String titulo,
     required String subtitulo,
   }) {
+    // Nota: Mantenemos el color específico pasado por argumento (ej: Naranja de alerta)
+    // para estados semánticos, pero el texto usa el theme.
     return Center(
       child: Container(
         padding: const EdgeInsets.all(32),
         margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 10, spreadRadius: 2)],
+          boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.1), blurRadius: 10, spreadRadius: 2)],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -359,30 +370,32 @@ class PremiumDietDisplayScreen extends StatelessWidget {
   }
 }
 
-// --- WIDGET DE UPSELL (Tu widget original sin cambios) ---
 class _PremiumUpsellWidget extends StatelessWidget {
   const _PremiumUpsellWidget({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    // Adaptamos el estilo "Amber" al estilo "Secondary" (Naranja) del tema
     return Container(
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
-        color: Colors.amber[50],
+        color: colorScheme.secondaryContainer.withOpacity(0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber[200]!, width: 2)
+        border: Border.all(color: colorScheme.secondary.withOpacity(0.5), width: 2)
       ),
       margin: const EdgeInsets.all(16.0),
       child: SingleChildScrollView( 
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_border_purple500_sharp, color: Colors.amber[800], size: 50),
+            Icon(Icons.star_border_purple500_sharp, color: colorScheme.secondary, size: 50),
             const SizedBox(height: 16),
             Text(
               '✨ Desbloquea tu Plan de Dieta ✨',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                       fontWeight: FontWeight.bold, color: Colors.amber[900], fontSize: 22
+                       fontWeight: FontWeight.bold, color: colorScheme.secondary, fontSize: 22
                      ),
               textAlign: TextAlign.center,
             ),
@@ -394,14 +407,14 @@ class _PremiumUpsellWidget extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              icon: const Icon(Icons.star, color: Colors.white),
-              label: const Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              icon: Icon(Icons.star, color: colorScheme.onSecondary),
+              label: Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSecondary)),
               onPressed: () {
                 // TODO: Navegar a la pantalla de suscripción premium
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber[700],
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.secondary,
+                foregroundColor: colorScheme.onSecondary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
@@ -413,22 +426,21 @@ class _PremiumUpsellWidget extends StatelessWidget {
   }
 }
 
-// --- ¡NUEVA FUNCIÓN! ---
-// (Movida fuera de la clase para que sea un helper global o estático)
-/// Muestra la lista de la compra en un Modal Deslizable
 void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra) {
+  final colorScheme = Theme.of(context).colorScheme;
+  
   showModalBottomSheet(
     context: context,
-    isScrollControlled: true, // Permite que el modal sea más alto
+    isScrollControlled: true, 
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (ctx) {
       return DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.7, // Empieza al 70% de la altura
-        maxChildSize: 0.9,     // Puede llegar al 90%
-        minChildSize: 0.4,     // Mínimo 40%
+        initialChildSize: 0.7, 
+        maxChildSize: 0.9,     
+        minChildSize: 0.4,     
         builder: (BuildContext context, ScrollController scrollController) {
           return Container(
             padding: const EdgeInsets.all(20),
@@ -451,7 +463,7 @@ void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra)
                 
                 Expanded(
                   child: ListView.builder(
-                    controller: scrollController, // ¡Importante para el drag!
+                    controller: scrollController, 
                     itemCount: listaCompra.keys.length,
                     itemBuilder: (context, index) {
                       String categoria = listaCompra.keys.elementAt(index);
@@ -463,10 +475,10 @@ void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra)
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              categoria, // Ej: "Frutas y Verduras"
+                              categoria,
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.indigo,
+                                    color: colorScheme.primary, // Indigo -> Primary
                                   ),
                             ),
                             const Divider(thickness: 1.5),
@@ -476,7 +488,7 @@ void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra)
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey[700]),
+                                  Icon(Icons.check_box_outline_blank, size: 20, color: colorScheme.onSurfaceVariant),
                                   const SizedBox(width: 10),
                                   Expanded(child: Text(item.toString(), style: const TextStyle(fontSize: 16))),
                                 ],

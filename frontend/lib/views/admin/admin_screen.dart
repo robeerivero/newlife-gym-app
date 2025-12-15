@@ -1,5 +1,3 @@
-// screens/admin/admin_screen.dart
-// ¡ACTUALIZADO!
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/admin_viewmodel.dart';
@@ -11,41 +9,48 @@ import 'reservation_management_screen.dart';
 import 'plan_review_list_screen.dart';
 import 'video_management_screen.dart'; // Mantenemos gestión de videos
 import '../../viewmodels/plan_review_viewmodel.dart';
+
 class AdminScreen extends StatelessWidget {
   const AdminScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Acceso al tema global
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final secondary = theme.colorScheme.secondary;
+
     return ChangeNotifierProvider(
       create: (_) => AdminViewModel(),
       child: Consumer<AdminViewModel>(
         builder: (context, vm, child) {
           return Scaffold(
-            backgroundColor: const Color(0xFFE3F2FD),
+            // Eliminado backgroundColor hardcoded -> usa el del tema
             appBar: AppBar(
               title: const Text('Panel de Administrador',
                   style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white,
                     letterSpacing: 1.2,
                   )),
-              backgroundColor: Colors.indigo, // Color Admin
+              // Eliminado backgroundColor manual -> usa theme.primary
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.logout), // Icono más estándar para logout
+                  icon: const Icon(Icons.logout), 
                   tooltip: 'Cerrar Sesión',
+                  // Mantenemos tu lógica exacta
                   onPressed: () => vm.logout(context),
                 ),
               ],
             ),
-            body: ListView( // Usamos ListView directamente
+            body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // --- Tarjeta NUEVA: Revisión de Planes ---
+                // --- Tarjeta: Revisión de Planes ---
                 _buildManagementCard(
                   icon: Icons.assignment_turned_in,
                   title: 'Revisar Planes Premium',
                   subtitle: 'Aprobar o editar planes de IA.',
-                  color: Colors.deepPurpleAccent, // Color distintivo
+                  color: primary, // Usa color Primario (Teal)
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => ChangeNotifierProvider(
@@ -54,55 +59,52 @@ class AdminScreen extends StatelessWidget {
                     ),
                   ),
                 )),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // --- Tarjetas Existentes que Mantenemos ---
+                // --- Tarjetas de Gestión ---
                 _buildManagementCard(
                   icon: Icons.people,
                   title: 'Gestionar Usuarios',
                   subtitle: 'Editar usuarios y activar servicios premium.',
-                  color: const Color(0xFF42A5F5),
+                  color: secondary, // Usa color Secundario (Naranja)
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const UserManagementScreen()),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 _buildManagementCard(
                   icon: Icons.class_,
                   title: 'Gestionar Clases',
                   subtitle: 'Agregar, editar o eliminar clases presenciales.',
-                  color: const Color(0xFF42A5F5),
+                  color: primary,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const ClassManagementScreen()),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                  _buildManagementCard(
                    icon: Icons.book_online,
                    title: 'Gestionar Reservas',
                    subtitle: 'Ver y gestionar reservas de clases.',
-                   color: const Color(0xFF42A5F5),
+                   color: secondary,
                    onTap: () => Navigator.push(
                      context,
                      MaterialPageRoute(builder: (context) => const ReservationManagementScreen()),
                    ),
                  ),
-                 const SizedBox(height: 20),
+                 const SizedBox(height: 12),
                  _buildManagementCard(
                    icon: Icons.video_library,
-                   title: 'Gestionar Videos', // Si aún usas videos
+                   title: 'Gestionar Videos',
                    subtitle: 'Agregar, editar o eliminar Videos.',
-                   color: const Color(0xFF42A5F5),
+                   color: primary,
                    onTap: () => Navigator.push(
                      context,
                      MaterialPageRoute(builder: (context) => const VideoManagementScreen()),
                    ),
                  ),
-
-                // --- Tarjetas ANTIGUAS Eliminadas ---
-                // Ya no necesitamos gestionar Rutinas, Platos, Dietas manualmente.
               ],
             ),
           );
@@ -119,21 +121,27 @@ class AdminScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    // (Tu diseño de tarjeta es bueno, lo mantenemos)
+    // Usamos el diseño de tarjeta que tenías, pero con los nuevos colores
     return Card(
-      elevation: 4, // Un poco menos de sombra
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 4, 
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15), // Bordes menos pronunciados
+        borderRadius: BorderRadius.circular(15),
       ),
-      child: InkWell( // InkWell para efecto ripple al pulsar
+      child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row( // Usamos Row para mejor alineación
+          child: Row( 
             children: [
-              Icon(icon, size: 40, color: color),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1), // Fondo suave
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 32, color: color),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -142,7 +150,7 @@ class AdminScreen extends StatelessWidget {
                     Text(
                       title.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 16, // Ligeramente más pequeño
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: color,
                       ),
@@ -151,14 +159,14 @@ class AdminScreen extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 14, // Ligeramente más pequeño
+                        fontSize: 14, 
                         color: Colors.grey[700],
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16), // Flecha indicadora
+              const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
             ],
           ),
         ),

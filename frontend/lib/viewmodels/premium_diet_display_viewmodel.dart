@@ -1,7 +1,8 @@
 // viewmodels/premium_diet_display_viewmodel.dart
-// ¡CORREGIDO! Añadida función 'refreshData' pública.
+// ¡CORREGIDO! Añadido el import de table_calendar.
 
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart'; // <--- ¡ESTE IMPORT ES LA SOLUCIÓN!
 import '../models/plan_dieta.dart';
 import '../models/usuario.dart';
 import '../services/ia_dieta_service.dart';
@@ -44,6 +45,13 @@ class PremiumDietDisplayViewModel extends ChangeNotifier {
   DateTime get fechaSeleccionada => _fechaSeleccionada;
   DateTime _focusedDay = DateTime.now();
   DateTime get focusedDay => _focusedDay;
+  CalendarFormat _calendarFormat = CalendarFormat.week; // Por defecto Semana
+  CalendarFormat get calendarFormat => _calendarFormat;
+
+  void onFormatChanged(CalendarFormat format) {
+    _calendarFormat = format;
+    notifyListeners();
+  }
   // --------------------------------------------------
   
   // --- Estado del Plan ---

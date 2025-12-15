@@ -1,11 +1,9 @@
 // screens/client/premium_dieta_setup_screen.dart
-// ¡¡CORREGIDO!! Corregido el nombre del método en _submit()
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/usuario.dart';
 import '../../services/ia_dieta_service.dart';
-import '../../services/user_service.dart'; // Importar UserService
+import '../../services/user_service.dart'; 
 
 class PremiumDietaSetupScreen extends StatefulWidget {
   final Usuario usuario;
@@ -20,7 +18,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
 
   // --- Servicios ---
   final IADietaService _dietaService = IADietaService();
-  final UserService _userService = UserService(); // ¡Importante!
+  final UserService _userService = UserService();
 
   // --- Controllers (Metabólicos) ---
   late TextEditingController _pesoController;
@@ -49,15 +47,8 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   String? _contextoComida;
   String? _retoPrincipal;
   Set<String> _equipamientoSeleccionado = {};
-  // ---------------------------------------------
-
-  bool _isLoading = false;
   
-  final Color _colorPrimario = const Color(0xFF1E88E5);
-  final Color _colorSecundario = const Color(0xFF1565C0);
-  final Color _colorCampos = Colors.white;
-  final Color _colorIconos = const Color(0xFF1565C0);
-  final TextStyle _labelStyle = const TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
+  bool _isLoading = false;
 
   final Map<String, String> _tiempoCocinaOpciones = {
     'menos_15_min': 'Menos de 15 min (Rápido)',
@@ -92,7 +83,6 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     'batidora': 'Batidora (Smoothies/Cremas)',
     'robot': 'Robot de Cocina',
   };
-
 
   @override
   void initState() {
@@ -148,10 +138,11 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     final double peso = double.tryParse(_pesoController.text.trim()) ?? 0;
     final double altura = double.tryParse(_alturaController.text.trim()) ?? 0;
     final int edad = int.tryParse(_edadController.text.trim()) ?? 0;
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (peso == 0 || altura == 0 || edad == 0 || _genero == null || _ocupacion == null || _ejercicio == null || _objetivo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Completa todos los datos metabólicos.'), backgroundColor: Colors.red),
+        SnackBar(content: const Text('Completa todos los datos metabólicos.'), backgroundColor: colorScheme.error),
       );
       return;
     }
@@ -189,12 +180,12 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     });
   }
 
-
-  // --- SUBMIT (¡CORREGIDO!) ---
   Future<void> _submit() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, revisa los campos en rojo.'), backgroundColor: Colors.red),
+        SnackBar(content: const Text('Por favor, revisa los campos en rojo.'), backgroundColor: colorScheme.error),
       );
       return;
     }
@@ -226,8 +217,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         'historialMedico': _historialController.text.trim(),
         'horarios': _horariosController.text.trim(),
         'platosFavoritos': _platosFavoritosController.text.trim(),
-        
-        // Campos de Adherencia
+        // Adherencia
         'dietaTiempoCocina': _tiempoCocina,
         'dietaHabilidadCocina': _habilidadCocina,
         'dietaEquipamiento': _equipamientoSeleccionado.toList(),
@@ -237,17 +227,12 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         'dietaBebidas': _bebidasController.text.trim(),
       };
 
-      // 1. Actualizar el perfil del usuario con estos datos
-      // ¡¡CORRECCIÓN!! 
-      // 1. El método se llama 'actualizarDatosMetabolicos'
-      // 2. Devuelve un Map?, no un bool
       final Map<String, dynamic>? resultadoPerfil = await _userService.actualizarDatosMetabolicos(datos);
       
-      if (resultadoPerfil == null) { // Comprobamos si el resultado es nulo (error)
+      if (resultadoPerfil == null) {
         throw Exception('No se pudo actualizar el perfil de usuario.');
       }
 
-      // 2. Enviar la solicitud del plan
       final bool solicitudEnviada = await _dietaService.solicitarPlanDieta(datos);
 
       if (solicitudEnviada && mounted) {
@@ -264,7 +249,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: colorScheme.error),
       );
     } finally {
       setState(() { _isLoading = false; });
@@ -275,6 +260,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final bool puedeSolicitar = widget.usuario.esPremium && widget.usuario.incluyePlanDieta;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // --- Items de Menús ---
     final _generoItems = [
@@ -315,11 +301,10 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
+      // backgroundColor eliminado (Theme default)
       appBar: AppBar(
-        title: const Text('Configurar Dieta', style: TextStyle(color: Colors.white)),
-        backgroundColor: _colorPrimario,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Configurar Dieta'),
+        // backgroundColor eliminado (Theme default)
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -331,10 +316,12 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
               if (!puedeSolicitar)
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.red[100], borderRadius: BorderRadius.circular(14)),
-                  child: const Text(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(color: colorScheme.errorContainer, borderRadius: BorderRadius.circular(14)),
+                  child: Text(
                     'Este servicio no está incluido en tu plan. Habla con tu entrenador para activarlo.',
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center, 
+                    style: TextStyle(color: colorScheme.onErrorContainer, fontWeight: FontWeight.bold),
                   ),
                 ),
               
@@ -404,9 +391,9 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
               
               Center(
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.calculate_outlined, color: Colors.white),
-                  label: const Text('Calcular Calorías', style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(backgroundColor: _colorSecundario, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('Calcular Calorías'),
+                  // Estilo eliminado para heredar del Theme (Primary)
                   onPressed: puedeSolicitar ? _calcularKcal : null,
                 ),
               ),
@@ -416,7 +403,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
                   child: Center(
                     child: Text(
                       'Kcal Objetivo: $_kcalObjetivo aprox.',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _colorPrimario),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary),
                     ),
                   ),
                 ),
@@ -543,7 +530,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
               ElevatedButton(
                 onPressed: (puedeSolicitar && !_isLoading) ? _submit : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[600],
+                  backgroundColor: Colors.green[600], // Semántico: Acción de enviar/éxito
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -569,11 +556,11 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       children: [
         Text(
           title,
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _colorPrimario),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
         ),
         Text(
           subtitle,
-          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+          style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7)),
         ),
       ],
     );
@@ -590,24 +577,22 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     bool isOptional = false,
     Function(String)? onChanged,
   }) {
-    // (Tu lógica de 'puedeSolicitar' se maneja en el onPressed/onChanged)
     final bool puedeSolicitar = widget.usuario.esPremium && widget.usuario.incluyePlanDieta;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: '$label ${isOptional ? '(Opcional)' : ''}',
         hintText: hint,
-        prefixIcon: Icon(icon, color: _colorIconos),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-        filled: true,
-        fillColor: _colorCampos,
+        prefixIcon: Icon(icon, color: colorScheme.primary), // Icono Primary
+        // Bordes y colores manejados por el Theme global
       ),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       onChanged: onChanged,
-      enabled: puedeSolicitar, // Desactiva el campo si no puede solicitar
+      enabled: puedeSolicitar, 
       validator: (value) {
         if (isOptional) return null; 
         if (value == null || value.trim().isEmpty) return 'Requerido';
@@ -629,6 +614,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
     required ValueChanged<String?> onChanged,
   }) {
     final bool puedeSolicitar = widget.usuario.esPremium && widget.usuario.incluyePlanDieta;
+    final colorScheme = Theme.of(context).colorScheme;
     
     return DropdownButtonFormField<String>(
       value: value,
@@ -637,14 +623,8 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
       isExpanded: true, 
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: _colorIconos),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-        filled: true,
-        fillColor: _colorCampos,
-        disabledBorder: OutlineInputBorder( // Estilo cuando está desactivado
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey[300]!)
-        ),
+        prefixIcon: Icon(icon, color: colorScheme.primary),
+        // Bordes y colores manejados por el Theme global
       ),
       validator: (value) {
         if (value == null || value.isEmpty) return 'Requerido';
@@ -655,18 +635,19 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
 
   Widget _buildEquipamientoCheckboxes() {
     final bool puedeSolicitar = widget.usuario.esPremium && widget.usuario.incluyePlanDieta;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Equipamiento Disponible (multiselección)', style: _labelStyle.copyWith(color: Colors.black87)),
+        Text('Equipamiento Disponible (multiselección)', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: puedeSolicitar ? _colorCampos : Colors.grey[200], // Fondo gris si está desactivado
+            color: puedeSolicitar ? Theme.of(context).cardColor : Theme.of(context).disabledColor.withOpacity(0.1), 
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey[400]!)
+            border: Border.all(color: Theme.of(context).dividerColor)
           ),
           child: Wrap(
             spacing: 8.0,
@@ -678,7 +659,7 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
               return FilterChip(
                 label: Text(label),
                 selected: isSelected,
-                onSelected: puedeSolicitar ? (selected) { // Desactiva el chip si no puede solicitar
+                onSelected: puedeSolicitar ? (selected) { 
                   setState(() {
                     if (selected) {
                       _equipamientoSeleccionado.add(key);
@@ -686,11 +667,14 @@ class _PremiumDietaSetupScreenState extends State<PremiumDietaSetupScreen> {
                       _equipamientoSeleccionado.remove(key);
                     }
                   });
-                } : null, // Fin de onSelected
-                selectedColor: _colorSecundario.withOpacity(0.3),
-                checkmarkColor: _colorSecundario,
-                showCheckmark: true,
-                disabledColor: _colorCampos.withOpacity(0.5), // Color cuando está desactivado
+                } : null, 
+                // Colores del tema para los chips
+                selectedColor: colorScheme.secondaryContainer,
+                checkmarkColor: colorScheme.onSecondaryContainer,
+                labelStyle: TextStyle(
+                  color: isSelected ? colorScheme.onSecondaryContainer : colorScheme.onSurface,
+                ),
+                disabledColor: Theme.of(context).disabledColor.withOpacity(0.2),
               );
             }).toList(),
           ),

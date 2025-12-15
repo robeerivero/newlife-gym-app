@@ -1,6 +1,4 @@
 // screens/client/premium_entrenamiento_setup_screen.dart
-// ¡¡CORREGIDO!! La función _submit ahora envía los datos metabólicos existentes.
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import '../../models/usuario.dart';
@@ -18,18 +16,18 @@ class PremiumEntrenamientoSetupScreen extends StatefulWidget {
 class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // --- Controladores (los que son de texto) ---
+  // --- Controladores ---
   late TextEditingController _focoController;
   late TextEditingController _lesionesController;
   late TextEditingController _tiempoController;
   late TextEditingController _diasSemanaController;
   late TextEditingController _ejerciciosOdiadosController;
 
-  // --- Variables de Dropdown (los que son de selección) ---
+  // --- Variables de selección ---
   String? _meta;
   String? _nivel; 
   
-  // --- Variable de Multiselect ---
+  // --- Multiselect ---
   Set<String> _equipamientoSeleccionado = {};
 
   bool _isLoading = false;
@@ -40,15 +38,6 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
   final UserService _userService = UserService();
 
   bool get puedeSolicitar => _estadoPlan == 'pendiente_solicitud' || _estadoPlan == null;
-
-  // --- Colores del Tema ---
-  static const Color _colorPrimario = Color(0xFF1E88E5);
-  static const Color _colorSecundario = Color(0xFF1565C0);
-  static const Color _colorCampos = Colors.white;
-  static const Color _colorIconos = Color(0xFF1565C0);
-  final TextStyle _labelStyle = const TextStyle(fontWeight: FontWeight.bold, fontSize: 16);
-
-  // --- Opciones para los nuevos Dropdowns y Chips ---
 
   final Map<String, String> _metaOpciones = {
     'salud_general': 'Fitness y salud general',
@@ -76,11 +65,9 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
     'gym_completo': 'Gimnasio Completo (Peso Libre)',
   };
 
-
   @override
   void initState() {
     super.initState();
-    // Inicializa todos los campos desde el 'widget.usuario'
     _focoController = TextEditingController(text: widget.usuario.premiumFoco);
     _lesionesController = TextEditingController(text: widget.usuario.premiumLesiones);
     _ejerciciosOdiadosController = TextEditingController(text: widget.usuario.premiumEjerciciosOdiados);
@@ -112,17 +99,17 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
         _estadoPlan = estado;
       });
     } catch (e) {
-      // Manejar error
+      // Manejar error silenciosamente o mostrar snackbar
     } finally {
       setState(() { _isLoading = false; });
     }
   }
 
-  /// --- ¡FUNCIÓN SUBMIT CORREGIDA! ---
   Future<void> _submit() async {
+    final colorScheme = Theme.of(context).colorScheme;
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, revisa los campos en rojo.'), backgroundColor: Colors.red),
+        SnackBar(content: const Text('Por favor, revisa los campos en rojo.'), backgroundColor: colorScheme.error),
       );
       return;
     }
@@ -130,9 +117,8 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
     setState(() { _isLoading = true; });
 
     try {
-      // 1. Construye el mapa de datos
       final Map<String, dynamic> datos = {
-        // --- DATOS DE ENTRENAMIENTO (NUEVOS) ---
+        // --- DATOS DE ENTRENAMIENTO ---
         'premiumMeta': _meta,
         'premiumNivel': _nivel,
         'premiumDiasSemana': int.tryParse(_diasSemanaController.text.trim()) ?? 3,
@@ -142,9 +128,7 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
         'premiumLesiones': _lesionesController.text.trim(),
         'premiumEjerciciosOdiados': _ejerciciosOdiadosController.text.trim(),
         
-        // --- ¡¡CORRECCIÓN!! ---
-        // Debemos reenviar los datos de Dieta/Metabólicos existentes
-        // para que la validación del backend no falle.
+        // --- DATOS METABÓLICOS EXISTENTES (PRESERVADOS) ---
         'genero': widget.usuario.genero,
         'edad': widget.usuario.edad,
         'altura': widget.usuario.altura,
@@ -152,15 +136,14 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
         'ocupacion': widget.usuario.ocupacion,
         'ejercicio': widget.usuario.ejercicio,
         'objetivo': widget.usuario.objetivo,
-        'kcalObjetivo': widget.usuario.kcalObjetivo, // <-- ¡LA CLAVE DEL ERROR!
-        
+        'kcalObjetivo': widget.usuario.kcalObjetivo,
         'dietaAlergias': widget.usuario.dietaAlergias,
         'dietaPreferencias': widget.usuario.dietaPreferencias,
         'dietaComidas': widget.usuario.dietaComidas,
         'historialMedico': widget.usuario.historialMedico,
         'horarios': widget.usuario.horarios,
         'platosFavoritos': widget.usuario.platosFavoritos,
-        'dietaTiempoCocina': widget.usuario.dietaTiempoCocina,
+         'dietaTiempoCocina': widget.usuario.dietaTiempoCocina,
         'dietaHabilidadCocina': widget.usuario.dietaHabilidadCocina,
         'dietaEquipamiento': widget.usuario.dietaEquipamiento,
         'dietaContextoComida': widget.usuario.dietaContextoComida,
@@ -169,70 +152,83 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
         'dietaBebidas': widget.usuario.dietaBebidas,
       };
 
-      // 2. Actualiza el perfil del usuario (como en Dieta)
+      // 1. Guardar perfil
       final Map<String, dynamic>? resultadoPerfil = await _userService.actualizarDatosMetabolicos(datos);
       
-      if (resultadoPerfil == null) {
-        throw Exception('No se pudo actualizar el perfil de usuario.');
-      }
+      if (resultadoPerfil == null) throw Exception('Error al actualizar perfil.');
 
-      // 3. Envía la solicitud del plan
-      final bool solicitudEnviada = await _iaService.solicitarPlanEntrenamiento(datos);
+      // 2. Solicitar rutina
+      bool solicitudEnviada = await _iaService.solicitarPlanEntrenamiento(datos);
 
       if (solicitudEnviada && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Solicitud de rutina enviada! Tu plan estará listo pronto.'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('¡Solicitud enviada! Tu rutina estará lista pronto.'), backgroundColor: Colors.green),
         );
-        Navigator.of(context).pop(true); // Devuelve 'true' para refrescar
+        Navigator.of(context).pop(true);
       } else {
-        throw Exception('Error al enviar la solicitud del plan.');
+         throw Exception('Error al enviar solicitud.');
       }
 
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: colorScheme.error),
       );
     } finally {
       setState(() { _isLoading = false; });
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // Items de los menús
-    final _metaItems = _metaOpciones.entries
-        .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-        .toList();
-    final _nivelItems = _nivelOpciones.entries
-        .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-        .toList();
-        
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F2FD),
       appBar: AppBar(
-        title: const Text('Configurar Rutina', style: TextStyle(color: Colors.white)),
-        backgroundColor: _colorPrimario,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Configurar Entrenamiento'),
+        // backgroundColor: eliminado (Theme default)
       ),
-      body: _isLoading && _estadoPlan == null // Loading inicial
-          ? const Center(child: CircularProgressIndicator())
-          : _buildForm(context, _metaItems, _nivelItems),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator()) 
+          : _buildBody(context),
     );
   }
 
-  Widget _buildForm(BuildContext context, List<DropdownMenuItem<String>> metaItems, List<DropdownMenuItem<String>> nivelItems) {
+  Widget _buildBody(BuildContext context) {
+    if (!widget.usuario.esPremium || !widget.usuario.incluyePlanEntrenamiento) {
+      return _buildInfoCard(
+        context,
+        'No Incluido', 
+        'Este plan no está incluido en tu suscripción. Contacta con soporte o mejora tu plan.',
+        Icons.lock_outline,
+        Theme.of(context).disabledColor,
+      );
+    }
+
     if (!puedeSolicitar && _estadoPlan == 'pendiente_revision') {
-      return _buildInfoCard('Plan en Revisión', 'Tu entrenador ya está preparando tu rutina. Recibirás una notificación cuando esté lista.', Icons.pending_actions, Colors.orange);
+      return _buildInfoCard(
+        context,
+        'En Revisión', 
+        'Tu entrenador ya está preparando tu rutina. Recibirás una notificación cuando esté lista.',
+        Icons.pending_actions,
+        Colors.orange, // Semántico: Pendiente
+      );
     }
+
     if (!puedeSolicitar && _estadoPlan == 'aprobado') {
-      return _buildInfoCard('Plan Aprobado', 'Tu rutina para este mes ya está aprobada. Puedes verla en la pantalla de "Clases".', Icons.check_circle_outline, Colors.green);
+      return _buildInfoCard(
+        context,
+        'Plan Aprobado', 
+        'Tu rutina para este mes ya está aprobada. Puedes verla en la pantalla de "Clases".',
+        Icons.check_circle_outline,
+        Colors.green, // Semántico: Éxito
+      );
     }
-    
-    // Si puede solicitar (o es nulo), muestra el formulario
+
+    // FORMULARIO ACTIVO
+    final metaItems = _metaOpciones.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList();
+    final nivelItems = _nivelOpciones.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList();
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Form(
@@ -250,19 +246,19 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
               onChanged: (val) => setState(() { _meta = val; }),
             ),
             const SizedBox(height: 16),
-             _buildTextField(
+            _buildTextField(
               label: 'Foco Específico (Opcional)',
               hint: 'Ej: Híbrido (fuerza y pliometría), más pierna...',
               controller: _focoController,
               icon: Icons.filter_center_focus_outlined,
               isOptional: true,
             ),
-            
+
             const SizedBox(height: 24),
             const Divider(),
+
             _buildSectionTitle('Tu Nivel y Logística', '¿Cómo, cuándo y dónde?'),
             const SizedBox(height: 16),
-            
             _buildDropdownField(
               label: 'Nivel de Experiencia',
               value: _nivel,
@@ -270,89 +266,121 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
               icon: Icons.leaderboard_outlined,
               onChanged: (val) => setState(() { _nivel = val; }),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _buildTextField(
-                  label: 'Días por Semana',
-                  controller: _diasSemanaController,
-                  icon: Icons.calendar_today_outlined,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                )),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTextField(
-                  label: 'Tiempo por Sesión (min)',
-                  controller: _tiempoController,
-                  icon: Icons.timer_outlined,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                )),
-              ],
+             const SizedBox(height: 16),
+             Row(
+               children: [
+                 Expanded(child: _buildTextField(
+                   label: 'Días por Semana',
+                   controller: _diasSemanaController,
+                   icon: Icons.calendar_today,
+                   keyboardType: TextInputType.number,
+                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                 )),
+                 const SizedBox(width: 10),
+                 Expanded(child: _buildTextField(
+                   label: 'Minutos por Sesión',
+                   controller: _tiempoController,
+                   icon: Icons.timer,
+                   keyboardType: TextInputType.number,
+                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                 )),
+               ],
+             ),
+             const SizedBox(height: 16),
+             Text('Equipamiento Disponible:', style: Theme.of(context).textTheme.titleMedium),
+             const SizedBox(height: 8),
+             Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: _equipamientoOpciones.entries.map((entry) {
+                final key = entry.key;
+                final label = entry.value;
+                final isSelected = _equipamientoSeleccionado.contains(key);
+                return FilterChip(
+                  label: Text(label),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _equipamientoSeleccionado.add(key);
+                      } else {
+                        _equipamientoSeleccionado.remove(key);
+                      }
+                    });
+                  },
+                  // Colores del tema
+                  selectedColor: colorScheme.secondaryContainer,
+                  checkmarkColor: colorScheme.onSecondaryContainer,
+                  labelStyle: TextStyle(
+                    color: isSelected ? colorScheme.onSecondaryContainer : colorScheme.onSurface,
+                  ),
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 16),
-            
-            _buildEquipamientoCheckboxes(), // ¡NUEVO WIDGET!
-            
+
             const SizedBox(height: 24),
             const Divider(),
-            _buildSectionTitle('Limitaciones y Preferencias', 'Para una rutina segura y que disfrutes'),
+
+            _buildSectionTitle('Limitaciones', 'Para entrenar seguro'),
             const SizedBox(height: 16),
-            
-            _buildTextField(
-              label: 'Lesiones o Molestias (Opcional)',
-              hint: 'Ej: Dolor lumbar en peso muerto...',
+             _buildTextField(
+              label: 'Lesiones / Molestias (Opcional)',
+              hint: 'Ej: Dolor lumbar, rodilla izquierda...',
               controller: _lesionesController,
-              icon: Icons.healing_outlined,
-              maxLines: 3,
+              icon: Icons.local_hospital_outlined,
               isOptional: true,
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              label: 'Ejercicios Odiados (Opcional)',
-              hint: 'Ej: Odio los burpees, no quiero correr...',
+             _buildTextField(
+              label: 'Ejercicios que odias (Opcional)',
+              hint: 'Ej: Burpees, Dominadas...',
               controller: _ejerciciosOdiadosController,
-              icon: Icons.thumb_down_outlined,
-              maxLines: 3,
+              icon: Icons.thumb_down_alt_outlined,
               isOptional: true,
             ),
-            
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: (_isLoading) ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+
+            const SizedBox(height: 40),
+            SizedBox(
+              height: 55,
+              child: ElevatedButton(
+                onPressed: _submit,
+                // Estilo por defecto del tema
+                child: const Text('Solicitar Rutina', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      'Enviar Solicitud de Rutina',
-                      style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  // --- Widgets constructores (Copiados de Dieta para consistencia) ---
-
   Widget _buildSectionTitle(String title, String subtitle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _colorPrimario),
-        ),
-        Text(
-          subtitle,
-          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-        ),
+        Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+        Text(subtitle, style: const TextStyle(fontSize: 14, color: Colors.grey)),
       ],
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String label,
+    required String? value,
+    required List<DropdownMenuItem<String>> items,
+    required IconData icon,
+    required Function(String?) onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      ),
+      validator: (val) => val == null ? 'Requerido' : null,
     );
   }
 
@@ -371,106 +399,34 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
       decoration: InputDecoration(
         labelText: '$label ${isOptional ? '(Opcional)' : ''}',
         hintText: hint,
-        prefixIcon: Icon(icon, color: _colorIconos),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-        filled: true,
-        fillColor: _colorCampos,
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
       ),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
       validator: (value) {
-        if (isOptional) return null; 
+        if (isOptional) return null;
         if (value == null || value.trim().isEmpty) return 'Requerido';
-        if (keyboardType.toString().contains('number')) {
-           if (double.tryParse(value) == null || double.parse(value) <= 0) {
-             return 'Valor > 0';
-           }
-        }
         return null;
       },
     );
   }
 
-  Widget _buildDropdownField({
-    required String label,
-    required String? value,
-    required List<DropdownMenuItem<String>> items,
-    required IconData icon,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      items: items,
-      onChanged: onChanged,
-      isExpanded: true, 
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: _colorIconos),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-        filled: true,
-        fillColor: _colorCampos,
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) return 'Requerido';
-        return null;
-      },
-    );
-  }
-
-  // --- Widget para los Checkboxes de Equipamiento ---
-  Widget _buildEquipamientoCheckboxes() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Equipamiento Disponible (multiselección)', style: _labelStyle.copyWith(color: Colors.black87)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _colorCampos,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey[400]!)
-          ),
-          child: Wrap(
-            spacing: 8.0,
-            runSpacing: 4.0,
-            children: _equipamientoOpciones.entries.map((entry) {
-              final key = entry.key;
-              final label = entry.value;
-              final isSelected = _equipamientoSeleccionado.contains(key);
-              return FilterChip(
-                label: Text(label),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _equipamientoSeleccionado.add(key);
-                    } else {
-                      _equipamientoSeleccionado.remove(key);
-                    }
-                  });
-                },
-                selectedColor: _colorSecundario.withOpacity(0.3),
-                checkmarkColor: _colorSecundario,
-                showCheckmark: true,
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // (Tu widget _buildInfoCard original)
-  Widget _buildInfoCard(String title, String message, IconData icon, Color color) {
+  Widget _buildInfoCard(BuildContext context, String title, String message, IconData icon, Color color) {
     return Center(
       child: Container(
         margin: const EdgeInsets.all(24),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).shadowColor.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
@@ -478,9 +434,17 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
           children: [
             Icon(icon, size: 60, color: color),
             const SizedBox(height: 20),
-            Text( title, style: TextStyle( fontSize: 22, fontWeight: FontWeight.bold, color: color, ), textAlign: TextAlign.center, ),
+            Text(
+              title,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 12),
-            Text( message, style: const TextStyle(fontSize: 16), textAlign: TextAlign.center, ),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),

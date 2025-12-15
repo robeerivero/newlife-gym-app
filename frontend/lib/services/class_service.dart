@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../config.dart';
 import '../models/clase.dart';
 import '../models/reserva.dart';
+import '../models/usuario.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ClassService {
@@ -53,24 +54,7 @@ class ClassService {
     return [];
   }
 
-  /// Clases próximas para el usuario
-  Future<List<Clase>?> fetchNextClasses() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return null;
 
-    final response = await http.get(
-      Uri.parse('${AppConstants.baseUrl}/api/clases/proximas-clases'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
-      return data.map<Clase>((json) => Clase.fromJson(json)).toList();
-    }
-    return null;
-  }
 
   /// Añade una nueva clase
   Future<bool> addClass(Clase clase) async {
@@ -159,5 +143,26 @@ class ClassService {
       body: json.encode({'idClase': classId}),
     );
     return response.statusCode == 200;
+  }
+  /// Obtiene la lista de usuarios apuntados a una clase específica
+  Future<List<Usuario>> fetchUsuariosPorClase(String classId) async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null) return [];
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConstants.baseUrl}/api/reservas/clase/$classId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = json.decode(response.body);
+        // Mapeamos la respuesta a una lista de objetos Usuario
+        return data.map<Usuario>((json) => Usuario.fromJson(json)).toList();
+      }
+    } catch (e) {
+      print("Error fetching participants: $e");
+    }
+    return [];
   }
 }

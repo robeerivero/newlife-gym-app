@@ -6,7 +6,6 @@ import '../../viewmodels/chatbot_viewmodel.dart';
 
 class ChatBotScreen extends StatefulWidget {
   final String section;
-
   const ChatBotScreen({Key? key, required this.section}) : super(key: key);
 
   @override
@@ -29,50 +28,34 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
   }
 
   @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ChangeNotifierProvider(
       create: (_) => ChatBotViewModel(widget.section),
       child: Consumer<ChatBotViewModel>(
         builder: (context, vm, child) {
-          final isDesktop = MediaQuery.of(context).size.width > 600;
-
           return Scaffold(
-            resizeToAvoidBottomInset: true,
             appBar: AppBar(
-              title: Text(
-                'Asistente de ${widget.section}',
-                style: TextStyle(fontSize: isDesktop ? 18 : 18.sp),
-              ),
-              backgroundColor: const Color(0xFF42A5F5),
+              title: Text('Asistente NewLife - ${widget.section}'),
             ),
-            body: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: EdgeInsets.all(16.w),
-                      itemCount: vm.chatHistory.length,
-                      itemBuilder: (context, index) {
-                        final message = vm.chatHistory[index];
-                        return _buildChatBubble(
-                          message['text'],
-                          timestamp: message['timestamp'],
-                          isBot: message['isBot'],
-                          isDesktop: isDesktop,
-                        );
-                      },
-                    ),
+            body: Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: EdgeInsets.all(16.w),
+                    itemCount: vm.chatHistory.length,
+                    itemBuilder: (context, index) {
+                      final message = vm.chatHistory[index];
+                      return _buildChatBubble(context, message['text'], 
+                          timestamp: message['timestamp'], isBot: message['isBot']);
+                    },
                   ),
-                  _buildInputField(vm, isDesktop),
-                ],
-              ),
+                ),
+                _buildQuickActions(vm),
+                _buildInputField(context, vm),
+              ],
             ),
           );
         },
@@ -80,94 +63,143 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     );
   }
 
-  Widget _buildChatBubble(
-    String text, {
-    required DateTime timestamp,
-    required bool isBot,
-    required bool isDesktop,
-  }) {
-    return Align(
-      alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        margin: EdgeInsets.symmetric(vertical: 6.h),
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: isBot ? Colors.grey[300] : const Color(0xFF42A5F5),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isBot ? Radius.zero : const Radius.circular(16),
-            bottomRight: isBot ? const Radius.circular(16) : Radius.zero,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              text,
-              style: TextStyle(
-                color: isBot ? Colors.black : Colors.white,
-                fontSize: isDesktop ? 16 : 16.sp,
+  Widget _buildQuickActions(ChatBotViewModel vm) {
+    return Container(
+      height: 50.h,
+      margin: EdgeInsets.only(bottom: 8.h),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        itemCount: vm.quickOptions.length,
+        itemBuilder: (context, index) {
+          final option = vm.quickOptions[index];
+          return Padding(
+            padding: EdgeInsets.only(right: 8.w),
+            child: ActionChip(
+              label: Text(option),
+              labelStyle: TextStyle(
+                fontSize: 12.sp, 
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold
               ),
+              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+              onPressed: () {
+                vm.processInput(option, () {
+                  setState(() {});
+                  _scrollToBottom();
+                });
+              },
             ),
-            SizedBox(height: 4.h),
-            Text(
-              DateFormat('HH:mm').format(timestamp),
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: isDesktop ? 12 : 12.sp,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildInputField(ChatBotViewModel vm, bool isDesktop) {
+  Widget _buildChatBubble(BuildContext context, String text,
+      {required DateTime timestamp, required bool isBot}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Padding(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      child: Row(
+        mainAxisAlignment: isBot ? MainAxisAlignment.start : MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (isBot) ...[
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: colorScheme.primary,
+              child: const Icon(Icons.bolt, size: 18, color: Colors.white), 
+            ),
+            SizedBox(width: 8.w),
+          ],
+          Flexible(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: isBot ? Colors.white : colorScheme.secondary,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: isBot ? Radius.zero : const Radius.circular(18),
+                  bottomRight: isBot ? const Radius.circular(18) : Radius.zero,
+                ),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2))
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      color: isBot ? Colors.black87 : Colors.white,
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    DateFormat('HH:mm').format(timestamp),
+                    style: TextStyle(
+                      color: isBot ? Colors.grey[400] : Colors.white70,
+                      fontSize: 10.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (!isBot) SizedBox(width: 8.w),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputField(BuildContext context, ChatBotViewModel vm) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 34.h),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
+      ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: vm.questionController,
               decoration: InputDecoration(
-                hintText: 'Escribe tu pregunta...',
-                hintStyle: TextStyle(fontSize: isDesktop ? 14 : 14.sp),
+                hintText: 'Escribe tu duda...',
+                filled: true,
+                fillColor: colorScheme.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
                 ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 20.w,
-                  vertical: 14.h,
-                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
               ),
-              style: TextStyle(fontSize: isDesktop ? 14 : 14.sp),
-              onSubmitted: (_) {
-                if (vm.questionController.text.trim().isNotEmpty) {
-                  vm.handleUserQuestion(() {
-                    setState(() {});
-                    _scrollToBottom();
-                  });
-                }
-              },
+              onSubmitted: (_) => _sendMessage(vm),
             ),
           ),
           SizedBox(width: 10.w),
-          IconButton(
-            icon: const Icon(Icons.send, color: Color(0xFF42A5F5)),
-            onPressed: () {
-              if (vm.questionController.text.trim().isNotEmpty) {
-                vm.handleUserQuestion(() {
-                  setState(() {});
-                  _scrollToBottom();
-                });
-              }
-            },
+          CircleAvatar(
+            backgroundColor: colorScheme.primary,
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: () => _sendMessage(vm),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _sendMessage(ChatBotViewModel vm) {
+    vm.processInput(vm.questionController.text, () {
+      setState(() {});
+      _scrollToBottom();
+    });
   }
 }

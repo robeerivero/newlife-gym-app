@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:ui'; // Para ImageFilter
-import 'package:google_fonts/google_fonts.dart'; // <-- IMPORTANTE
+import 'package:google_fonts/google_fonts.dart';
 import '../../viewmodels/login_viewmodel.dart';
 import '../chatbot/chatbot_screen.dart';
 
@@ -17,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  // bool _showForm = false; // <-- Eliminado, el formulario siempre se muestra
   bool _obscurePassword = true;
 
   @override
@@ -35,11 +34,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Capturamos el tema actual
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final secondaryColor = theme.colorScheme.secondary;
+
     return ChangeNotifierProvider(
       create: (_) => LoginViewModel(),
       child: Consumer<LoginViewModel>(
         builder: (context, vm, child) {
-          // Navegación automática si login correcto
+          // Navegación automática si login correcto (Lógica intacta)
           if (vm.loginSuccess && vm.role != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               switch (vm.role) {
@@ -59,13 +63,16 @@ class _LoginScreenState extends State<LoginScreen> {
             body: ScreenUtilInit(
               designSize: const Size(360, 690),
               builder: (context, child) {
-                // El contenedor con gradiente ahora es el fondo principal
                 return Container(
                   width: double.infinity,
                   height: double.infinity,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF90CAF9), Color(0xFF42A5F5)],
+                      // CAMBIO: Gradiente basado en el color Primario (Teal)
+                      colors: [
+                        primaryColor.withOpacity(0.6), // Teal más claro arriba
+                        primaryColor,                  // Teal original abajo
+                      ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -79,8 +86,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(height: 50.h),
                           // 1. El Logo
                           Image.asset(
-                            'assets/images/NewLifeLogo.png',
-                            height: 200.h, // Ajusta el tamaño si es necesario
+                            'assets/images/NewLifeLogo2026.png',
+                            height: 200.h,
                             width: 200.w,
                             fit: BoxFit.contain,
                           ),
@@ -99,13 +106,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.black.withOpacity(0.3),
                                   offset: const Offset(2, 2),
                                 )
-                              ]
+                              ],
                             ),
                           ),
                           SizedBox(height: 30.h),
 
-                          // 3. El Formulario (efecto "glass")
-                          _buildGlassForm(context, vm),
+                          // 3. El Formulario
+                          _buildGlassForm(context, vm, primaryColor, secondaryColor),
                           
                           SizedBox(height: 20.h),
 
@@ -131,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Widget para el formulario con efecto "glass"
-  Widget _buildGlassForm(BuildContext context, LoginViewModel vm) {
+  Widget _buildGlassForm(BuildContext context, LoginViewModel vm, Color primary, Color secondary) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -139,9 +146,10 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Container(
           padding: EdgeInsets.all(20.w),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.77),
+            color: Colors.white.withOpacity(0.85), // Un poco más opaco para legibilidad
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF42A5F5), width: 2),
+            // CAMBIO: Borde color Primario (Teal)
+            border: Border.all(color: primary.withOpacity(0.5), width: 2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.10),
@@ -157,16 +165,25 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 TextFormField(
                   controller: _emailController,
-                  style: GoogleFonts.poppins(), // Fuente aplicada
+                  style: GoogleFonts.poppins(),
                   decoration: InputDecoration(
                     labelText: 'Correo electrónico',
-                    labelStyle: GoogleFonts.poppins(), // Fuente aplicada
-                    prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF42A5F5)),
+                    labelStyle: GoogleFonts.poppins(),
+                    // CAMBIO: Icono color Secundario (Naranja)
+                    prefixIcon: Icon(Icons.email_outlined, color: secondary),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: primary, width: 2),
+                    ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.8),
+                    fillColor: Colors.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -182,18 +199,30 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
-                  style: GoogleFonts.poppins(), // Fuente aplicada
+                  style: GoogleFonts.poppins(),
                   decoration: InputDecoration(
                     labelText: 'Contraseña',
-                    labelStyle: GoogleFonts.poppins(), // Fuente aplicada
-                    prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF42A5F5)),
+                    labelStyle: GoogleFonts.poppins(),
+                    // CAMBIO: Icono color Secundario
+                    prefixIcon: Icon(Icons.lock_outline, color: secondary),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: primary, width: 2),
+                    ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.8),
+                    fillColor: Colors.white,
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
                       onPressed: () => setState(() {
                         _obscurePassword = !_obscurePassword;
                       }),
@@ -208,12 +237,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: 20.h),
                 if (vm.isLoading)
-                  const CircularProgressIndicator()
+                  CircularProgressIndicator(color: secondary)
                 else
                   ElevatedButton(
                     onPressed: () => _handleLogin(vm),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF42A5F5),
+                      // CAMBIO: Botón color Secundario (Naranja) para llamar a la acción
+                      backgroundColor: secondary,
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 50.w, vertical: 12.h),
                       shape: RoundedRectangleBorder(
@@ -223,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Text(
                       'Iniciar Sesión',
-                      style: GoogleFonts.poppins( // Fuente aplicada
+                      style: GoogleFonts.poppins(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
                       ),
@@ -233,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(height: 10.h),
                   Text(
                     vm.errorMessage!,
-                    style: GoogleFonts.poppins(color: Colors.red[700], fontWeight: FontWeight.w500),
+                    style: GoogleFonts.poppins(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w500),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -245,7 +275,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper para los botones de info (ChatBot)
   Widget _buildInfoButton(BuildContext context, String text, String section) {
     return TextButton(
       onPressed: () => Navigator.push(
