@@ -7,6 +7,14 @@ android/key.properties
 # Ignora configuraciones locales del SDK de Android
 android/local.properties
 
+# Firebase - Rutas completas
+frontend/android/app/google-services.json
+frontend/ios/Runner/GoogleService-Info.plist
+
+# Por seguridad, también deja las cortas por si acaso:
+google-services.json
+GoogleService-Info.plist
+
 # --- BACKEND (Node.js) ---
 backend/.env
 backend/node_modules/
