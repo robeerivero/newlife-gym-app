@@ -34,7 +34,7 @@ const app = express();
 // 🔔 1. NOTIFICACIÓN MOTIVADORA (Cada mañana a las 08:00)
 // ==========================================
 const frasesMotivadoras = require('./utils/frasesMotivadoras');
-cron.schedule('1-59/2 * * * *', () => { // Se ejecuta a las 08:00 AM
+cron.schedule('0 8 * * *', () => { // Se ejecuta a las 08:00 AM
   console.log('--- ☀️ Enviando motivación matutina ---');
   // Verificamos que frasesMotivadoras tenga contenido para evitar error
   if (frasesMotivadoras && frasesMotivadoras.length > 0) {
