@@ -72,21 +72,31 @@ const enviarNotificacion = async (usuarioId, titulo, cuerpo, datosExtra = {}) =>
  */
 const enviarNotificacionMasiva = async (titulo, cuerpo) => {
     try {
-        if (admin.apps.length === 0) return;
+        if (admin.apps.length === 0) {
+            console.log('⚠️ Firebase no inicializado, saltando notificación.');
+            return;
+        }
 
         const usuarios = await Usuario.find({ fcmTokens: { $exists: true, $not: { $size: 0 } } });
+
+        // 👇 LOG NUEVO: Para saber cuántos usuarios encontró
+        console.log(`🔎 [NOTIFICADOR] Buscando usuarios... Encontrados: ${usuarios.length} usuarios con tokens.`);
+
         const todosLosTokens = usuarios.flatMap(u => u.fcmTokens);
 
-        if (todosLosTokens.length === 0) return;
+        if (todosLosTokens.length === 0) {
+            // 👇 LOG NUEVO: Aviso explícito
+            console.log('⚠️ [NOTIFICADOR] No se envió nada porque no hay tokens registrados en la DB.');
+            return;
+        }
 
-        // Firebase permite enviar hasta 500 tokens por lote.
         const message = {
             notification: { title: titulo, body: cuerpo },
             tokens: todosLosTokens
         };
 
-        await admin.messaging().sendMulticast(message);
-        console.log(`📢 Motivación enviada a ${todosLosTokens.length} dispositivos.`);
+        const response = await admin.messaging().sendMulticast(message);
+        console.log(`📢 Motivación enviada a ${todosLosTokens.length} dispositivos. Éxitos: ${response.successCount}, Fallos: ${response.failureCount}`);
 
     } catch (error) {
         console.error('Error en masiva:', error);

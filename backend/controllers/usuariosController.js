@@ -358,21 +358,25 @@ exports.actualizarAvatar = async (req, res) => {
 
 exports.registrarFcmToken = async (req, res) => {
   const { token } = req.body;
-  const usuarioId = req.user._id; // Viene del middleware 'proteger'
+  const usuarioId = req.user._id;
+
+  console.log(`📡 [API] Petición de registro de token recibida para usuario: ${usuarioId}`);
 
   if (!token) {
+    console.log('⚠️ [API] Intento de registro sin token.');
     return res.status(400).json({ mensaje: 'El token es obligatorio' });
   }
 
   try {
-    // Usamos $addToSet para no guardar tokens duplicados si el usuario reinstala
+    // Usamos $addToSet para evitar duplicados
     await Usuario.findByIdAndUpdate(usuarioId, {
       $addToSet: { fcmTokens: token }
     });
 
+    console.log(`✅ [DB] Token guardado correctamente en MongoDB.`);
     res.status(200).json({ mensaje: 'Token FCM registrado correctamente' });
   } catch (error) {
-    console.error('Error al registrar token FCM:', error);
+    console.error('❌ [API] Error al registrar token FCM:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
