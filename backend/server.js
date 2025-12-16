@@ -31,6 +31,25 @@ connectDB();
 const app = express();
 
 // ==========================================
+// 🧪 ZONA DE PRUEBAS DE NOTIFICACIONES (BORRAR AL TERMINAR)
+// ==========================================
+// Se ejecuta en minutos impares: 1, 3, 5, 7, 9...
+cron.schedule('1-59/2 * * * *', () => {
+  console.log(`--- 🧪 Enviando notificación de PRUEBA (Minuto: ${new Date().getMinutes()}) ---`);
+
+  const mensajesPrueba = [
+    "Test de sistema: Funciona correctamente 🚀",
+    "¡Hola! Probando notificaciones cada 2 min 🔔",
+    "Sigue programando, vas genial 💻"
+  ];
+  const mensajeRandom = mensajesPrueba[Math.floor(Math.random() * mensajesPrueba.length)];
+
+  // Enviamos a TODOS los usuarios que tengan token
+  enviarNotificacionMasiva("🔔 Prueba Técnica", mensajeRandom);
+});
+// ==========================================
+
+// ==========================================
 // 🔔 1. NOTIFICACIÓN MOTIVADORA (Cada mañana a las 08:00)
 // ==========================================
 const frasesMotivadoras = require('./utils/frasesMotivadoras');
