@@ -2,7 +2,7 @@ const Usuario = require('../models/Usuario');
 const Salud = require('../models/Salud');
 const Reserva = require('../models/Reserva');
 const bcrypt = require('bcryptjs'); // Necesario para actualizarDatosAdmin
-
+const admin = require('firebase-admin');
 // --- RANKING MENSUAL ---
 exports.rankingMensual = async (req, res) => {
   try {
