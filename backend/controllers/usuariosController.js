@@ -475,3 +475,51 @@ exports.cambiarContrasenaAdmin = async (req, res) => {
     res.status(500).json({ mensaje: 'Error del servidor.', error: error.message });
   }
 };
+
+exports.solicitarServicioPremium = async (req, res) => {
+  const usuarioId = req.user._id;
+
+  console.log(`📡 [PREMIUM] Usuario ${usuarioId} solicita servicio premium.`);
+
+  try {
+    // 1. Marcar en la base de datos que el usuario quiere premium
+    const usuario = await Usuario.findByIdAndUpdate(
+      usuarioId,
+      { solicitudPremium: new Date() },
+      { new: true }
+    );
+
+    // 2. Buscar a TODOS los administradores
+    const administradores = await Usuario.find({ rol: 'admin' });
+
+    // Recopilar tokens de todos los admins
+    const adminTokens = administradores.flatMap(admin => admin.fcmTokens);
+
+    if (adminTokens.length > 0) {
+      // 3. Enviar Notificación Push a los Admins
+      const message = {
+        notification: {
+          title: "🚀 Nueva Solicitud Premium",
+          body: `${usuario.nombre} ha solicitado información sobre el servicio Premium.`
+        },
+        tokens: adminTokens
+      };
+
+      try {
+        // Usamos sendEachForMulticast como corregimos anteriormente
+        await admin.messaging().sendEachForMulticast(message);
+        console.log(`🔔 [PREMIUM] Notificación enviada a ${adminTokens.length} admins.`);
+      } catch (notifError) {
+        console.error("❌ Error enviando notificación al admin:", notifError);
+      }
+    } else {
+      console.log("⚠️ [PREMIUM] No se encontraron tokens de Admin para notificar.");
+    }
+
+    res.status(200).json({ mensaje: 'Solicitud enviada correctamente. Te contactaremos pronto.' });
+
+  } catch (error) {
+    console.error("Error al procesar la solicitud premium:", error);
+    res.status(500).json({ mensaje: 'Error al procesar la solicitud' });
+  }
+};

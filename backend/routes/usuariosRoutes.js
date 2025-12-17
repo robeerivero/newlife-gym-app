@@ -17,6 +17,7 @@ const {
   actualizarDatosMetabolicos,
   actualizarDatosAdmin,
   registrarFcmToken,
+  solicitarServicioPremium,
 } = require('../controllers/usuariosController');
 
 const router = express.Router();
@@ -34,7 +35,7 @@ router.put('/metabolicos', proteger, actualizarDatosMetabolicos);
 router.put('/:idUsuario/admin-contrasena', proteger, esAdministrador, cambiarContrasenaAdmin);
 
 router.post('/register-fcm-token', proteger, registrarFcmToken);
-
+router.post('/solicitar-premium', proteger, solicitarServicioPremium);
 // RUTAS DE ADMINISTRACIÓN DE USUARIOS (SOLO ADMINISTRADORES)
 router.get('/grupos', proteger, esAdministrador, obtenerGrupos);
 router.get('/', proteger, esAdministrador, obtenerUsuarios);

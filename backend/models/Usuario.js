@@ -22,6 +22,10 @@ const esquemaUsuario = new mongoose.Schema({
   },
 
   esPremium: { type: Boolean, default: false },
+  solicitudPremium: {
+    type: Date,
+    default: null
+  },
   cancelaciones: { type: Number, default: 0 },
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
