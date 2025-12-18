@@ -523,3 +523,25 @@ exports.solicitarServicioPremium = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al procesar la solicitud' });
   }
 };
+
+exports.limpiarSolicitudPremium = async (req, res) => {
+  const { idUsuario } = req.params;
+
+  try {
+    const usuario = await Usuario.findByIdAndUpdate(
+      idUsuario,
+      { $unset: { solicitudPremium: "" } }, // $unset borra el campo completamente
+      { new: true }
+    );
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    res.json({ mensaje: 'Solicitud limpiada correctamente', usuario });
+
+  } catch (error) {
+    console.error('Error al limpiar solicitud:', error);
+    res.status(500).json({ mensaje: 'Error del servidor' });
+  }
+};
