@@ -93,6 +93,51 @@ class UserService {
     return response.statusCode == 200;
   }
 
+  Future<bool> solicitarPremium() async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse('$_apiUrl/solicitar-premium'); // /api/usuarios/solicitar-premium
+
+    try {
+      final response = await http.post(uri, headers: headers);
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('Error solicitando premium: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Excepción solicitando premium: $e');
+      return false;
+    }
+  }
+
+  Future<bool> limpiarSolicitudPremium(String idUsuario) async {
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      
+      // 👇 Confirmamos que usa PUT y la URL correcta '/limpiar-solicitud/'
+      final response = await http.put(
+        Uri.parse('${AppConstants.baseUrl}/api/usuarios/limpiar-solicitud-premium/$idUsuario'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        // Agregamos un print para debug
+        print("Error backend limpiar solicitud: ${response.statusCode} - ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Error limpiando solicitud (excepción): $e");
+      return false;
+    }
+  }
+
 
   // --- FUNCIONES DE DATOS (RANKING, LOGROS, ETC) ---
 

@@ -14,6 +14,9 @@ class ProfileViewModel extends ChangeNotifier {
   bool loading = true;
   String? error;
 
+  // 👇 AÑADIDO: Getter de compatibilidad (esto arregla el error en el botón)
+  bool get isLoading => loading; 
+
   // ---- CARGAR PERFIL ----
   Future<void> fetchProfile() async {
     loading = true;
@@ -29,14 +32,10 @@ class ProfileViewModel extends ChangeNotifier {
         final data = json.decode(response.body);
         usuario = Usuario.fromJson(data);
         
-        // Obtenemos el avatar (puede ser String JSON o Map)
         avatarJson = data['avatar'] is String
             ? data['avatar']
             : jsonEncode(data['avatar'] ?? {});
             
-        // IMPORTANTE: Sincronizar editor local
-        // Si lo que viene de la BD es un JSON de opciones (ej. {top:1, eye:3}),
-        // lo guardamos en las preferencias para que FluttermojiController lo lea.
         if (avatarJson != null && avatarJson!.isNotEmpty && avatarJson!.contains('{')) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('fluttermojiSelectedOptions', avatarJson!);
@@ -58,24 +57,18 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
     final token = await _storage.read(key: 'jwt_token');
     
-    // Aquí 'avatarJsonNew' es el JSON de opciones {top:1...}
-    
     final response = await http.put(
       Uri.parse('${AppConstants.baseUrl}/api/usuarios/avatar'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      // Enviamos el objeto JSON tal cual
       body: jsonEncode({'avatar': avatarJsonNew}),
     );
 
     if (response.statusCode == 200) {
       avatarJson = avatarJsonNew;
-      // No necesitamos escribir en SharedPreferences aquí, 
-      // porque el dato 'avatarJsonNew' YA viene de SharedPreferences (leído en la vista).
-      
-      await fetchProfile(); // Refrescar para asegurar sincronía
+      await fetchProfile(); 
       loading = false;
       notifyListeners();
       return true;
@@ -87,9 +80,8 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  // ---- EDITAR PERFIL (Texto) ----
+  // ---- EDITAR PERFIL ----
   Future<bool> editarPerfil({required String nombre, required String correo}) async {
-    // ... (Mismo código que tenías) ...
     loading = true;
     notifyListeners();
     final token = await _storage.read(key: 'jwt_token');
@@ -111,6 +103,37 @@ class ProfileViewModel extends ChangeNotifier {
       loading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  // ---- SOLICITAR PREMIUM (AÑADIDO) ----
+  Future<bool> solicitarPremium() async {
+    loading = true;
+    notifyListeners(); 
+
+    try {
+      final token = await _storage.read(key: 'jwt_token');
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/usuarios/solicitar-premium'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        await fetchProfile(); 
+        return true;
+      } else {
+        error = 'Error al solicitar premium: ${response.body}';
+        return false;
+      }
+    } catch (e) {
+      error = 'Error de conexión';
+      return false;
+    } finally {
+      loading = false;
+      notifyListeners();
     }
   }
 

@@ -24,6 +24,7 @@ class Usuario {
 
   // Campos Premium
   final bool esPremium;
+  final DateTime? solicitudPremium;
   final bool incluyePlanDieta;
   final bool incluyePlanEntrenamiento;
   
@@ -76,6 +77,7 @@ class Usuario {
     required this.kcalObjetivo,
     // Premium
     required this.esPremium,
+    required this.solicitudPremium,
     required this.incluyePlanDieta,
     required this.incluyePlanEntrenamiento,
     // Dieta
@@ -144,6 +146,9 @@ class Usuario {
       
       // Premium
       esPremium: json['esPremium'] ?? false,
+      solicitudPremium: json['solicitudPremium'] != null 
+          ? DateTime.tryParse(json['solicitudPremium'].toString()) 
+          : null,
       incluyePlanDieta: json['incluyePlanDieta'] ?? false,
       incluyePlanEntrenamiento: json['incluyePlanEntrenamiento'] ?? false,
       

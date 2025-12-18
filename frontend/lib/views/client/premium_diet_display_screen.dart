@@ -8,6 +8,9 @@ import '../../models/plan_dieta.dart';
 import '../../models/usuario.dart';
 import 'premium_dieta_setup_screen.dart';
 
+// 👇 1. Importamos el widget del botón
+import '../../widgets/boton_solicitud_premium.dart';
+
 bool isSameDay(DateTime? a, DateTime? b) {
   if (a == null || b == null) return false;
   return a.year == b.year && a.month == b.month && a.day == b.day;
@@ -25,16 +28,13 @@ class PremiumDietDisplayScreen extends StatelessWidget {
           final colorScheme = Theme.of(context).colorScheme;
           
           return Scaffold(
-            // backgroundColor: eliminado (Theme default)
             appBar: AppBar(
-              // backgroundColor: eliminado (Theme default)
               title: Text(
                 'Dieta - ${DateFormat('EEEE d', 'es_ES').format(vm.fechaSeleccionada)}',
                 style: const TextStyle(fontWeight: FontWeight.bold)
               ),
               elevation: 0,
               
-              // --- Botón Lista de Compra ---
               actions: [
                 if (vm.estadoPlan == 'aprobado' && vm.tieneListaCompra)
                   IconButton(
@@ -82,7 +82,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
         return _buildStatusBanner(
           context: context,
           icon: Icons.pending_actions,
-          color: Colors.orange, // Semántico: Pendiente = Naranja
+          color: Colors.orange,
           titulo: 'Tu dieta está en revisión',
           subtitulo: 'Tu plan está siendo preparado por el nutricionista. ¡Vuelve pronto!',
         );
@@ -108,16 +108,12 @@ class PremiumDietDisplayScreen extends StatelessWidget {
         focusedDay: vm.focusedDay,
         selectedDayPredicate: (day) => isSameDay(vm.fechaSeleccionada, day),
         
-        // --- CAMBIO CLAVE 1: Usar variable del ViewModel ---
         calendarFormat: vm.calendarFormat, 
-        
-        // --- CAMBIO CLAVE 2: Configurar formatos disponibles ---
         availableCalendarFormats: const {
-          CalendarFormat.month: 'Mes',    // Muestra "Mes"
-          CalendarFormat.week: 'Semana',  // Muestra "Semana"
+          CalendarFormat.month: 'Mes',
+          CalendarFormat.week: 'Semana',
         },
 
-        // --- CAMBIO CLAVE 3: Manejar el cambio ---
         onFormatChanged: (format) {
           vm.onFormatChanged(format);
         },
@@ -129,13 +125,10 @@ class PremiumDietDisplayScreen extends StatelessWidget {
           vm.setFocusedDay(focusedDay);
         },
         
-        headerStyle: HeaderStyle( // Quitamos 'const' porque colorScheme.onPrimary no es constante
+        headerStyle: HeaderStyle( 
           titleCentered: true,
-          // Habilitamos el botón de formato (antes estaba false)
           formatButtonVisible: true, 
           titleTextStyle: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-          
-          // Estilo del botón "Mes/Semana" (copiado de class_screen para consistencia)
           formatButtonTextStyle: TextStyle(color: colorScheme.onPrimary, fontSize: 14),
           formatButtonDecoration: BoxDecoration(
             color: colorScheme.primary, 
@@ -154,7 +147,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
             color: colorScheme.primary.withOpacity(0.5),
             shape: BoxShape.circle,
           ),
-          outsideDaysVisible: false,
         ),
       ),
     );
@@ -171,7 +163,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
             '${diaDieta.nombreDia} (~${diaDieta.kcalDiaAprox} Kcal)',
              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                fontWeight: FontWeight.bold, 
-               color: colorScheme.primary // Azul reemplazado por Primary
+               color: colorScheme.primary
              ),
             textAlign: TextAlign.center,
           ),
@@ -181,6 +173,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     );
   }
 
+  // --- ESTA ES LA VERSIÓN ANTIGUA QUE FUNCIONA CON TU MODELO ---
   Widget _buildMealCard(BuildContext context, ComidaDia comida) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -195,7 +188,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               comida.nombreComida,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600, 
-                color: Theme.of(context).colorScheme.primary // Azul reemplazado por Primary
+                color: Theme.of(context).colorScheme.primary
               ),
             ),
             const Divider(height: 15),
@@ -228,7 +221,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
               const SizedBox(width: 8),
               Chip(
                 label: Text('${plato.kcalAprox} Kcal'),
-                // Naranja/Amber adaptado al theme Secondary
                 backgroundColor: colorScheme.secondaryContainer,
                 labelStyle: TextStyle(fontSize: 12, color: colorScheme.onSecondaryContainer),
                 visualDensity: VisualDensity.compact,
@@ -236,6 +228,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
+          // Aquí tu modelo antiguo SI tenía ingredientes y receta
           _buildDetailRow(context, Icons.list_alt_outlined, 'Ingredientes:', plato.ingredientes),
           _buildDetailRow(context, Icons.menu_book_outlined, 'Receta:', plato.receta),
         ],
@@ -260,8 +253,6 @@ class PremiumDietDisplayScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context, DateTime fecha, Usuario? usuario) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
     // 1. Si NO es premium
     if (usuario == null || !usuario.esPremium) {
       return const _PremiumUpsellWidget();
@@ -294,47 +285,44 @@ class PremiumDietDisplayScreen extends StatelessWidget {
       );
     }
     
-    // 3. Si ES premium y SÍ incluye dieta (pero no hay plan o es día de descanso)
-    if (usuario.esPremium && usuario.incluyePlanDieta) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.no_food_outlined, size: 60, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Sin Plan de Dieta',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+    // 3. Si ES premium y SÍ incluye dieta
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.no_food_outlined, size: 60, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Sin Plan de Dieta',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Puede ser un día de descanso, aún no has configurado tus preferencias o tu plan no está aprobado.',
+               style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+              TextButton.icon(
+                icon: const Icon(Icons.settings_outlined),
+                label: const Text('Configurar mis preferencias'),
+                onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumDietaSetupScreen(usuario: usuario)))
+                        .then((result) {
+                          if (result == true) {
+                            Provider.of<PremiumDietDisplayViewModel>(context, listen: false).refreshData();
+                          }
+                        });
+                },
+                style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Puede ser un día de descanso, aún no has configurado tus preferencias o tu plan no está aprobado.',
-                 style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-                TextButton.icon(
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('Configurar mis preferencias'),
-                  onPressed: () {
-                     Navigator.push(context, MaterialPageRoute(builder: (_) => PremiumDietaSetupScreen(usuario: usuario)))
-                         .then((result) {
-                           if (result == true) {
-                             Provider.of<PremiumDietDisplayViewModel>(context, listen: false).refreshData();
-                           }
-                         });
-                  },
-                  style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
-                ),
-            ],
-          ),
+          ],
         ),
-      );
-    }
-    return const Center(child: Text('Error al cargar estado.'));
+      ),
+    );
   }
 
   Widget _buildStatusBanner({
@@ -344,25 +332,21 @@ class PremiumDietDisplayScreen extends StatelessWidget {
     required String titulo,
     required String subtitulo,
   }) {
-    // Nota: Mantenemos el color específico pasado por argumento (ej: Naranja de alerta)
-    // para estados semánticos, pero el texto usa el theme.
     return Center(
-      child: Container(
-        padding: const EdgeInsets.all(32),
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.1), blurRadius: 10, spreadRadius: 2)],
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 60, color: color),
+            Icon(icon, size: 80, color: color.withOpacity(0.5)),
+            const SizedBox(height: 24),
+            Text(titulo, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: color), textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            Text(titulo, style: Theme.of(context).textTheme.headlineSmall, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
             Text(subtitulo, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+            const SizedBox(height: 32),
+            
+            // 👇 2. Botón añadido aquí
+            const BotonSolicitudPremium(),
           ],
         ),
       ),
@@ -370,6 +354,7 @@ class PremiumDietDisplayScreen extends StatelessWidget {
   }
 }
 
+// Widget auxiliar para mostrar el mensaje de venta (Upsell)
 class _PremiumUpsellWidget extends StatelessWidget {
   const _PremiumUpsellWidget({Key? key}) : super(key: key);
 
@@ -377,7 +362,6 @@ class _PremiumUpsellWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     
-    // Adaptamos el estilo "Amber" al estilo "Secondary" (Naranja) del tema
     return Container(
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
@@ -395,8 +379,8 @@ class _PremiumUpsellWidget extends StatelessWidget {
             Text(
               '✨ Desbloquea tu Plan de Dieta ✨',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                       fontWeight: FontWeight.bold, color: colorScheme.secondary, fontSize: 22
-                     ),
+                        fontWeight: FontWeight.bold, color: colorScheme.secondary, fontSize: 22
+                      ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -406,19 +390,9 @@ class _PremiumUpsellWidget extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: Icon(Icons.star, color: colorScheme.onSecondary),
-              label: Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSecondary)),
-              onPressed: () {
-                // TODO: Navegar a la pantalla de suscripción premium
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.secondary,
-                foregroundColor: colorScheme.onSecondary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-            ),
+            
+            // 👇 3. Botón añadido aquí
+            const BotonSolicitudPremium(),
           ],
         ),
       ),
@@ -478,7 +452,7 @@ void _mostrarListaCompra(BuildContext context, Map<String, dynamic> listaCompra)
                               categoria,
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: colorScheme.primary, // Indigo -> Primary
+                                    color: colorScheme.primary, 
                                   ),
                             ),
                             const Divider(thickness: 1.5),

@@ -5,11 +5,12 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart'; 
 import '../../viewmodels/class_viewmodel.dart'; 
 import '../../models/reserva.dart';
-import '../../models/clase.dart'; 
-import '../../models/plan_entrenamiento.dart';
 import '../../models/usuario.dart'; // Importar modelo Usuario
 import '../../services/class_service.dart'; // Importar servicio
 import '../../fluttermoji/fluttermojiCircleAvatar.dart'; // Tu avatar local
+
+// 👇 IMPORTANTE: Importamos el widget del botón
+import '../../widgets/boton_solicitud_premium.dart';
 
 import 'qr_scan_screen.dart';
 import 'reserve_class_screen.dart';
@@ -375,18 +376,9 @@ class ClassScreen extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            icon: Icon(Icons.star, color: colorScheme.onSecondary),
-            label: Text('Hazte Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSecondary)),
-            onPressed: () {
-              // TODO: Navegar a la pantalla de suscripción premium
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.secondary, 
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-            ),
-          ),
+          
+          // 🔥 AQUÍ ESTÁ EL CAMBIO: Usamos el BotonSolicitudPremium en lugar del botón dummy
+          const BotonSolicitudPremium(),
         ],
       ),
     ),

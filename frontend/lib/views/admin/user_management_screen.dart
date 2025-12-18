@@ -1,6 +1,7 @@
 // screens/admin/user_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Necesario para formatear fechas
 import '../../viewmodels/user_management_viewmodel.dart'; 
 import '../../models/usuario.dart';
 
@@ -18,7 +19,6 @@ class UserManagementScreen extends StatelessWidget {
 
 class _UserManagementBody extends StatelessWidget {
   final List<String> _roles = ['admin', 'cliente', 'online'];
-  // Opciones para el diálogo de añadir (simplificado)
   final List<String> _tiposDeClasesDefault = ['funcional', 'pilates', 'zumba'];
 
   @override
@@ -29,7 +29,6 @@ class _UserManagementBody extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestión de Usuarios'),
-        // backgroundColor eliminado, lo maneja el tema (Teal/Primary)
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -42,18 +41,17 @@ class _UserManagementBody extends StatelessWidget {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: vm.grupoSeleccionado,
-                // Usamos onPrimary para asegurar que se vea bien sobre el color del AppBar
                 icon: Icon(Icons.filter_list, color: colorScheme.onPrimary),
-                dropdownColor: colorScheme.primaryContainer, // O el color que prefieras del tema
+                dropdownColor: colorScheme.primaryContainer,
                 style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 16),
                 items: vm.gruposDisponibles.map((String grupo) {
                   return DropdownMenuItem<String>(
                     value: grupo,
-                    child: Text(grupo, style: TextStyle(color: colorScheme.onSurface)),
+                    child: Text(grupo),
                   );
                 }).toList(),
                 onChanged: vm.loading ? null : (String? nuevoGrupo) {
-                    vm.setGrupoSeleccionado(nuevoGrupo); // Actualiza el filtro
+                    vm.setGrupoSeleccionado(nuevoGrupo);
                 },
               ),
             ),
@@ -63,7 +61,6 @@ class _UserManagementBody extends StatelessWidget {
       
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddUserDialog(context, vm),
-        // backgroundColor eliminado, usa el color Secondary/Accent del tema por defecto
         child: const Icon(Icons.add),
       ),
       body: _buildUserList(context, vm),
@@ -90,6 +87,161 @@ class _UserManagementBody extends StatelessWidget {
     );
   }
 
+  // --- TARJETA DE USUARIO MEJORADA ---
+  Widget _buildUserCard(BuildContext context, UserManagementViewModel vm, Usuario user) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    
+    final bool tieneSolicitud = user.solicitudPremium != null;
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      color: tieneSolicitud ? Colors.amber.shade50 : null,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: tieneSolicitud 
+              ? Colors.amber 
+              : (user.haPagado ? Colors.green.shade300 : (user.rol == 'admin' ? Colors.transparent : colorScheme.error)),
+          width: tieneSolicitud ? 2.0 : 1.5,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Reducimos padding para ganar espacio
+        leading: Icon(
+          tieneSolicitud ? Icons.rocket_launch : Icons.circle,
+          size: tieneSolicitud ? 24 : 14, // Icono un poco más pequeño
+          color: tieneSolicitud 
+              ? Colors.amber 
+              : (user.rol == 'admin' ? colorScheme.primary : (user.haPagado ? Colors.green : colorScheme.error)),
+        ),
+        title: Row(
+          children: [
+            // Usamos Flexible para que el texto se corte si es muy largo y no empuje los botones fuera
+            Flexible(
+              child: Text(
+                user.nombre, 
+                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis, // Pone "..." si no cabe
+              ),
+            ),
+            if (tieneSolicitud) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(4)),
+                child: const Text('SOLICITUD', style: TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.bold)),
+              )
+            ]
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${user.nombreGrupo ?? 'Sin Grupo'}  •  ${user.rol}',
+              style: textTheme.bodyMedium?.copyWith(
+                fontSize: 12, 
+                color: user.nombreGrupo == null ? textTheme.bodySmall?.color : null
+              ),
+            ),
+            if (tieneSolicitud)
+              Text(
+                'Solicitado: ${DateFormat('dd/MM HH:mm').format(user.solicitudPremium!.toLocal())}',
+                style: TextStyle(color: Colors.amber.shade900, fontSize: 11, fontStyle: FontStyle.italic),
+              )
+          ],
+        ),
+        
+        // 👇 AQUÍ ESTÁ EL CAMBIO CLAVE PARA EVITAR EL OVERFLOW 👇
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 1. Botón Atender (Solo si hay solicitud) - Prioridad alta
+            if (tieneSolicitud)
+              IconButton(
+                visualDensity: VisualDensity.compact, // Ocupa menos espacio
+                icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                tooltip: 'Atender/Limpiar Solicitud',
+                onPressed: () => _confirmarAtencionSolicitud(context, vm, user),
+              ),
+
+            // 2. Botón Editar - Prioridad alta
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.edit), 
+              tooltip: 'Editar Datos',
+              onPressed: () => _showEditUserDialog(context, vm, user),
+            ),
+
+            // 3. Menú "Más opciones" (3 puntitos) para lo que no cabe
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Más acciones',
+              onSelected: (value) {
+                if (value == 'password') _showChangePasswordDialog(context, vm, user);
+                if (value == 'delete') _confirmDeleteUser(context, vm, user);
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'password',
+                  child: ListTile(
+                    leading: Icon(Icons.key),
+                    title: Text('Cambiar Contraseña'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete, color: Colors.red),
+                    title: Text('Eliminar Usuario', style: TextStyle(color: Colors.red)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- DIÁLOGO PARA ATENDER SOLICITUD ---
+  void _confirmarAtencionSolicitud(BuildContext context, UserManagementViewModel vm, Usuario user) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Gestionar Solicitud Premium'),
+          content: Text('El usuario ${user.nombre} ha solicitado información sobre Premium.\n\n¿Has contactado con él? Al confirmar, se borrará la marca de solicitud.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text('Sí, Limpiar', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop(); 
+                final success = await vm.limpiarSolicitud(user.id);
+                if (context.mounted) {
+                   if (success) {
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solicitud gestionada.'), backgroundColor: Colors.green));
+                   } else {
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error ?? 'Error'), backgroundColor: Colors.red));
+                   }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- EL RESTO DE MÉTODOS SE MANTIENEN IGUAL (Dialogs de Edit, Add, Password, Delete) ---
   void _showChangePasswordDialog(BuildContext context, UserManagementViewModel vm, Usuario user) {
     final TextEditingController passwordController = TextEditingController();
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -109,17 +261,10 @@ class _UserManagementBody extends StatelessWidget {
                 TextFormField(
                   controller: passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Nueva Contraseña',
-                    // Bordes eliminados, el tema se encarga
-                  ),
+                  decoration: const InputDecoration(labelText: 'Nueva Contraseña'),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'El campo no puede estar vacío';
-                    }
-                    if (value.length < 6) {
-                      return 'Debe tener al menos 6 caracteres';
-                    }
+                    if (value == null || value.isEmpty) return 'El campo no puede estar vacío';
+                    if (value.length < 6) return 'Debe tener al menos 6 caracteres';
                     return null;
                   },
                 ),
@@ -127,30 +272,17 @@ class _UserManagementBody extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
+            TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(dialogContext).pop()),
             ElevatedButton(
               child: const Text('Guardar'),
               onPressed: () async {
                 if (formKey.currentState?.validate() ?? false) {
-                  final newPassword = passwordController.text;
-                  
-                  final success = await vm.cambiarContrasena(user.id, newPassword);
-                  
+                  final success = await vm.cambiarContrasena(user.id, passwordController.text);
                   Navigator.of(dialogContext).pop();
-                  
                   if (context.mounted) {
-                    if (success) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Contraseña de ${user.nombre} actualizada.'), backgroundColor: Colors.green),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: ${vm.error}'), backgroundColor: Theme.of(context).colorScheme.error),
-                      );
-                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(success ? 'Contraseña actualizada.' : 'Error: ${vm.error}'), backgroundColor: success ? Colors.green : Colors.red),
+                    );
                   }
                 }
               },
@@ -158,59 +290,6 @@ class _UserManagementBody extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildUserCard(BuildContext context, UserManagementViewModel vm, Usuario user) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      elevation: 2, // Puedes dejar que el tema maneje la elevación si prefieres quitar esto
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      // Mantenemos la lógica visual del borde por estado de pago, pero adaptamos colores
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: user.haPagado ? Colors.green.shade300 : (user.rol == 'admin' ? Colors.transparent : colorScheme.error),
-          width: 1.5,
-        ),
-        borderRadius: BorderRadius.circular(8), // O usa el default del tema eliminando esta línea
-      ),
-      child: ListTile(
-        leading: Icon(
-          Icons.circle,
-          size: 18,
-          // Indigo reemplazado por Primary (Teal)
-          color: user.rol == 'admin' ? colorScheme.primary : (user.haPagado ? Colors.green : colorScheme.error),
-        ),
-        title: Text(user.nombre, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-        subtitle: Text(
-          '${user.nombreGrupo ?? 'Sin Grupo'}  •  ${user.rol}',
-          style: textTheme.bodyMedium?.copyWith(color: user.nombreGrupo == null ? textTheme.bodySmall?.color : null),
-        ),
-        
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit), // El color lo maneja el tema (normalmente gris o primary)
-              tooltip: 'Editar Datos',
-              onPressed: () => _showEditUserDialog(context, vm, user),
-            ),
-            IconButton(
-              // Usamos Secondary (Orange) para acciones destacadas
-              icon: Icon(Icons.key, color: colorScheme.secondary),
-              tooltip: 'Cambiar Contraseña',
-              onPressed: () => _showChangePasswordDialog(context, vm, user),
-            ),
-            IconButton(
-              icon: Icon(Icons.delete, color: colorScheme.error),
-              tooltip: 'Eliminar',
-              onPressed: () => _confirmDeleteUser(context, vm, user),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -253,12 +332,8 @@ class _UserManagementBody extends StatelessWidget {
                   DropdownButtonFormField<String>(
                     value: _selectedRol,
                     decoration: const InputDecoration(labelText: 'Rol'),
-                    items: _roles.map((String rol) {
-                      return DropdownMenuItem<String>(value: rol, child: Text(rol));
-                    }).toList(),
-                    onChanged: (newValue) {
-                      if (newValue != null) _selectedRol = newValue;
-                    },
+                    items: _roles.map((String rol) => DropdownMenuItem<String>(value: rol, child: Text(rol))).toList(),
+                    onChanged: (newValue) { if (newValue != null) _selectedRol = newValue; },
                   ),
                   TextFormField(
                     controller: _grupoController,
@@ -269,10 +344,7 @@ class _UserManagementBody extends StatelessWidget {
             ),
           ),
           actions: <Widget>[
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(context).pop()),
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
@@ -284,15 +356,11 @@ class _UserManagementBody extends StatelessWidget {
                     tiposDeClases: _tiposDeClasesDefault,
                     nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
                   );
-                  
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                        if (!success && vm.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al crear: ${vm.error!}"), backgroundColor: Theme.of(context).colorScheme.error));
-                        } else if (success) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
-                        }
-                      }
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    if (!success) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${vm.error}"), backgroundColor: Colors.red));
+                    else ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
+                  }
                 }
               },
               child: const Text('Añadir'),
@@ -307,15 +375,12 @@ class _UserManagementBody extends StatelessWidget {
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController(text: user.nombre);
     final _correoController = TextEditingController(text: user.correo);
-    
     final _grupoController = TextEditingController(text: user.nombreGrupo);
     bool _haPagado = user.haPagado;
-    
     String _selectedRol = user.rol;
     bool _esPremium = user.esPremium;
     bool _incluyeDieta = user.incluyePlanDieta;
     bool _incluyeEntreno = user.incluyePlanEntrenamiento;
-    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
@@ -332,112 +397,46 @@ class _UserManagementBody extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       SwitchListTile(
-                        title: Text(
-                          _haPagado ? 'Pagado' : 'Pendiente de Pago',
-                          style: TextStyle(
-                            color: _haPagado ? Colors.green : colorScheme.error, 
-                            fontWeight: FontWeight.bold
-                          ),
-                        ),
+                        title: Text(_haPagado ? 'Pagado' : 'Pendiente de Pago', style: TextStyle(color: _haPagado ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
                         value: _haPagado,
-                        onChanged: (bool value) {
-                          setDialogState(() {
-                            _haPagado = value;
-                          });
-                        },
+                        onChanged: (val) => setDialogState(() => _haPagado = val),
                       ),
-                      TextFormField(
-                        controller: _grupoController,
-                        decoration: const InputDecoration(labelText: 'Nombre de Grupo (Opcional)'),
-                      ),
+                      TextFormField(controller: _grupoController, decoration: const InputDecoration(labelText: 'Grupo')),
                       const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _nombreController,
-                        decoration: const InputDecoration(labelText: 'Nombre'),
-                        validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
-                      ),
-                      TextFormField(
-                        controller: _correoController,
-                        decoration: const InputDecoration(labelText: 'Correo'),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) => (value == null || !value.contains('@')) ? 'Correo inválido' : null,
-                      ),
-
+                      TextFormField(controller: _nombreController, decoration: const InputDecoration(labelText: 'Nombre'), validator: (v) => v!.isEmpty ? 'Requerido' : null),
+                      TextFormField(controller: _correoController, decoration: const InputDecoration(labelText: 'Correo'), keyboardType: TextInputType.emailAddress),
                       DropdownButtonFormField<String>(
                         value: _selectedRol,
                         decoration: const InputDecoration(labelText: 'Rol'),
-                        items: _roles.map((String rol) {
-                          return DropdownMenuItem<String>(value: rol, child: Text(rol));
-                        }).toList(),
-                        onChanged: (newValue) {
-                          if (newValue != null) {
-                            setDialogState(() {
-                              _selectedRol = newValue;
-                            });
-                          }
-                        },
+                        items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        onChanged: (val) => setDialogState(() => _selectedRol = val!),
                       ),
                       const SizedBox(height: 16),
-                      SwitchListTile(
-                        title: const Text('Es Premium'),
-                        value: _esPremium,
-                        onChanged: (bool value) {
-                          setDialogState(() {
-                            _esPremium = value;
-                          });
-                        },
-                      ),
-                      SwitchListTile(
-                        title: const Text('Incluye Dieta'),
-                        value: _incluyeDieta,
-                        onChanged: (bool value) {
-                          setDialogState(() {
-                            _incluyeDieta = value;
-                          });
-                        },
-                      ),
-                      SwitchListTile(
-                        title: const Text('Incluye Entrenamiento'),
-                        value: _incluyeEntreno,
-                        onChanged: (bool value) {
-                          setDialogState(() {
-                            _incluyeEntreno = value;
-                          });
-                        },
-                      ),
+                      SwitchListTile(title: const Text('Es Premium'), value: _esPremium, onChanged: (val) => setDialogState(() => _esPremium = val)),
+                      SwitchListTile(title: const Text('Incluye Dieta'), value: _incluyeDieta, onChanged: (val) => setDialogState(() => _incluyeDieta = val)),
+                      SwitchListTile(title: const Text('Incluye Entrenamiento'), value: _incluyeEntreno, onChanged: (val) => setDialogState(() => _incluyeEntreno = val)),
                     ],
                   ),
                 ),
               ),
               actions: <Widget>[
-                TextButton(
-                  child: const Text('Cancelar'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(context).pop()),
                 ElevatedButton(
+                  child: const Text('Guardar'),
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       final success = await vm.updateUsuario(
-                        id: user.id,
-                        nombre: _nombreController.text,
-                        correo: _correoController.text,
-                        rol: _selectedRol,
-                        nuevaContrasena: null,
-                        esPremium: _esPremium,
-                        incluyePlanDieta: _incluyeDieta,
-                        incluyePlanEntrenamiento: _incluyeEntreno,
-                        haPagado: _haPagado,
-                        nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
+                        id: user.id, nombre: _nombreController.text, correo: _correoController.text,
+                        rol: _selectedRol, nuevaContrasena: null, esPremium: _esPremium,
+                        incluyePlanDieta: _incluyeDieta, incluyePlanEntrenamiento: _incluyeEntreno,
+                        haPagado: _haPagado, nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
                       );
                       if (context.mounted) {
                         Navigator.of(context).pop();
-                        if (!success && vm.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Theme.of(context).colorScheme.error));
-                        }
+                        if (!success) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Colors.red));
                       }
                     }
                   },
-                  child: const Text('Guardar'),
                 ),
               ],
             );
@@ -450,28 +449,21 @@ class _UserManagementBody extends StatelessWidget {
   void _confirmDeleteUser(BuildContext context, UserManagementViewModel vm, Usuario user) {
      showDialog(
        context: context,
-       builder: (BuildContext dialogContext) {
-         return AlertDialog(
-           title: const Text('Eliminar Usuario'),
-           content: Text('¿Estás seguro de eliminar a ${user.nombre}? Esta acción no se puede deshacer y borrará todos sus datos.'),
-           actions: <Widget>[
-             TextButton(
-               child: const Text('Cancelar'),
-               onPressed: () => Navigator.of(dialogContext).pop(),
-             ),
-             TextButton(
-               child: Text('Eliminar', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-               onPressed: () async {
-                 Navigator.of(dialogContext).pop(); 
-                 await vm.deleteUsuario(user.id); 
-                 if (context.mounted && vm.error != null) { 
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Theme.of(context).colorScheme.error));
-                 }
-               },
-             ),
-           ],
-         );
-       },
+       builder: (ctx) => AlertDialog(
+         title: const Text('Eliminar Usuario'),
+         content: Text('¿Seguro que quieres eliminar a ${user.nombre}?'),
+         actions: [
+           TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(ctx).pop()),
+           TextButton(
+             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+             onPressed: () async {
+               Navigator.of(ctx).pop();
+               await vm.deleteUsuario(user.id);
+               if (context.mounted && vm.error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Colors.red));
+             },
+           ),
+         ],
+       ),
      );
   }
 }
