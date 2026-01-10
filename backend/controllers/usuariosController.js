@@ -84,17 +84,17 @@ exports.obtenerPerfilUsuario = async (req, res) => {
 };
 
 
-// --- CREAR USUARIO (LIMPIO) ---
 exports.crearUsuario = async (req, res) => {
   const { nombre, correo, contrasena, rol, tiposDeClases, nombreGrupo, esPremium } = req.body;
 
   try {
+    // 1. Verificar si ya existe
     const existeUsuario = await Usuario.findOne({ correo });
     if (existeUsuario) {
       return res.status(400).json({ msg: 'El correo ya está registrado.' });
     }
 
-    // Validación básica de tipos de clases
+    // 2. Validaciones de tipos de clases
     if (!Array.isArray(tiposDeClases) || tiposDeClases.length === 0) {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases debe ser un array no vacío.' });
     }
@@ -104,19 +104,36 @@ exports.crearUsuario = async (req, res) => {
       return res.status(400).json({ mensaje: 'El campo tiposDeClases contiene valores no válidos.' });
     }
 
-    // --- CAMBIO PRINCIPAL: Eliminada lógica de "prendasLogros" ---
-    // Ya no calculamos desbloqueados ni avatar por defecto complejo.
+    // 3. DEFINIR AVATAR POR DEFECTO (Vital para Fluttermoji)
+    // Estos son los índices numéricos que espera la librería para dibujar una cara básica.
+    const avatarPorDefecto = {
+      "topType": 4,             // Pelo corto
+      "accessoriesType": 0,     // Nada
+      "hairColor": 1,           // Negro
+      "facialHairType": 0,      // Afeitado
+      "facialHairColor": 1,     // Negro
+      "clotheType": 4,          // Camiseta
+      "eyeType": 0,             // Ojos normales
+      "eyebrowType": 0,         // Cejas normales
+      "mouthType": 1,           // Sonrisa
+      "skinColor": 1,           // Piel clara/media
+      "clotheColor": 1,         // Ropa negra/gris
+      "style": 0,               // Estilo normal
+      "graphicType": 0          // Sin gráficos
+    };
 
+    // 4. Crear el usuario
     const nuevoUsuario = new Usuario({
       nombre,
       correo,
-      contrasena, // El hook pre-save lo hasheará
+      contrasena, // El hook pre-save del modelo se encargará de hashearla
       rol: rol || 'cliente',
       tiposDeClases,
       nombreGrupo: nombreGrupo || null,
       esPremium: esPremium || false,
-      avatar: {}, // Se inicia vacío, el usuario lo editará en el frontend
-      // desbloqueados: ELIMINADO
+      
+      // ASIGNAMOS EL AVATAR VÁLIDO AQUÍ
+      avatar: avatarPorDefecto 
     });
 
     await nuevoUsuario.save();
