@@ -113,39 +113,50 @@ exports.obtenerUsuariosPorClase = async (req, res) => {
 };
 
 exports.obtenerMisReservasPorRango = async (req, res) => {
-  const idUsuario = req.user._id;
   const { fechaInicio, fechaFin } = req.query;
-
-  if (!fechaInicio || !fechaFin) {
-    return res.status(400).json({ mensaje: 'Se requieren fechaInicio y fechaFin' });
-  }
+  const usuarioId = req.user._id;
 
   try {
     const inicio = new Date(fechaInicio);
-    inicio.setUTCHours(0, 0, 0, 0);
-
     const fin = new Date(fechaFin);
-    fin.setUTCHours(23, 59, 59, 999);
 
-    const clasesEnRango = await Clase.find({
-      fecha: { $gte: inicio, $lte: fin }
-    }).select('_id');
-
-    const idsClasesEnRango = clasesEnRango.map(c => c._id);
-
-    const reservas = await Reserva.find({
-      usuario: idUsuario,
-      clase: { $in: idsClasesEnRango }
-    }).populate({
+    // 1. Buscar Reservas Confirmadas (lo que ya tenías)
+    // Nota: Filtramos por la fecha de la CLASE, no de la reserva
+    const reservasConfirmadas = await Reserva.find({
+      usuario: usuarioId
+    })
+    .populate({
       path: 'clase',
-      select: 'nombre dia horaInicio horaFin fecha cuposDisponibles maximoParticipantes'
+      match: { fecha: { $gte: inicio, $lte: fin } } // Filtramos aquí por fecha
     });
 
-    res.status(200).json(reservas);
+    // Filtramos nulls (reservas de fechas fuera del rango)
+    const misReservas = reservasConfirmadas.filter(r => r.clase !== null);
+
+    // 2. Buscar Clases donde estoy en Lista de Espera
+    const clasesEnEspera = await Clase.find({
+      listaEspera: usuarioId,
+      fecha: { $gte: inicio, $lte: fin }
+    });
+
+    // 3. Convertimos las "Clases en espera" a formato "Reserva" falso para que el Frontend las entienda
+    const listaEsperaFormateada = clasesEnEspera.map(clase => ({
+      _id: 'espera_' + clase._id, // ID ficticio
+      usuario: usuarioId,
+      clase: clase, // Objeto clase completo
+      fechaReserva: new Date(),
+      asistio: false,
+      esListaEspera: true // <--- ¡IMPORTANTE! Campo nuevo para distinguir
+    }));
+
+    // 4. Combinar ambas listas
+    const resultadoFinal = [...misReservas, ...listaEsperaFormateada];
+
+    res.json(resultadoFinal);
 
   } catch (error) {
-    console.error('Error al obtener mis reservas por rango:', error);
-    res.status(500).json({ mensaje: 'Error al obtener las reservas' });
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener reservas' });
   }
 };
 
@@ -242,44 +253,75 @@ exports.reservarClase = async (req, res) => {
   const idUsuario = req.user._id;
 
   try {
+    // 1. Obtener datos y validar existencia
     const usuario = await Usuario.findById(idUsuario);
     const clase = await Clase.findById(idClase);
 
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
+    // 2. Validar Permisos (Tipo de clase)
     const tiposDeClases = usuario.tiposDeClases.map(t => t.toLowerCase().trim());
     if (!tiposDeClases.includes(clase.nombre.toLowerCase().trim())) {
       return res.status(403).json({ mensaje: 'No tienes permiso para reservar este tipo de clase.' });
     }
+
+    // 3. Validar Créditos (CRÍTICO: Se valida antes de nada)
     if (usuario.cancelaciones < 1) {
-      return res.status(403).json({ mensaje: 'No tienes reservas pendientes.' });
+      return res.status(403).json({ mensaje: 'No tienes bonos/créditos disponibles.' });
     }
 
+    // 4. Validar si ya está dentro (Reserva o Espera)
     const reservaExistente = await Reserva.findOne({ usuario: idUsuario, clase: idClase });
+    // Convertimos ObjectId a string para comparar array
+    const enListaEspera = clase.listaEspera.some(id => id.toString() === idUsuario.toString());
+
     if (reservaExistente) {
-      return res.status(400).json({ mensaje: 'Ya estás inscrito en esta clase' });
+      return res.status(400).json({ mensaje: 'Ya tienes plaza confirmada en esta clase.' });
     }
+    if (enListaEspera) {
+      return res.status(400).json({ mensaje: 'Ya estás en la lista de espera.' });
+    }
+
+    // 5. LÓGICA PRINCIPAL
+    let respuesta = {};
 
     if (clase.cuposDisponibles > 0) {
+      // --- ESCENARIO A: HAY SITIO (Reserva Directa) ---
       await Reserva.create({ usuario: idUsuario, clase: idClase });
       clase.cuposDisponibles -= 1;
-      usuario.cancelaciones -= 1;
-      await clase.save();
-      await usuario.save();
-      return res.status(201).json({ mensaje: 'Clase reservada con éxito' });
+      
+      respuesta = {
+        estado: 'reservado',
+        mensaje: '¡Reserva confirmada! A entrenar.'
+      };
+    } else {
+      // --- ESCENARIO B: NO HAY SITIO (Lista de Espera) ---
+      clase.listaEspera.push(idUsuario);
+      
+      respuesta = {
+        estado: 'en_espera',
+        mensaje: 'Clase llena. Te has unido a la lista de espera.'
+      };
     }
 
-    // Sin cupo: añadir a lista de espera
-    if (clase.listaEspera.includes(idUsuario)) {
-      return res.status(400).json({ mensaje: 'Ya estás en la lista de espera para esta clase' });
-    }
-    clase.listaEspera.push(idUsuario);
-    await clase.save();
-    return res.status(200).json({ mensaje: 'Clase sin cupos disponibles. Te has unido a la lista de espera.' });
+    // 6. COBRO DEL CRÉDITO (Se cobra en AMBOS casos para evitar fraudes)
+    usuario.cancelaciones -= 1;
+
+    // 7. Guardar todo atómicamente (Promise.all para velocidad)
+    await Promise.all([clase.save(), usuario.save()]);
+
+    // 8. Responder al Frontend con el saldo actualizado
+    return res.status(200).json({
+      success: true,
+      mensaje: respuesta.mensaje,
+      estado: respuesta.estado,
+      cancelacionesRestantes: usuario.cancelaciones // Importante devolver esto actualizado
+    });
 
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al reservar la clase', error });
+    console.error("Error reservando:", error);
+    res.status(500).json({ mensaje: 'Error interno al reservar', error });
   }
 };
 
