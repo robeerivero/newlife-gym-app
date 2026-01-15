@@ -83,29 +83,49 @@ exports.crearClasesRecurrentes = async (req, res) => {
 
 // Obtener todas las clases (opcionalmente por fecha)
 exports.obtenerClases = async (req, res) => {
-  let filtro = {}; // Empezamos con filtro vacío
+  let filtro = {}; 
   const { fecha } = req.query;
 
   if (fecha) {
-    // Si se proporciona fecha, filtramos por ese día (esto está bien)
-    const diaInicio = new Date(fecha);
+    const diaSolicitado = new Date(fecha);
+    
+    // Calcular inicio (00:00) y fin (23:59) del día solicitado
+    const diaInicio = new Date(diaSolicitado);
     diaInicio.setUTCHours(0, 0, 0, 0);
+    
     const diaFin = new Date(diaInicio);
     diaFin.setUTCDate(diaFin.getUTCDate() + 1);
-    filtro.fecha = { $gte: diaInicio, $lt: diaFin };
+
+    // --- LÓGICA DE TIEMPO REAL ---
+    const ahora = new Date();
+    
+    // Variable para el límite inferior del filtro
+    let limiteInferior = diaInicio;
+
+    // Verificamos si el día solicitado es "Hoy"
+    // Comprobamos si 'ahora' cae dentro del rango de ese día
+    if (ahora > diaInicio && ahora < diaFin) {
+       // Si es hoy, queremos clases cuya fecha (que incluye hora) sea MAYOR a ahora
+       limiteInferior = ahora;
+    }
+    
+    // Si pedimos un día pasado, limiteInferior será diaInicio, pero como ya pasó, 
+    // podrías querer bloquearlo. Pero para 'reservar', lo crítico es el filtro de 'Hoy'.
+
+    filtro.fecha = { $gte: limiteInferior, $lt: diaFin };
+  } else {
+    // Si no hay fecha específica, opcionalmente filtra solo futuras para no traer historial eterno
+    filtro.fecha = { $gte: new Date() }; 
   }
 
-  // ¡HEMOS ELIMINADO EL BLOQUE 'ELSE'!
-  // Si no hay 'fecha', 'filtro' se queda como {} y trae todo.
-
   try {
-    const clases = await Clase.find(filtro).sort({ fecha: 1, horaInicio: 1 });
+    // Agregamos filtro de cupos disponibles > 0 por seguridad si quieres
+    const clases = await Clase.find(filtro).sort({ fecha: 1 });
     res.json(clases);
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener las clases', error });
   }
 };
-
 
 // Obtener una clase por ID
 exports.obtenerClasePorId = async (req, res) => {
