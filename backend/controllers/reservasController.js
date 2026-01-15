@@ -192,7 +192,6 @@ exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {
 };
 
 exports.cancelarClase = async (req, res) => {
-  // Aceptamos idClase por body (según tu servicio Flutter actual)
   const { idClase } = req.body; 
   const idUsuario = req.user._id;
 
@@ -204,37 +203,56 @@ exports.cancelarClase = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario o Clase no encontrados' });
     }
 
-    let creditoDevuelto = false;
+    // --- CÁLCULO DE HORAS RESTANTES ---
+    // 1. Obtenemos la fecha base de la clase
+    const fechaClase = new Date(clase.fecha);
+    
+    // 2. Parseamos la hora de inicio (ej: "18:30")
+    const [horas, minutos] = clase.horaInicio.split(':');
+    fechaClase.setHours(horas, minutos, 0, 0);
+
+    // 3. Calculamos diferencia en horas con el momento actual
+    const ahora = new Date();
+    const diferenciaMs = fechaClase - ahora;
+    const horasRestantes = diferenciaMs / (1000 * 60 * 60);
+
+    let accionRealizada = false; // Bandera para saber si encontramos algo
     let mensaje = '';
+    let penalizado = false;
 
     // --- INTENTO A: BORRAR RESERVA CONFIRMADA ---
     const reservaBorrada = await Reserva.findOneAndDelete({ usuario: idUsuario, clase: idClase });
 
     if (reservaBorrada) {
-      // Si tenía reserva, liberamos cupo y devolvemos crédito
+      accionRealizada = true;
       clase.cuposDisponibles += 1;
-      usuario.cancelaciones += 1;
-      creditoDevuelto = true;
-      mensaje = 'Reserva cancelada. Crédito devuelto.';
-      
-      // Opcional: Aquí podrías mover automáticamente al primero de la lista de espera
-      // pero eso requiere lógica compleja de notificación. Por ahora solo liberamos hueco.
+
+      // LÓGICA DE PENALIZACIÓN (3 HORAS)
+      if (horasRestantes >= 3) {
+        usuario.cancelaciones += 1;
+        mensaje = 'Reserva cancelada. Crédito devuelto.';
+      } else {
+        // Penalización: NO devolvemos el crédito
+        penalizado = true;
+        mensaje = 'Cancelación con menos de 3h de antelación. Crédito NO devuelto.';
+      }
     } 
     else {
       // --- INTENTO B: SACAR DE LISTA DE ESPERA ---
-      // Buscamos si su ID está en el array
       const indexEnEspera = clase.listaEspera.findIndex(id => id.toString() === idUsuario.toString());
 
       if (indexEnEspera > -1) {
-        // Lo sacamos del array
+        // Sacar de la lista
         clase.listaEspera.splice(indexEnEspera, 1);
+        accionRealizada = true;
+        
+        // En lista de espera SIEMPRE devolvemos el crédito, sin importar la hora
         usuario.cancelaciones += 1;
-        creditoDevuelto = true;
         mensaje = 'Has salido de la lista de espera. Crédito devuelto.';
       }
     }
 
-    if (!creditoDevuelto) {
+    if (!accionRealizada) {
       return res.status(404).json({ mensaje: 'No tienes reserva ni estás en lista de espera para esta clase.' });
     }
 
@@ -244,7 +262,8 @@ exports.cancelarClase = async (req, res) => {
     return res.status(200).json({
       success: true,
       mensaje: mensaje,
-      cancelacionesRestantes: usuario.cancelaciones
+      cancelacionesRestantes: usuario.cancelaciones,
+      penalizado: penalizado // Flag útil por si el frontend quiere mostrar una alerta específica
     });
 
   } catch (error) {
