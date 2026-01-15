@@ -82,44 +82,49 @@ exports.crearClasesRecurrentes = async (req, res) => {
 
 
 // Obtener todas las clases (opcionalmente por fecha)
+// backend/controllers/clasesController.js
+
 exports.obtenerClases = async (req, res) => {
   let filtro = {}; 
   const { fecha } = req.query;
+  
+  // 1. Obtenemos el rol del usuario (req.user viene del middleware 'proteger')
+  const esAdmin = req.user.rol === 'admin'; 
 
   if (fecha) {
     const diaSolicitado = new Date(fecha);
     
-    // Calcular inicio (00:00) y fin (23:59) del día solicitado
+    // Inicio del día (00:00)
     const diaInicio = new Date(diaSolicitado);
     diaInicio.setUTCHours(0, 0, 0, 0);
     
+    // Fin del día (23:59)
     const diaFin = new Date(diaInicio);
     diaFin.setUTCDate(diaFin.getUTCDate() + 1);
 
-    // --- LÓGICA DE TIEMPO REAL ---
     const ahora = new Date();
     
-    // Variable para el límite inferior del filtro
+    // POR DEFECTO: El límite inferior es el inicio del día (para Admins o días futuros)
     let limiteInferior = diaInicio;
 
-    // Verificamos si el día solicitado es "Hoy"
-    // Comprobamos si 'ahora' cae dentro del rango de ese día
-    if (ahora > diaInicio && ahora < diaFin) {
-       // Si es hoy, queremos clases cuya fecha (que incluye hora) sea MAYOR a ahora
+    // LÓGICA:
+    // Solo si es HOY ... Y ... NO es administrador, filtramos por hora actual.
+    // Si es admin, se queda con 'diaInicio' (ve todo el día).
+    if (ahora > diaInicio && ahora < diaFin && !esAdmin) {
        limiteInferior = ahora;
     }
     
-    // Si pedimos un día pasado, limiteInferior será diaInicio, pero como ya pasó, 
-    // podrías querer bloquearlo. Pero para 'reservar', lo crítico es el filtro de 'Hoy'.
-
     filtro.fecha = { $gte: limiteInferior, $lt: diaFin };
   } else {
-    // Si no hay fecha específica, opcionalmente filtra solo futuras para no traer historial eterno
-    filtro.fecha = { $gte: new Date() }; 
+    // Si no hay fecha, el admin ve todo, el usuario solo futuro
+    if (!esAdmin) {
+        filtro.fecha = { $gte: new Date() }; 
+    }
   }
 
   try {
-    // Agregamos filtro de cupos disponibles > 0 por seguridad si quieres
+    // Quitamos filtro de cupos para admin si quieres que vean clases llenas también
+    // const clases = await Clase.find(filtro).sort({ fecha: 1 });
     const clases = await Clase.find(filtro).sort({ fecha: 1 });
     res.json(clases);
   } catch (error) {
