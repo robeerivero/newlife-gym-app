@@ -192,59 +192,64 @@ exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {
 };
 
 exports.cancelarClase = async (req, res) => {
+  // Aceptamos idClase por body (según tu servicio Flutter actual)
+  const { idClase } = req.body; 
   const idUsuario = req.user._id;
-  const { idClase } = req.body;
 
   try {
+    const usuario = await Usuario.findById(idUsuario);
     const clase = await Clase.findById(idClase);
-    if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
-    // Encuentra y elimina la reserva
-    const reserva = await Reserva.findOneAndDelete({ usuario: idUsuario, clase: idClase });
-    if (!reserva) {
-      return res.status(404).json({ mensaje: 'No tienes reserva para esta clase' });
+    if (!usuario || !clase) {
+      return res.status(404).json({ mensaje: 'Usuario o Clase no encontrados' });
     }
 
-    const ahora = new Date();
-    const fechaClase = new Date(clase.fecha);
+    let creditoDevuelto = false;
+    let mensaje = '';
 
-    const diferenciaMilisegundos = fechaClase - ahora;
-    const diferenciaHoras = diferenciaMilisegundos / (1000 * 60 * 60);
+    // --- INTENTO A: BORRAR RESERVA CONFIRMADA ---
+    const reservaBorrada = await Reserva.findOneAndDelete({ usuario: idUsuario, clase: idClase });
 
-    // Si la clase aún no ha pasado Y la cancela con 3 o más horas de antelación
-    if (diferenciaHoras >= 3) {
-      const usuario = await Usuario.findById(idUsuario);
+    if (reservaBorrada) {
+      // Si tenía reserva, liberamos cupo y devolvemos crédito
+      clase.cuposDisponibles += 1;
       usuario.cancelaciones += 1;
-      await usuario.save();
+      creditoDevuelto = true;
+      mensaje = 'Reserva cancelada. Crédito devuelto.';
+      
+      // Opcional: Aquí podrías mover automáticamente al primero de la lista de espera
+      // pero eso requiere lógica compleja de notificación. Por ahora solo liberamos hueco.
+    } 
+    else {
+      // --- INTENTO B: SACAR DE LISTA DE ESPERA ---
+      // Buscamos si su ID está en el array
+      const indexEnEspera = clase.listaEspera.findIndex(id => id.toString() === idUsuario.toString());
+
+      if (indexEnEspera > -1) {
+        // Lo sacamos del array
+        clase.listaEspera.splice(indexEnEspera, 1);
+        usuario.cancelaciones += 1;
+        creditoDevuelto = true;
+        mensaje = 'Has salido de la lista de espera. Crédito devuelto.';
+      }
     }
 
-    clase.cuposDisponibles += 1;
-
-    // --- GESTIÓN DE LISTA DE ESPERA ---
-    if (clase.listaEspera && clase.listaEspera.length > 0) {
-      const siguienteUsuarioId = clase.listaEspera.shift();
-
-      // Crear reserva al siguiente
-      await Reserva.create({ usuario: siguienteUsuarioId, clase: idClase });
-
-      // Restar el cupo que acabamos de liberar (porque lo ocupa el nuevo)
-      clase.cuposDisponibles -= 1;
-
-      // 👇 NOTIFICAR AL USUARIO QUE HA ENTRADO
-      await enviarNotificacion(
-        siguienteUsuarioId,
-        "¡Estás dentro! 💪",
-        `Un usuario ha cancelado y has conseguido plaza en ${clase.nombre}.`
-      );
+    if (!creditoDevuelto) {
+      return res.status(404).json({ mensaje: 'No tienes reserva ni estás en lista de espera para esta clase.' });
     }
-    // ----------------------------------
 
-    await clase.save();
+    // Guardamos cambios
+    await Promise.all([clase.save(), usuario.save()]);
 
-    res.status(200).json({ mensaje: 'Clase cancelada con éxito' });
+    return res.status(200).json({
+      success: true,
+      mensaje: mensaje,
+      cancelacionesRestantes: usuario.cancelaciones
+    });
+
   } catch (error) {
-    console.error('Error al cancelar la clase:', error);
-    res.status(500).json({ mensaje: 'Error al cancelar la clase', error });
+    console.error("Error cancelando:", error);
+    res.status(500).json({ mensaje: 'Error al cancelar la clase' });
   }
 };
 
