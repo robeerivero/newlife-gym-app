@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../viewmodels/class_viewmodel.dart'; 
 import '../../models/reserva.dart';
 import '../../models/usuario.dart'; // Importar modelo Usuario
-import '../../services/class_service.dart'; // Importar servicio
 import '../../fluttermoji/fluttermojiCircleAvatar.dart'; // Tu avatar local
 
 // 👇 IMPORTANTE: Importamos el widget del botón
@@ -148,16 +147,32 @@ class ClassScreen extends StatelessWidget {
       ),
       calendarBuilders: CalendarBuilders(
         markerBuilder: (context, date, events) {
-            final reservas = events as List<Reserva>? ?? [];
-              if (reservas.isNotEmpty) {
-                return Positioned( right: 1, bottom: 1,
-                  child: Container( padding: const EdgeInsets.all(1.0),
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: colorScheme.secondary),
-                      child: Icon(Icons.fitness_center, size: 10.0, color: colorScheme.onSecondary),
+            if (events.isEmpty) return null;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: events.map((event) {
+                // Casteamos el evento a Reserva
+                final reserva = event ;
+                // Elegir color según estado
+                Color markerColor;
+                if (reserva.esListaEspera) {
+                  markerColor = Colors.orange; // Color para Lista de Espera
+                } else {
+                  markerColor = Colors.teal; // Color para Confirmada (o tu primaryColor)
+                }
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: markerColor, // Usamos el color dinámico
                   ),
                 );
-              } return null;
-           },
+              }).toList(),
+            );
+          },
       ),
     );
   }
@@ -183,7 +198,11 @@ class ClassScreen extends StatelessWidget {
         final reserva = reservas[index];
         return _MyBookingCard(
           reserva: reserva,
-          isCancelLoading: vm.isLoading, 
+          isCancelLoading: vm.isLoading,
+          // 👇 PASAMOS LOS DATOS DEL VIEWMODEL A LA TARJETA
+          participantes: vm.participantesActuales,
+          isLoadingParticipantes: vm.cargandoParticipantes, 
+          
           onCancel: () {
             _confirmarCancelacion(context, vm, reserva);
           },
@@ -377,7 +396,6 @@ class ClassScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           
-          // 🔥 AQUÍ ESTÁ EL CAMBIO: Usamos el BotonSolicitudPremium en lugar del botón dummy
           const BotonSolicitudPremium(),
         ],
       ),
@@ -391,6 +409,10 @@ class _MyBookingCard extends StatelessWidget {
   final bool isCancelLoading;
   final VoidCallback onCancel;
   final VoidCallback onScanQR; 
+  
+  // 👇 NUEVAS VARIABLES PARA LOS PARTICIPANTES
+  final List<Usuario> participantes;
+  final bool isLoadingParticipantes;
 
   const _MyBookingCard({
     Key? key,
@@ -398,6 +420,9 @@ class _MyBookingCard extends StatelessWidget {
     required this.isCancelLoading,
     required this.onCancel,
     required this.onScanQR, 
+    // 👇 INICIALIZAR EN EL CONSTRUCTOR
+    required this.participantes,
+    required this.isLoadingParticipantes,
   }) : super(key: key);
 
   @override
@@ -408,6 +433,12 @@ class _MyBookingCard extends StatelessWidget {
     final String horaInicio = reserva.clase.horaInicio;
     final String horaFin = reserva.clase.horaFin;
     final String nombre = reserva.clase.nombre;
+
+    // --- LÓGICA VISUAL PARA LISTA DE ESPERA ---
+    final bool esEspera = reserva.esListaEspera; 
+    final Color estadoColor = esEspera ? Colors.orange : colorScheme.primary;
+    final String estadoTexto = esEspera ? "EN LISTA DE ESPERA" : nombre.toUpperCase();
+    // ------------------------------------------
  
     return Card(
       elevation: 4,
@@ -418,7 +449,8 @@ class _MyBookingCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           border: Border(
-            left: BorderSide(color: colorScheme.primary, width: 6),
+            // Cambiamos el color de la barra lateral según estado
+            left: BorderSide(color: estadoColor, width: 6),
           ),
         ),
         child: Padding(
@@ -426,19 +458,34 @@ class _MyBookingCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                nombre.toUpperCase(),
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                  letterSpacing: 0.5,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    estadoTexto, // Mostramos si es espera o el nombre
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: estadoColor, // Color Naranja o Primary
+                      letterSpacing: 0.5,
+                      fontSize: esEspera ? 16 : null, // Ajuste de tamaño si es texto largo
+                    ),
+                  ),
+                  if (esEspera)
+                    const Icon(Icons.hourglass_empty, color: Colors.orange),
+                ],
               ),
+              // Si está en espera, mostramos el nombre de la clase abajo
+              if (esEspera) 
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(nombre.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+
               const SizedBox(height: 12), 
 
               Row(
                 children: [
-                  Icon(Icons.access_time_filled_rounded, color: colorScheme.primary, size: 20),
+                  Icon(Icons.access_time_filled_rounded, color: estadoColor, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Hora: ',
@@ -451,7 +498,6 @@ class _MyBookingCard extends StatelessWidget {
                 ],
               ),
               
-              // --- INTEGRACIÓN VISUAL DE AVATARES ---
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 8),
@@ -461,9 +507,11 @@ class _MyBookingCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               
-              // Aquí incrustamos el widget que carga los avatares
-              _ParticipantesClase(classId: reserva.clase.id),
-              // -------------------------------------
+              // 👇 AQUÍ USAMOS LA LISTA QUE VIENE DEL VIEWMODEL
+              _ParticipantesClase(
+                 participantes: participantes,
+                 isLoading: isLoadingParticipantes,
+              ),
 
               const SizedBox(height: 20),
 
@@ -472,9 +520,10 @@ class _MyBookingCard extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.cancel_outlined, size: 18),
+                      // Cambiamos el texto del botón si es espera
                       label: Text(
-                        isCancelLoading ? '...' : 'Cancelar',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        isCancelLoading ? '...' : (esEspera ? 'Salir de Lista' : 'Cancelar'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), // Texto un poco más pequeño para que quepa
                       ),
                       onPressed: isCancelLoading ? null : onCancel,
                       style: ElevatedButton.styleFrom(
@@ -487,25 +536,29 @@ class _MyBookingCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12), 
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: Icon(Icons.qr_code_scanner, color: colorScheme.onPrimary, size: 18),
-                      label: Text(
-                        'Canjear QR',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorScheme.onPrimary),
-                      ),
-                      onPressed: isCancelLoading ? null : onScanQR, 
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isCancelLoading ? Colors.grey : colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                  
+                  // SOLO MOSTRAMOS QR SI ES RESERVA CONFIRMADA
+                  if (!esEspera) ...[
+                    const SizedBox(width: 12), 
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.qr_code_scanner, color: colorScheme.onPrimary, size: 18),
+                        label: Text(
+                          'Canjear QR',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colorScheme.onPrimary),
+                        ),
+                        onPressed: isCancelLoading ? null : onScanQR, 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isCancelLoading ? Colors.grey : colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ]
                 ],
               ),
             ],
@@ -517,120 +570,100 @@ class _MyBookingCard extends StatelessWidget {
 }
 
 // --- WIDGET PARA CARGAR Y MOSTRAR LOS AVATARES DE LA CLASE ---
-// --- WIDGET PARA CARGAR Y MOSTRAR LOS AVATARES DE LA CLASE ---
-class _ParticipantesClase extends StatefulWidget {
-  final String classId;
-  const _ParticipantesClase({Key? key, required this.classId}) : super(key: key);
+// 👇 AHORA ES STATELESS: SOLO PINTA, NO BUSCA DATOS
+class _ParticipantesClase extends StatelessWidget {
+  final List<Usuario> participantes;
+  final bool isLoading;
 
-  @override
-  State<_ParticipantesClase> createState() => _ParticipantesClaseState();
-}
-
-class _ParticipantesClaseState extends State<_ParticipantesClase> {
-  late Future<List<Usuario>> _participantesFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _participantesFuture = ClassService().fetchUsuariosPorClase(widget.classId);
-  }
+  const _ParticipantesClase({
+    Key? key, 
+    required this.participantes, 
+    required this.isLoading
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Usuario>>(
-      future: _participantesFuture,
-      builder: (context, snapshot) {
-        // --- ESTADO DE CARGA ---
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 60, 
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: 100, 
-                child: LinearProgressIndicator(minHeight: 2),
-              ),
-            ),
-          );
-        }
-        
-        // --- ESTADO SIN DATOS O VACÍO ---
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.0),
-            child: Text(
-              "Sé el primero en llegar", 
-              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
-            ),
-          );
-        }
-
-        final participantes = snapshot.data!;
-        
-        // --- ESTADO CON DATOS (LISTA DE AVATARES + NOMBRE) ---
-        // Aumentamos la altura a 85 para que quepa el avatar y el texto debajo
-        return SizedBox(
-          height: 85, 
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: participantes.length,
-            itemBuilder: (context, index) {
-              final user = participantes[index];
-              
-              // Truco estético: Usar solo el primer nombre para que no ocupe mucho
-              final String primerNombre = user.nombre.contains(' ') 
-                  ? user.nombre.split(' ')[0] 
-                  : user.nombre;
-
-              // Capitalizar primera letra (por si acaso viene en minúscula)
-              final nombreBonito = primerNombre.isNotEmpty
-                  ? "${primerNombre[0].toUpperCase()}${primerNombre.substring(1).toLowerCase()}"
-                  : "";
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 12.0), // Un poco más de espacio entre usuarios
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Borde decorativo opcional para que resalte
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          width: 1,
-                        ),
-                      ),
-                      child: FluttermojiCircleAvatar(
-                        radius: 26, // Avatar ligeramente más grande
-                        backgroundColor: Colors.grey[100],
-                        avatarJson: jsonEncode(user.avatar), 
-                      ),
-                    ),
-                    const SizedBox(height: 6), // Espacio entre avatar y nombre
-                    
-                    // Nombre limitado en ancho
-                    SizedBox(
-                      width: 60, // Ancho máximo para el texto
-                      child: Text(
-                        nombreBonito,
-                        style: TextStyle(
-                          fontSize: 11, 
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis, // Si es muy largo pone "..."
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+    // --- ESTADO DE CARGA ---
+    if (isLoading) {
+      return const SizedBox(
+        height: 60, 
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: 100, 
+            child: LinearProgressIndicator(minHeight: 2),
           ),
-        );
-      },
+        ),
+      );
+    }
+    
+    // --- ESTADO SIN DATOS O VACÍO ---
+    if (participantes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Text(
+          "Sé el primero en llegar", 
+          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
+        ),
+      );
+    }
+
+    // --- ESTADO CON DATOS (LISTA DE AVATARES + NOMBRE) ---
+    return SizedBox(
+      height: 85, 
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: participantes.length,
+        itemBuilder: (context, index) {
+          final user = participantes[index];
+          
+          final String primerNombre = user.nombre.contains(' ') 
+              ? user.nombre.split(' ')[0] 
+              : user.nombre;
+
+          final nombreBonito = primerNombre.isNotEmpty
+              ? "${primerNombre[0].toUpperCase()}${primerNombre.substring(1).toLowerCase()}"
+              : "";
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: FluttermojiCircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.grey[100],
+                    avatarJson: jsonEncode(user.avatar), 
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    nombreBonito,
+                    style: TextStyle(
+                      fontSize: 11, 
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

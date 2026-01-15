@@ -43,19 +43,36 @@ class ClassReserveService {
     return [];
   }
 
-  Future<bool> reserveClass(String classId) async {
+  Future<Map<String, dynamic>> reserveClass(String classId) async {
     final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return false;
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/api/reservas/reservar'), // Ajusta tu ruta si es diferente
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'idClase': classId}),
+      );
 
-    final response = await http.post(
-      Uri.parse('${AppConstants.baseUrl}/api/reservas/reservar'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({'idClase': classId}),
-    );
+      final data = json.decode(response.body);
 
-    return response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'estado': data['estado'], // 'reservado' o 'en_espera'
+          'mensaje': data['mensaje'],
+          'cancelaciones': data['cancelacionesRestantes'] // Nuevo saldo del server
+        };
+      } else {
+        return {
+          'success': false,
+          'mensaje': data['mensaje'] ?? 'Error desconocido'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'mensaje': 'Error de conexión'};
+    }
   }
 }

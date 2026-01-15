@@ -38,14 +38,12 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
         final colorScheme = Theme.of(context).colorScheme;
 
         return Scaffold(
-          // backgroundColor eliminado (Theme default)
           appBar: AppBar(
             title: Text(
               vm.cancelaciones > 0
                 ? 'Reservar Clase (${vm.cancelaciones} créditos)'
                 : 'Reservar Clase', 
             ),
-            // backgroundColor eliminado (Theme default)
           ),
           body: Column(
             children: [
@@ -85,7 +83,7 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
                   formatButtonVisible: true,
                   formatButtonShowsNext: false,
                   formatButtonDecoration: BoxDecoration(
-                    color: colorScheme.primary, // AzulAccent -> Primary
+                    color: colorScheme.primary,
                     borderRadius: const BorderRadius.all(Radius.circular(12.0)),
                   ),
                   formatButtonTextStyle: TextStyle(color: colorScheme.onPrimary),
@@ -99,7 +97,7 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
-                    color: colorScheme.primary, // Blue[700] -> Primary
+                    color: colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                   disabledTextStyle: TextStyle(color: Colors.grey[400]),
@@ -127,41 +125,47 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
                             return _NewClassCard(
                               clase: clase,
                               isLoading: vm.isLoading,
+                              // Pasamos la función asíncrona para manejar la respuesta exacta del backend
                               onPressed: () async {
-                                final int cuposDisponibles = (clase['cuposDisponibles'] as int?) ?? 0;
                                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                                 
-                                final success = await vm.reserveClass(clase['_id']);
+                                // 1. Llamamos al ViewModel (que devuelve un Map con el resultado completo)
+                                final result = await vm.reserveClass(clase['_id']);
                                 
-                                if (success && mounted) {
+                                // 2. Verificamos si el widget sigue montado antes de usar el contexto
+                                if (!mounted) return;
+
+                                if (result['success'] == true) {
+                                  // ÉXITO: Mostramos mensaje según si es reserva o espera
+                                  final bool esEspera = result['estado'] == 'en_espera';
+                                  
                                   scaffoldMessenger.showSnackBar(
                                     SnackBar(
-                                      content: Text(cuposDisponibles == 0 
-                                        ? '¡Te has unido a la lista de espera!' 
-                                        : '¡Clase reservada con éxito!'),
-                                      backgroundColor: Colors.green, // Semántico: Éxito
-                                      duration: const Duration(seconds: 1),
+                                      content: Text(result['mensaje']), // Mensaje directo del backend
+                                      backgroundColor: esEspera ? Colors.orange : Colors.green,
+                                      duration: const Duration(seconds: 2),
                                     ),
                                   );
 
-                                  if (cuposDisponibles == 0 || vm.cancelaciones == 0) {
-                                    Future.delayed(const Duration(milliseconds: 1200), () {
-                                      if (mounted) {
-                                        Navigator.pop(context);
-                                      }
-                                    });
-                                  }
+                                  // Si se ha completado con éxito, cerramos la pantalla tras un momento
+                                  Future.delayed(const Duration(milliseconds: 1500), () {
+                                    if (mounted) Navigator.pop(context);
+                                  });
 
-                                } else if (vm.errorMessage.isNotEmpty && mounted) {
+                                } else {
+                                  // ERROR: Mostramos el error del backend
                                   scaffoldMessenger.showSnackBar(
-                                    SnackBar(content: Text(vm.errorMessage), backgroundColor: colorScheme.error),
+                                    SnackBar(
+                                      content: Text(result['mensaje'] ?? 'Error desconocido'), 
+                                      backgroundColor: colorScheme.error
+                                    ),
                                   );
                                 }
                               },
                             );
                           },
                         ),
-                ),
+              ),
             ],
           ),
         );
@@ -173,7 +177,8 @@ class _ReserveClassViewState extends State<_ReserveClassView> {
 class _NewClassCard extends StatelessWidget {
   final Map<String, dynamic> clase;
   final bool isLoading; 
-  final VoidCallback onPressed;
+  // Cambiamos a Function para que quede claro que es un callback de acción
+  final Function() onPressed;
 
   const _NewClassCard({
     Key? key,
@@ -191,7 +196,7 @@ class _NewClassCard extends StatelessWidget {
     final int cuposDisponibles = (clase['cuposDisponibles'] as int?) ?? 0;
     final int asistentes = maximo - cuposDisponibles;
     
-    final List<dynamic> listaDeEspera = (clase['listaDeEspera'] as List<dynamic>?) ?? [];
+    final List<dynamic> listaDeEspera = (clase['listaEspera'] as List<dynamic>?) ?? [];
     final int enEspera = listaDeEspera.length;
 
     final String horaInicio = clase['horaInicio'] ?? 'HH:MM';
@@ -201,10 +206,7 @@ class _NewClassCard extends StatelessWidget {
     final bool hayCupos = cuposDisponibles > 0;
     final bool sePuedeApuntarEnEspera = !hayCupos; 
     
-    // Colores semánticos / Tema
-    // Verde -> Éxito (cupos)
-    // Secondary (Orange) -> Espera
-    // Error -> Lleno total (si no hubiera espera)
+    // Colores semánticos
     final Color statusColor = hayCupos ? Colors.green[600]! : (sePuedeApuntarEnEspera ? colorScheme.secondary : colorScheme.error);
 
     return Card(
@@ -265,18 +267,15 @@ class _NewClassCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   icon: Icon(
                     hayCupos ? Icons.check_circle_outline : Icons.pending_actions_outlined,
-                    color: colorScheme.onPrimary, // Ajustado para contraste
+                    color: Colors.white, // Forzamos blanco para contraste sobre color fuerte
                   ),
                   label: Text(
                     isLoading ? 'Procesando...' : (hayCupos ? 'Reservar Plaza' : 'Apuntarse en Espera'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onPrimary),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                   ),
                   onPressed: isLoading ? null : onPressed, 
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isLoading ? Colors.grey : statusColor,
-                    // Si el color es orange (secondary), aseguramos contraste con onSecondary si es necesario, 
-                    // o forzamos blanco si el tema es consistente. Aquí usamos onPrimary para simplificar 
-                    // asumiendo que statusColor es oscuro/fuerte, o Colors.white fijo si prefieres.
                     foregroundColor: Colors.white, 
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(

@@ -62,25 +62,32 @@ class ReserveClassViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> reserveClass(String classId) async {
+  Future<Map<String, dynamic>> reserveClass(String classId) async {
     isLoading = true;
     errorMessage = '';
     notifyListeners();
 
-    final success = await _service.reserveClass(classId);
+    // Llamamos al servicio (que ya devuelve un Map según vimos antes)
+    final result = await _service.reserveClass(classId);
 
     isLoading = false;
 
-    if (success) {
-      cancelaciones--;
+    if (result['success'] == true) {
+      // Actualizamos créditos con la verdad del servidor
+      if (result['cancelaciones'] != null) {
+        cancelaciones = result['cancelaciones'];
+      } else {
+        cancelaciones--; // Fallback por seguridad
+      }
+      
       await fetchClassesForDate(selectedDate);
-      notifyListeners();
-      return true;
     } else {
-      errorMessage = 'Error al reservar la clase.';
-      notifyListeners();
-      return false;
+      // Guardamos el mensaje de error para mostrarlo si hiciera falta en la UI
+      errorMessage = result['mensaje'] ?? 'Error desconocido';
     }
+    
+    notifyListeners();
+    return result; // Devolvemos el objeto completo
   }
 
   String formatDate(String date) {

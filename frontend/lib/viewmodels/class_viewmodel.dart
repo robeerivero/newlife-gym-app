@@ -29,7 +29,11 @@ class ClassViewModel extends ChangeNotifier {
   bool get esPremium => _currentUser?.esPremium ?? false;
   bool get incluyePlanEntrenamiento => _currentUser?.incluyePlanEntrenamiento ?? false;
   int get cancelaciones => _currentUser?.cancelaciones ?? 0;
+  List<Usuario> _participantesActuales = [];
+  bool _cargandoParticipantes = false;
 
+  List<Usuario> get participantesActuales => _participantesActuales;
+  bool get cargandoParticipantes => _cargandoParticipantes;
   // --- Estado del Calendario ---
   DateTime _focusedDay = DateTime.now();
   // Asegura que el día seleccionado nunca sea anterior a hoy
@@ -72,13 +76,24 @@ class ClassViewModel extends ChangeNotifier {
   void _init() async {
     _isLoading = true;
     notifyListeners();
+
+    // 1. Cargar perfil y reservas del mes
     await fetchProfile();
     await fetchReservasParaMes(_focusedDay);
 
-    final hoyUtc = DateTime.utc(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    if (incluyePlanEntrenamiento && getReservasParaDia(hoyUtc).isEmpty) {
-      await _fetchRutinaParaDia(_selectedDay);
+    // 2. Comprobar el día seleccionado (normalmente es hoy al iniciar)
+    final reservasDelDia = getReservasParaDia(_selectedDay);
+
+    if (reservasDelDia.isNotEmpty) {
+      // --- NUEVO: Si hay clase, cargamos los participantes ---
+      await _fetchParticipantesDeClase(reservasDelDia.first.clase.id);
+    } else {
+      // --- Si NO hay clase, mantenemos tu lógica de rutina ---
+      if (incluyePlanEntrenamiento) {
+        await _fetchRutinaParaDia(_selectedDay);
+      }
     }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -199,35 +214,75 @@ class ClassViewModel extends ChangeNotifier {
   }
 
   /// Se llama al seleccionar un día. ¡MODIFICADO CON RESTRICCIÓN!
-  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-     // 1. Comprobación de día pasado (YA EXISTE)
-     final dayUtc = DateTime.utc(selectedDay.year, selectedDay.month, selectedDay.day);
-     if (dayUtc.isBefore(firstCalendarDay)) {
-       return; // No hace nada si es un día pasado
-     }
-     
-     // --- ¡¡FIX 1: AÑADIDO!! ---
-     // 2. Comprobación de mes diferente
-     if (selectedDay.month != focusedDay.month) {
-       // Si el día seleccionado no es del mes que se está viendo, no hace nada
-       return;
-     }
-     // --- FIN DEL FIX ---
+  // viewmodels/class_viewmodel.dart
 
-     // 3. Lógica existente
+  void onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    // 1. Validación: No permitir seleccionar días anteriores al inicio del calendario
+    if (selectedDay.isBefore(firstCalendarDay)) {
+      return; 
+    }
+
+    // 2. Validación: No permitir seleccionar días de otro mes (evita el salto visual raro)
+    if (selectedDay.month != focusedDay.month) {
+      return;
+    }
+
     if (!isSameDay(_selectedDay, selectedDay)) {
       _selectedDay = selectedDay;
       _focusedDay = focusedDay;
+      
+      // Reseteamos estados temporales
       _rutinaDelDia = null;
       _error = null;
+      
+      // Obtenemos las reservas para ese día (si las hay)
+      final reservasDelDia = getReservasParaDia(selectedDay);
 
-      // Carga rutina si procede
-      if (incluyePlanEntrenamiento && getReservasParaDia(selectedDay).isEmpty) {
-        _fetchRutinaParaDia(selectedDay);
-      } else {
-        _rutinaDelDia = null;
+      if (reservasDelDia.isNotEmpty) {
+        // --- CASO A: HAY CLASE ESE DÍA ---
+        
+        // 1. Tomamos la clase (asumimos que hay una por día, tomamos la primera)
+        final reserva = reservasDelDia.first;
+        
+        // 2. ¡IMPORTANTE! Cargamos los participantes de esa clase
+        // Esto es lo que faltaba para que se vieran los avatares al hacer clic
+        _fetchParticipantesDeClase(reserva.clase.id);
+
+        // 3. Si hay clase, no mostramos rutina (o según tu lógica de negocio)
         _isRutinaLoading = false;
+        
+      } else {
+        // --- CASO B: NO HAY CLASE ---
+        
+        // 1. Limpiamos la lista de participantes (para que no salgan los del día anterior)
+        _participantesActuales = [];
+
+        // 2. Si tiene plan de entrenamiento, cargamos la rutina de la IA
+        if (incluyePlanEntrenamiento) {
+          _fetchRutinaParaDia(selectedDay);
+        } else {
+          _rutinaDelDia = null;
+          _isRutinaLoading = false;
+        }
       }
+
+      notifyListeners();
+    }
+  }
+
+  Future<void> _fetchParticipantesDeClase(String classId) async {
+    _cargandoParticipantes = true;
+    notifyListeners();
+
+    try {
+      // Usamos tu servicio existente
+      final usuarios = await _classService.fetchUsuariosPorClase(classId);
+      _participantesActuales = usuarios;
+    } catch (e) {
+      print("Error cargando participantes: $e");
+      _participantesActuales = [];
+    } finally {
+      _cargandoParticipantes = false;
       notifyListeners();
     }
   }

@@ -1,7 +1,7 @@
-// screens/admin/reservas/add_user_to_classes_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../viewmodels/add_user_to_classes_viewmodel.dart';
+// Asegúrate de que esta ruta sea correcta
+import '../../../../viewmodels/add_user_to_classes_viewmodel.dart'; 
 
 class AddUserToClassesScreen extends StatelessWidget {
   const AddUserToClassesScreen({Key? key}) : super(key: key);
@@ -24,22 +24,25 @@ class _AddUserToClassesView extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      // backgroundColor eliminado (Theme default)
       appBar: AppBar(
-        title: const Text('Añadir Usuario a Clases'),
-        // backgroundColor eliminado (Theme default - Teal)
+        title: const Text('Asignación Masiva'),
       ),
-      body: Padding(
+      body: SingleChildScrollView( 
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (vm.error != null && vm.error!.isNotEmpty)
-              Text(
-                vm.error!,
-                style: TextStyle(color: colorScheme.error),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  vm.error!,
+                  style: TextStyle(color: colorScheme.error),
+                ),
               ),
-            const SizedBox(height: 10),
-            // Dropdown para seleccionar usuario
+            
+            // 1. SELECCIÓN DE USUARIO
+            const Text("1. Seleccionar Usuario", style: TextStyle(fontWeight: FontWeight.bold)),
             DropdownButtonFormField<String>(
               value: vm.selectedUsuarioId,
               items: vm.usuarios.map<DropdownMenuItem<String>>((user) {
@@ -49,62 +52,86 @@ class _AddUserToClassesView extends StatelessWidget {
                 );
               }).toList(),
               onChanged: vm.setUsuario,
-              decoration: const InputDecoration(labelText: 'Seleccionar Usuario'),
-            ),
-            const SizedBox(height: 10),
-            // Dropdown para seleccionar día
-            DropdownButtonFormField<String>(
-              value: vm.selectedDay,
-              items: vm.days.map<DropdownMenuItem<String>>((day) {
-                return DropdownMenuItem<String>(
-                  value: day,
-                  child: Text(day),
-                );
-              }).toList(),
-              onChanged: vm.setDay,
-              decoration: const InputDecoration(labelText: 'Seleccionar Día'),
-            ),
-            const SizedBox(height: 10),
-            // Selector para la hora
-            GestureDetector(
-              onTap: () async {
-                final pickedTime = await showTimePicker(
-                  context: context,
-                  initialTime: vm.selectedTime ?? TimeOfDay.now(),
-                );
-                if (pickedTime != null) {
-                  vm.setTime(pickedTime);
-                }
-              },
-              child: AbsorbPointer(
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: vm.selectedTime == null
-                        ? 'Seleccionar Hora de Inicio'
-                        : 'Hora: ${vm.selectedTime!.hour.toString().padLeft(2, '0')}:${vm.selectedTime!.minute.toString().padLeft(2, '0')}',
-                    // Icono añadido para mejor UX
-                    suffixIcon: Icon(Icons.access_time, color: colorScheme.primary),
-                  ),
-                ),
+              decoration: const InputDecoration(
+                hintText: 'Buscar usuario...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)
               ),
             ),
+            
             const SizedBox(height: 20),
+
+            // 2. SELECCIÓN DE DÍAS (Chips)
+            const Text("2. Días de la semana", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 8.0,
+              children: vm.days.map((day) {
+                final isSelected = vm.isDaySelected(day);
+                return FilterChip(
+                  label: Text(day),
+                  selected: isSelected,
+                  selectedColor: colorScheme.primaryContainer,
+                  checkmarkColor: colorScheme.onPrimaryContainer,
+                  labelStyle: TextStyle(
+                    color: isSelected ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                  ),
+                  onSelected: (_) => vm.toggleDay(day),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 20),
+
+            // 3. SELECCIÓN DE HORAS (Chips)
+            const Text("3. Horas de clase", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: vm.availableHours.map((hour) {
+                final isSelected = vm.isHourSelected(hour);
+                return FilterChip(
+                  label: Text(hour),
+                  selected: isSelected,
+                  selectedColor: colorScheme.primary, // Color sólido para horas
+                  checkmarkColor: colorScheme.onPrimary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  onSelected: (_) => vm.toggleHour(hour),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 30),
+
+            // BOTÓN DE ACCIÓN
             vm.loading
-                ? const CircularProgressIndicator()
+                ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
                     width: double.infinity,
+                    height: 50,
                     child: ElevatedButton(
                       onPressed: () async {
                         final error = await vm.addUserToClasses();
+                        
                         if (error == null) {
-                          // Éxito
+                          // --- ÉXITO ---
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Usuario añadido a las clases con éxito.'), backgroundColor: Colors.green),
+                              const SnackBar(
+                                content: Text('✅ Asignación completada. Puedes seguir añadiendo.'), 
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              ),
                             );
-                            Navigator.pop(context, true);
+                            // 👇 Aquí está la clave: Limpiamos y NO cerramos
+                            vm.clearSelection(); 
                           }
                         } else {
+                          // --- ERROR ---
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text(error), backgroundColor: colorScheme.error),
@@ -112,10 +139,18 @@ class _AddUserToClassesView extends StatelessWidget {
                           }
                         }
                       },
-                      // Estilo eliminado para heredar del Theme (Primary)
-                      child: const Text('Añadir Usuario a Clases'),
+                      child: const Text('ASIGNAR A TODAS LAS CLASES'),
                     ),
                   ),
+             
+             const SizedBox(height: 10),
+             Center(
+               child: Text(
+                 "Esto inscribirá al usuario en todas las clases futuras que coincidan.",
+                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                 textAlign: TextAlign.center,
+               ),
+             )
           ],
         ),
       ),

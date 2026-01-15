@@ -6,11 +6,16 @@ import '../../services/user_service.dart';
 class UserManagementViewModel extends ChangeNotifier {
   final UserService _userService = UserService();
 
-  List<Usuario> _usuarios = []; // Lista interna
+  List<Usuario> _usuarios = []; 
   List<Usuario> get usuarios {
-    // FILTRO LOCAL: Si seleccionamos "Solicitudes Pendientes", filtramos la lista en memoria
     if (_grupoSeleccionado == 'Solicitudes Pendientes') {
       return _usuarios.where((u) => u.solicitudPremium != null).toList();
+    }
+    if (_grupoSeleccionado == 'Sin Grupo') {
+      return _usuarios.where((u) => u.nombreGrupo == null).toList();
+    }
+    if (_grupoSeleccionado != 'Todos') {
+      return _usuarios.where((u) => u.nombreGrupo == _grupoSeleccionado).toList();
     }
     return _usuarios;
   }
@@ -21,8 +26,6 @@ class UserManagementViewModel extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
-  // Estado de Grupos
-  // Añadimos la opción estática "Solicitudes Pendientes"
   List<String> _gruposDisponibles = ['Todos', 'Solicitudes Pendientes', 'Sin Grupo'];
   List<String> get gruposDisponibles => _gruposDisponibles;
   
@@ -37,7 +40,8 @@ class UserManagementViewModel extends ChangeNotifier {
     if (_loading) return;
     _loading = true;
     _error = null;
-    notifyListeners();
+    // notifyListeners(); // Evitamos notificar aquí para no chocar con el build inicial
+    
     try {
       await Future.wait([
           fetchGrupos(notify: false), 
@@ -59,7 +63,6 @@ class UserManagementViewModel extends ChangeNotifier {
        final Set<String> uniqueGroups = {'Todos', 'Solicitudes Pendientes', 'Sin Grupo', ...gruposFromService};
        
        nuevosGrupos = uniqueGroups.toList()..sort((a,b) {
-           // Orden personalizado para que las opciones fijas salgan primero
            if (a == 'Todos') return -1; if (b == 'Todos') return 1;
            if (a == 'Solicitudes Pendientes') return -1; if (b == 'Solicitudes Pendientes') return 1;
            if (a == 'Sin Grupo') return -1; if (b == 'Sin Grupo') return 1;
@@ -88,12 +91,10 @@ class UserManagementViewModel extends ChangeNotifier {
     _error = null;
 
     try {
-      // Si el filtro es "Solicitudes Pendientes", traemos "Todos" del backend y filtramos en el getter
       String filtroParaBackend = _grupoSeleccionado == 'Solicitudes Pendientes' ? 'Todos' : _grupoSeleccionado;
       
       final fetchedUsers = await _userService.fetchAllUsuarios(nombreGrupo: filtroParaBackend);
       
-      // Comprobación de cambios
       if (!listEquals(_usuarios, fetchedUsers)) {
           _usuarios = fetchedUsers ?? [];
       }
@@ -137,29 +138,53 @@ class UserManagementViewModel extends ChangeNotifier {
     return success; 
   }
 
-  // --- UPDATE USUARIO ---
+  // --- UPDATE USUARIO (CORREGIDO) ---
+  // 👇 AQUÍ FALTABA tiposDeClases
    Future<bool> updateUsuario({
-    required String id, required String nombre, required String correo,
-    required String rol, String? nuevaContrasena, required bool esPremium,
-    required bool incluyePlanDieta, required bool incluyePlanEntrenamiento,
-    required bool haPagado, required String? nombreGrupo,
+    required String id, 
+    required String nombre, 
+    required String correo,
+    required String rol, 
+    String? nuevaContrasena, 
+    required bool esPremium,
+    required bool incluyePlanDieta, 
+    required bool incluyePlanEntrenamiento,
+    required bool haPagado, 
+    required List<String> tiposDeClases, // <--- AÑADIDO
+    required String? nombreGrupo,
   }) async {
      _loading = true; _error = null; notifyListeners();
      bool success = false;
+
+     // 👇 AÑADIMOS 'tiposDeClases' AL MAPA QUE SE ENVÍA AL SERVICIO
      Map<String, dynamic> datosActualizar = {
-        'nombre': nombre, 'correo': correo, 'rol': rol, 'esPremium': esPremium,
-        'incluyePlanDieta': incluyePlanDieta, 'incluyePlanEntrenamiento': incluyePlanEntrenamiento,
-        'haPagado': haPagado, 'nombreGrupo': nombreGrupo,
-        if (nuevaContrasena != null && nuevaContrasena.isNotEmpty) 'nuevaContrasena': nuevaContrasena,
-      };
+        'nombre': nombre, 
+        'correo': correo, 
+        'rol': rol, 
+        'esPremium': esPremium,
+        'incluyePlanDieta': incluyePlanDieta, 
+        'incluyePlanEntrenamiento': incluyePlanEntrenamiento,
+        'haPagado': haPagado, 
+        'nombreGrupo': nombreGrupo,
+        'tiposDeClases': tiposDeClases, // <--- AÑADIDO
+        if (nuevaContrasena != null && nuevaContrasena.isNotEmpty) 'contrasena': nuevaContrasena,
+     };
+
      try {
+       // El servicio ya acepta un Map dinámico, así que esto funcionará
        success = await _userService.updateUsuario(id, datosActualizar);
+       
        if (success) {
           await fetchUsuarios(); 
           await fetchGrupos(); 
-       } else { _error = "El servidor rechazó la actualización."; }
-     } catch (e) { _error = e.toString().replaceFirst('Exception: ', ''); }
-     finally { _loading = false; notifyListeners(); }
+       } else { 
+         _error = "El servidor rechazó la actualización."; 
+       }
+     } catch (e) { 
+       _error = e.toString().replaceFirst('Exception: ', ''); 
+     } finally { 
+       _loading = false; notifyListeners(); 
+     }
      return success;
   }
 
@@ -197,21 +222,19 @@ class UserManagementViewModel extends ChangeNotifier {
     return success;
   }
 
-  // --- 👇 NUEVO: LIMPIAR SOLICITUD ---
+  // --- LIMPIAR SOLICITUD ---
   Future<bool> limpiarSolicitud(String id) async {
     _loading = true; _error = null; notifyListeners();
     bool success = false;
     try {
-      // Llamamos a la función que creaste en el paso 3
       success = await _userService.limpiarSolicitudPremium(id);
       if (success) {
-        // Recargamos la lista para que desaparezca el icono/estado
-        await fetchUsuarios(notify: false);
+        await fetchUsuarios(); 
       } else {
-        _error = "No se pudo limpiar la solicitud.";
+        _error = 'No se pudo limpiar la solicitud';
       }
     } catch (e) {
-      _error = e.toString().replaceFirst('Exception: ', '');
+      _error = e.toString();
     } finally {
       _loading = false; notifyListeners();
     }

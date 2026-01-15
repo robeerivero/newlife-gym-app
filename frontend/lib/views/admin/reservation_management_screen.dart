@@ -60,15 +60,19 @@ class _ReservationManagementView extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AddUserToClassesScreen(),
-                ),
-              ),
+              onPressed: () {
+                // Navegamos a la pantalla
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddUserToClassesScreen(),
+                  ),
+                ).then((_) {                
+                  vm.fetchClasses(date: vm.selectedDate ?? DateTime.now());
+                });
+              },
               icon: const Icon(Icons.person_add),
               label: const Text('Añadir Usuario a Clases'),
-              // Estilo eliminado para heredar del Theme
             ),
             const SizedBox(height: 10),
             vm.loading

@@ -48,36 +48,69 @@ class ClassService {
 
     if (response.statusCode == 200) {
       final List data = json.decode(response.body);
-      // Usamos el modelo Reserva modificado
       return data.map<Reserva>((json) => Reserva.fromJson(json)).toList();
     }
     return [];
   }
 
-
-
-  /// Añade una nueva clase
+  /// Añade una nueva clase (INDIVIDUAL)
   Future<bool> addClass(Clase clase) async {
     final token = await _storage.read(key: 'jwt_token');
     if (token == null) return false;
 
+    // Nota: Usamos el endpoint individual que ya deberías tener o adaptar en backend
+    // Si tu backend unifica todo en un solo POST, usa el método de abajo.
+    // Asumiendo que POST /api/clases maneja creación individual si no se pasan arrays
     final response = await http.post(
       Uri.parse('${AppConstants.baseUrl}/api/clases'),
       headers: {
-        'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
       body: json.encode({
+        // Adaptamos el envío para una sola clase
         'nombre': clase.nombre,
-        'dia': clase.dia,
-        'horaInicio': clase.horaInicio,
-        'horaFin': clase.horaFin,
-        'fecha': clase.fecha.toIso8601String(),
-        'maximoParticipantes': clase.maximoParticipantes,
+        'dias': [clase.dia], // Enviamos como lista de 1 elemento
+        'horas': [clase.horaInicio], // Enviamos como lista de 1 elemento
+        'maximoParticipantes': clase.maximoParticipantes
+        // La fecha exacta se calculará en backend si usas la lógica recurrente,
+        // o necesitas un endpoint específico para clase única con fecha fija.
       }),
     );
 
-    return response.statusCode == 201;
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  /// Crea clases de forma MASIVA (Recurrente)
+  Future<Map<String, dynamic>> crearClasesRecurrentes({
+    required String nombre,
+    required List<String> dias,
+    required List<String> horas,
+    required int maximoParticipantes,
+  }) async {
+    final token = await _storage.read(key: 'jwt_token');
+    
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/api/clases'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode({
+        'nombre': nombre,
+        'dias': dias,
+        'horas': horas,
+        'maximoParticipantes': maximoParticipantes
+      }),
+    );
+
+    final data = json.decode(response.body);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return {'success': true, 'mensaje': data['mensaje']};
+    } else {
+      return {'success': false, 'mensaje': data['mensaje'] ?? 'Error al crear clases'};
+    }
   }
 
   /// Edita una clase existente
@@ -144,6 +177,7 @@ class ClassService {
     );
     return response.statusCode == 200;
   }
+
   /// Obtiene la lista de usuarios apuntados a una clase específica
   Future<List<Usuario>> fetchUsuariosPorClase(String classId) async {
     final token = await _storage.read(key: 'jwt_token');
@@ -157,7 +191,6 @@ class ClassService {
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
-        // Mapeamos la respuesta a una lista de objetos Usuario
         return data.map<Usuario>((json) => Usuario.fromJson(json)).toList();
       }
     } catch (e) {

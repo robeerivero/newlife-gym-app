@@ -18,9 +18,9 @@ class UserManagementScreen extends StatelessWidget {
 }
 
 class _UserManagementBody extends StatelessWidget {
-  final List<String> _roles = ['admin', 'cliente', 'online'];
-  final List<String> _tiposDeClasesDefault = ['funcional', 'pilates', 'zumba'];
-
+  final List<String> _roles = ['admin', 'cliente', 'online'];  
+  final List<String> _opcionesClases = ['funcional', 'pilates', 'zumba'];
+  
   @override
   Widget build(BuildContext context) {
     final vm = Provider.of<UserManagementViewModel>(context);
@@ -299,78 +299,133 @@ class _UserManagementBody extends StatelessWidget {
     final _correoController = TextEditingController();
     final _contrasenaController = TextEditingController();
     final _grupoController = TextEditingController();
+    
     String _selectedRol = 'cliente';
+    
+    // Lista temporal para almacenar la selección (por defecto todas seleccionadas)
+    List<String> _selectedClasses = List.from(_opcionesClases); 
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Añadir Usuario'),
-          content: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    controller: _nombreController,
-                    decoration: const InputDecoration(labelText: 'Nombre'),
-                    validator: (value) => (value == null || value.isEmpty) ? 'Campo requerido' : null,
+        // IMPORTANTE: Necesitamos StatefulBuilder para que los Chips se actualicen visualmente al clicar
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Añadir Usuario'),
+              content: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: _nombreController,
+                        decoration: const InputDecoration(labelText: 'Nombre'),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                      ),
+                      TextFormField(
+                        controller: _correoController,
+                        decoration: const InputDecoration(labelText: 'Correo'),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) => (v == null || !v.contains('@')) ? 'Inválido' : null,
+                      ),
+                      TextFormField(
+                        controller: _contrasenaController,
+                        decoration: const InputDecoration(labelText: 'Contraseña'),
+                        obscureText: true,
+                        validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 chars' : null,
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: _selectedRol,
+                        decoration: const InputDecoration(labelText: 'Rol'),
+                        items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                        onChanged: (val) => setStateDialog(() => _selectedRol = val!),
+                      ),
+                      TextFormField(
+                        controller: _grupoController,
+                        decoration: const InputDecoration(labelText: 'Grupo (Opcional)'),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // --- NUEVO: SELECCIÓN DE CLASES ---
+                      const Text('Acceso a Clases:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8.0,
+                        children: _opcionesClases.map((tipo) {
+                          final isSelected = _selectedClasses.contains(tipo);
+                          return FilterChip(
+                            label: Text(tipo.toUpperCase()),
+                            selected: isSelected,
+                            onSelected: (bool selected) {
+                              setStateDialog(() {
+                                if (selected) {
+                                  _selectedClasses.add(tipo);
+                                } else {
+                                  _selectedClasses.remove(tipo);
+                                }
+                              });
+                            },
+                            // Estilos opcionales para que se vea mejor
+                            selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                            checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                          );
+                        }).toList(),
+                      ),
+                      if (_selectedClasses.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 5),
+                          child: Text('Debe seleccionar al menos una clase', style: TextStyle(color: Colors.red, fontSize: 12)),
+                        ),
+                      // ----------------------------------
+                    ],
                   ),
-                  TextFormField(
-                    controller: _correoController,
-                    decoration: const InputDecoration(labelText: 'Correo'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) => (value == null || !value.contains('@')) ? 'Correo inválido' : null,
-                  ),
-                  TextFormField(
-                    controller: _contrasenaController,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
-                    obscureText: true,
-                    validator: (value) => (value == null || value.length < 6) ? 'Mínimo 6 caracteres' : null,
-                  ),
-                  DropdownButtonFormField<String>(
-                    value: _selectedRol,
-                    decoration: const InputDecoration(labelText: 'Rol'),
-                    items: _roles.map((String rol) => DropdownMenuItem<String>(value: rol, child: Text(rol))).toList(),
-                    onChanged: (newValue) { if (newValue != null) _selectedRol = newValue; },
-                  ),
-                  TextFormField(
-                    controller: _grupoController,
-                    decoration: const InputDecoration(labelText: 'Nombre de Grupo (Opcional)'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(context).pop()),
-            ElevatedButton(
-              onPressed: () async {
-                if (_formKey.currentState!.validate()) {
-                  final success = await vm.addUsuario(
-                    nombre: _nombreController.text,
-                    correo: _correoController.text,
-                    contrasena: _contrasenaController.text,
-                    rol: _selectedRol,
-                    tiposDeClases: _tiposDeClasesDefault,
-                    nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
-                  );
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                    if (!success) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${vm.error}"), backgroundColor: Colors.red));
-                    else ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
-                  }
-                }
-              },
-              child: const Text('Añadir'),
-            ),
-          ],
+              actions: <Widget>[
+                TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.of(context).pop()),
+                ElevatedButton(
+                  child: const Text('Añadir'),
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate()) {
+                      // Validación extra: array no vacío
+                      if (_selectedClasses.isEmpty) return;
+
+                      final success = await vm.addUsuario(
+                        nombre: _nombreController.text,
+                        correo: _correoController.text,
+                        contrasena: _contrasenaController.text,
+                        rol: _selectedRol,
+                        // PASAMOS LA LISTA SELECCIONADA
+                        tiposDeClases: _selectedClasses, 
+                        nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
+                      );
+                      
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                        if (!success) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${vm.error}"), backgroundColor: Colors.red));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Usuario creado"), backgroundColor: Colors.green));
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
+  // ----------------------------------------------------------------------
+  // 3. DIÁLOGO EDITAR (MODIFICADO)
+  // ----------------------------------------------------------------------
   void _showEditUserDialog(BuildContext context, UserManagementViewModel vm, Usuario user) {
     final _formKey = GlobalKey<FormState>();
     final _nombreController = TextEditingController(text: user.nombre);
@@ -381,6 +436,9 @@ class _UserManagementBody extends StatelessWidget {
     bool _esPremium = user.esPremium;
     bool _incluyeDieta = user.incluyePlanDieta;
     bool _incluyeEntreno = user.incluyePlanEntrenamiento;
+
+    // Inicializamos con las clases que YA TIENE el usuario
+    List<String> _selectedClasses = List.from(user.tiposDeClases);
 
     showDialog(
       context: context,
@@ -395,6 +453,7 @@ class _UserManagementBody extends StatelessWidget {
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       SwitchListTile(
                         title: Text(_haPagado ? 'Pagado' : 'Pendiente de Pago', style: TextStyle(color: _haPagado ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
@@ -411,7 +470,37 @@ class _UserManagementBody extends StatelessWidget {
                         items: _roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                         onChanged: (val) => setDialogState(() => _selectedRol = val!),
                       ),
+                      
+                      const SizedBox(height: 20),
+                      // --- NUEVO: EDITAR CLASES ---
+                      const Text('Acceso a Clases:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8.0,
+                        children: _opcionesClases.map((tipo) {
+                          final isSelected = _selectedClasses.contains(tipo);
+                          return FilterChip(
+                            label: Text(tipo.toUpperCase()),
+                            selected: isSelected,
+                            onSelected: (bool selected) {
+                              setDialogState(() {
+                                if (selected) {
+                                  _selectedClasses.add(tipo);
+                                } else {
+                                  _selectedClasses.remove(tipo);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      if (_selectedClasses.isEmpty)
+                         const Text('⚠️ Selecciona al menos una', style: TextStyle(color: Colors.red, fontSize: 12)),
+                      // ----------------------------
+
                       const SizedBox(height: 16),
+                      const Divider(),
+                      const Text('Servicios Extra:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       SwitchListTile(title: const Text('Es Premium'), value: _esPremium, onChanged: (val) => setDialogState(() => _esPremium = val)),
                       SwitchListTile(title: const Text('Incluye Dieta'), value: _incluyeDieta, onChanged: (val) => setDialogState(() => _incluyeDieta = val)),
                       SwitchListTile(title: const Text('Incluye Entrenamiento'), value: _incluyeEntreno, onChanged: (val) => setDialogState(() => _incluyeEntreno = val)),
@@ -425,12 +514,24 @@ class _UserManagementBody extends StatelessWidget {
                   child: const Text('Guardar'),
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
+                       // Validación extra
+                      if (_selectedClasses.isEmpty) return;
+
                       final success = await vm.updateUsuario(
-                        id: user.id, nombre: _nombreController.text, correo: _correoController.text,
-                        rol: _selectedRol, nuevaContrasena: null, esPremium: _esPremium,
-                        incluyePlanDieta: _incluyeDieta, incluyePlanEntrenamiento: _incluyeEntreno,
-                        haPagado: _haPagado, nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
+                        id: user.id,
+                        nombre: _nombreController.text,
+                        correo: _correoController.text,
+                        rol: _selectedRol,
+                        nuevaContrasena: null,
+                        esPremium: _esPremium,
+                        incluyePlanDieta: _incluyeDieta,
+                        incluyePlanEntrenamiento: _incluyeEntreno,
+                        haPagado: _haPagado,
+                        nombreGrupo: _grupoController.text.isEmpty ? null : _grupoController.text,
+                        // PASAMOS LA NUEVA LISTA
+                        tiposDeClases: _selectedClasses,
                       );
+                      
                       if (context.mounted) {
                         Navigator.of(context).pop();
                         if (!success) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(vm.error!), backgroundColor: Colors.red));
@@ -445,6 +546,7 @@ class _UserManagementBody extends StatelessWidget {
       },
     );
   }
+}
 
   void _confirmDeleteUser(BuildContext context, UserManagementViewModel vm, Usuario user) {
      showDialog(
@@ -466,4 +568,3 @@ class _UserManagementBody extends StatelessWidget {
        ),
      );
   }
-}

@@ -373,6 +373,7 @@ class _PremiumEntrenamientoSetupScreenState extends State<PremiumEntrenamientoSe
     required Function(String?) onChanged,
   }) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       value: value,
       items: items,
       onChanged: onChanged,

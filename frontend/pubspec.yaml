@@ -2,7 +2,7 @@ name: frontend
 description: "A new Flutter project."
 publish_to: 'none' # No publicar en pub.dev
 
-version: 1.0.0+1
+version: 1.0.0+4
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

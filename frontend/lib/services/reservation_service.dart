@@ -30,25 +30,33 @@ class ReservationService {
     }
   }
 
-  Future<void> addUserToClass({required String usuarioId, required String dia, required String hora}) async {
+  Future<Map<String, dynamic>> asignarMasivo({
+    required String usuarioId,
+    required List<String> dias,
+    required List<String> horas,
+  }) async {
     final token = await _storage.read(key: 'jwt_token');
-    if (token == null) throw Exception('Token no encontrado.');
-
+    
+    // Fíjate que la URL coincide con la ruta que creamos en el Paso 2
     final response = await http.post(
-      Uri.parse('${AppConstants.baseUrl}/api/reservas/asignarPorDiaYHora'),
+      Uri.parse('${AppConstants.baseUrl}/api/reservas/asignar-masivo'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
       body: json.encode({
         'idUsuario': usuarioId,
-        'dia': dia,
-        'horaInicio': hora,
+        'dias': dias,
+        'horas': horas,
       }),
     );
-    if (response.statusCode != 200) {
-      final data = json.decode(response.body);
-      throw Exception(data['mensaje'] ?? 'Error al añadir usuario a clases');
+
+    final data = json.decode(response.body);
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return {'success': true, 'mensaje': data['mensaje']};
+    } else {
+      return {'success': false, 'mensaje': data['mensaje'] ?? 'Error al asignar'};
     }
   }
 
