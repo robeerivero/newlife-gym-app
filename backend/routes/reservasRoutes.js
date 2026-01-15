@@ -45,7 +45,7 @@ router.get('/usuario/:idUsuario', proteger, esAdministrador, obtenerClasesPorUsu
 router.get('/clase/:idClase', proteger, obtenerUsuariosPorClase);
 
 // Asignar usuario a clases por día y hora
-router.post('/asignarPorDiaYHora', proteger, esAdministrador, asignarUsuarioAClasesPorDiaYHora);
+router.post('/asignar-masivo', proteger, esAdministrador, asignarUsuarioAClasesPorDiaYHora);
 
 module.exports = router;
 

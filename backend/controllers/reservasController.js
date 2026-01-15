@@ -161,33 +161,67 @@ exports.obtenerMisReservasPorRango = async (req, res) => {
 };
 
 exports.asignarUsuarioAClasesPorDiaYHora = async (req, res) => {
-  const { idUsuario, dia, horaInicio } = req.body;
+  const { idUsuario, dias, horas } = req.body;
+
+  // Validaciones básicas
+  if (!idUsuario || !dias || !horas || dias.length === 0 || horas.length === 0) {
+    return res.status(400).json({ mensaje: 'Faltan datos (usuario, días u horas).' });
+  }
 
   try {
     const usuario = await Usuario.findById(idUsuario);
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+
+    // 1. Buscar todas las clases futuras que coincidan con los días y horas seleccionados
+    const hoy = new Date();
+    
+    const clasesCoincidentes = await Clase.find({
+      dia: { $in: dias },          // Ejemplo: coincide con ["Lunes", "Miércoles"]
+      horaInicio: { $in: horas },  // Ejemplo: coincide con ["09:30", "18:00"]
+      fecha: { $gte: hoy }         // Solo clases futuras
+    });
+
+    if (clasesCoincidentes.length === 0) {
+      return res.status(404).json({ mensaje: 'No se encontraron clases futuras con esos criterios.' });
     }
 
-    const clases = await Clase.find({ dia, horaInicio });
-    if (clases.length === 0) {
-      return res.status(404).json({ mensaje: 'No se encontraron clases para el día y hora especificados' });
-    }
+    let reservasCreadas = 0;
+    let errores = 0;
 
-    const clasesAsignadas = [];
-    for (const clase of clases) {
-      const reservaExistente = await Reserva.findOne({ usuario: idUsuario, clase: clase._id });
-      if (!reservaExistente && clase.cuposDisponibles > 0) {
-        await Reserva.create({ usuario: idUsuario, clase: clase._id });
-        clase.cuposDisponibles -= 1;
-        await clase.save();
-        clasesAsignadas.push(clase);
+    // 2. Iterar sobre las clases encontradas y reservar
+    for (const clase of clasesCoincidentes) {
+      // Verificar si ya tiene reserva
+      const existe = await Reserva.findOne({ usuario: idUsuario, clase: clase._id });
+      
+      if (!existe) {
+        // Verificar cupos (Opcional: Si eres admin, quizás quieras forzar la reserva aunque esté llena. 
+        // Aquí asumiremos que respetamos los cupos por seguridad).
+        if (clase.cuposDisponibles > 0) {
+          await Reserva.create({
+            usuario: idUsuario,
+            clase: clase._id,
+            asistio: false
+          });
+
+          // Actualizar cupos
+          clase.cuposDisponibles -= 1;
+          await clase.save();
+          reservasCreadas++;
+        } else {
+          // Opcional: Añadir a lista de espera automáticamente si quieres
+          errores++; 
+        }
       }
     }
 
-    res.status(200).json({ mensaje: 'Usuario asignado a las clases', clases: clasesAsignadas });
+    res.json({
+      success: true,
+      mensaje: `Proceso finalizado. Se inscribió al usuario en ${reservasCreadas} clases. (Omitidas/Llenas: ${clasesCoincidentes.length - reservasCreadas})`
+    });
+
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al asignar usuario a las clases', error });
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error interno al realizar la asignación masiva', error });
   }
 };
 
