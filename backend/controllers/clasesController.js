@@ -36,47 +36,69 @@ const obtenerFechasPorDia = (diaSemana, anio, horaInicio) => {
 
 // Crear clases recurrentes (todas las semanas en un año para un día específico)
 exports.crearClasesRecurrentes = async (req, res) => {
-  const { nombre, dia, horaInicio, horaFin, maximoParticipantes } = req.body;
-  console.log("Datos recibidos:", req.body); // Verificar qué llega desde el cliente
+  // Ahora esperamos listas de días y horas
+  const { nombre, dias, horas, maximoParticipantes } = req.body;
+
+  // Validaciones
+  if (!nombre || !dias || !horas || !Array.isArray(dias) || !Array.isArray(horas)) {
+    return res.status(400).json({ mensaje: 'Datos inválidos. Se requiere nombre, array de días y array de horas.' });
+  }
 
   try {
-    const anioActual = new Date().getFullYear();
-    console.log("Año actual:", anioActual);
+    let totalCreadas = 0;
+    const maxPart = maximoParticipantes || 14;
 
-    const fechas = obtenerFechasPorDia(dia, anioActual, horaInicio);
-    console.log("Fechas generadas para el día:", dia, fechas);
+    // 1. Recorremos cada día seleccionado (Ej: Lunes, Miércoles)
+    for (const diaNombre of dias) {
+      
+      // 2. Recorremos cada hora seleccionada (Ej: 09:30, 18:00)
+      for (const horaInicio of horas) {
+        
+        // Calculamos la hora de fin (Asumimos 1 hora de duración)
+        // Si necesitas duración variable, deberías pedirla en el front o calcularla aquí
+        const [h, m] = horaInicio.split(':').map(Number);
+        const fechaFinTemp = new Date();
+        fechaFinTemp.setHours(h + 1, m);
+        const horaFin = `${fechaFinTemp.getHours().toString().padLeft(2, '0')}:${fechaFinTemp.getMinutes().toString().padLeft(2, '0')}`;
 
-    const clasesCreadas = [];
-    for (const fecha of fechas) {
-      console.log("Creando clase para la fecha:", fecha);
+        // 3. Generamos las fechas del calendario para este bloque
+        const fechasParaCrear = obtenerFechasDelAnio(diaNombre, horaInicio);
 
-      const nuevaClase = new Clase({
-        nombre,
-        dia,
-        horaInicio,
-        horaFin,
-        maximoParticipantes: maximoParticipantes || 14,
-        cuposDisponibles: maximoParticipantes || 14,
-        fecha,
-      });
+        // 4. Guardamos en la BD una por una
+        for (const fechaExacta of fechasParaCrear) {
+          
+          // Verificamos duplicados para no crear la misma clase dos veces
+          const existe = await Clase.findOne({
+            nombre: nombre,
+            fecha: fechaExacta,
+            horaInicio: horaInicio
+          });
 
-      try {
-        const claseGuardada = await nuevaClase.save();
-        console.log("Clase guardada:", claseGuardada);
-        clasesCreadas.push(claseGuardada);
-      } catch (error) {
-        console.error("Error al guardar la clase:", error.message, error);
-        throw error;
+          if (!existe) {
+            await Clase.create({
+              nombre,
+              dia: diaNombre,
+              horaInicio,
+              horaFin,
+              fecha: fechaExacta,
+              cuposDisponibles: maxPart,
+              maximoParticipantes: maxPart,
+              listaEspera: []
+            });
+            totalCreadas++;
+          }
+        }
       }
     }
 
     res.status(201).json({
-      mensaje: "Clases recurrentes creadas con éxito",
-      clases: clasesCreadas,
+      success: true,
+      mensaje: `Proceso completado. Se han generado ${totalCreadas} clases nuevas para este año.`
     });
+
   } catch (error) {
-    console.error("Error al crear clases recurrentes:", error.message, error);
-    res.status(500).json({ mensaje: "Error al crear las clases recurrentes", error });
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al crear las clases recurrentes', error });
   }
 };
 
