@@ -27,6 +27,10 @@ const esquemaUsuario = new mongoose.Schema({
     default: null
   },
   cancelaciones: { type: Number, default: 0 },
+  cuposCompensatorios: [{
+    fechaExpiracion: { type: Date, required: true },
+    creadoEn: { type: Date, default: Date.now }
+  }],
   tiposDeClases: { type: [String], enum: ['funcional', 'pilates', 'zumba'], required: true },
   avatar: { type: Object, default: {} },
   fcmTokens: {

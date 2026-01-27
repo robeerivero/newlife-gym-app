@@ -46,27 +46,44 @@ cron.schedule('0 8 * * *', () => { // Se ejecuta a las 08:00 AM
 // ==========================================
 // 🔔 2. RECORDATORIO 1 HORA ANTES (Se revisa cada 10 mins)
 // ==========================================
-cron.schedule('*/10 * * * *', async () => {
+// ==========================================
+cron.schedule('*/5 * * * *', async () => { // Ejecutar cada 5 mins para más precisión
   try {
     const ahora = new Date();
-    // Ventana: Clases que empiezan entre 50 y 70 minutos desde ahora.
-    const ventanaInicio = new Date(ahora.getTime() + 50 * 60000);
-    const ventanaFin = new Date(ahora.getTime() + 70 * 60000);
+    
+    // Buscamos reservas futuras que no hayan sido notificadas aún
+    // Optimizamos buscando solo clases de hoy/mañana para no cargar la BD
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
 
     const reservas = await Reserva.find({
-      recordatorioEnviado: false
-    }).populate('clase').populate('usuario');
+      recordatorioEnviado: false,
+      asistio: false // Solo si no ha asistido aún
+    }).populate({
+      path: 'clase',
+      match: { fecha: { $gte: ahora, $lte: manana } } // Filtro en el populate
+    }).populate('usuario');
 
     for (const reserva of reservas) {
+      // Si el populate de clase es null (por el filtro de fecha), saltamos
       if (!reserva.clase || !reserva.usuario) continue;
 
       const clase = reserva.clase;
+      
+      // Construir fecha exacta de la clase
       const fechaClase = new Date(clase.fecha);
       const [horas, minutos] = clase.horaInicio.split(':').map(Number);
       fechaClase.setHours(horas, minutos, 0, 0);
 
-      if (fechaClase >= ventanaInicio && fechaClase <= ventanaFin) {
-        console.log(`🔔 Enviando recordatorio a ${reserva.usuario.nombre} para clase de ${clase.nombre}`);
+      // Calcular diferencia en minutos
+      const diferenciaMs = fechaClase - ahora;
+      const minutosRestantes = Math.floor(diferenciaMs / 60000);
+
+      // LÓGICA: Si faltan entre 55 y 65 minutos, enviamos.
+      // Esto cubre el hueco de 1 hora antes con margen por si el cron tarda un poco.
+      if (minutosRestantes >= 55 && minutosRestantes <= 65) {
+        
+        console.log(`🔔 Enviando recordatorio a ${reserva.usuario.nombre} (Faltan ${minutosRestantes} min)`);
 
         await enviarNotificacion(
           reserva.usuario._id,

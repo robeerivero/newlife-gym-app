@@ -76,10 +76,30 @@ exports.rankingMensual = async (req, res) => {
 // --- VER PERFIL ---
 exports.obtenerPerfilUsuario = async (req, res) => {
   try {
-    const usuario = await Usuario.findById(req.user.id);
-    res.status(200).json(usuario);
+    // Buscamos al usuario
+    const usuario = await Usuario.findById(req.user._id).select('-contrasena');
+
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    const ahora = new Date();
+    
+    // Filtramos: Solo contamos los cupos cuya fecha de expiración sea FUTURA
+    const cuposValidos = usuario.cuposCompensatorios.filter(c => new Date(c.fechaExpiracion) > ahora);
+
+    // TRUCO: Convertimos el objeto a JSON para poder modificarlo antes de enviarlo
+    const usuarioResponse = usuario.toObject();
+
+    // Sobreescribimos el campo 'cancelaciones' con el número real de cupos válidos
+    // El frontend recibirá un número simple (ej: 2) y será feliz.
+    usuarioResponse.cancelaciones = cuposValidos.length;
+    // ============================================================
+
+    res.json(usuarioResponse);
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al obtener el perfil', error });
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener perfil' });
   }
 };
 

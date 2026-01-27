@@ -238,19 +238,15 @@ exports.cancelarClase = async (req, res) => {
     }
 
     // --- CÁLCULO DE HORAS RESTANTES ---
-    // 1. Obtenemos la fecha base de la clase
     const fechaClase = new Date(clase.fecha);
-    
-    // 2. Parseamos la hora de inicio (ej: "18:30")
     const [horas, minutos] = clase.horaInicio.split(':');
     fechaClase.setHours(horas, minutos, 0, 0);
 
-    // 3. Calculamos diferencia en horas con el momento actual
     const ahora = new Date();
     const diferenciaMs = fechaClase - ahora;
     const horasRestantes = diferenciaMs / (1000 * 60 * 60);
 
-    let accionRealizada = false; // Bandera para saber si encontramos algo
+    let accionRealizada = false;
     let mensaje = '';
     let penalizado = false;
 
@@ -263,12 +259,19 @@ exports.cancelarClase = async (req, res) => {
 
       // LÓGICA DE PENALIZACIÓN (3 HORAS)
       if (horasRestantes >= 3) {
-        usuario.cancelaciones += 1;
-        mensaje = 'Reserva cancelada. Crédito devuelto.';
+        // ✅ DEVOLUCIÓN: En lugar de sumar numero, creamos cupo con caducidad
+        const fechaVencimiento = new Date();
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + 14); // 14 días de vida
+
+        usuario.cuposCompensatorios.push({ 
+          fechaExpiracion: fechaVencimiento 
+        });
+        
+        mensaje = 'Reserva cancelada. Crédito devuelto (Válido por 2 semanas).';
       } else {
-        // Penalización: NO devolvemos el crédito
+        // ❌ PENALIZACIÓN
         penalizado = true;
-        mensaje = 'Cancelación con menos de 3h de antelación. Crédito NO devuelto.';
+        mensaje = 'Cancelación con menos de 3h. Crédito NO devuelto.';
       }
     } 
     else {
@@ -276,28 +279,38 @@ exports.cancelarClase = async (req, res) => {
       const indexEnEspera = clase.listaEspera.findIndex(id => id.toString() === idUsuario.toString());
 
       if (indexEnEspera > -1) {
-        // Sacar de la lista
         clase.listaEspera.splice(indexEnEspera, 1);
         accionRealizada = true;
         
-        // En lista de espera SIEMPRE devolvemos el crédito, sin importar la hora
-        usuario.cancelaciones += 1;
+        // Al salir de lista de espera, devolvemos el crédito también con caducidad
+        // (O puedes decidir que estos no caduquen, pero por consistencia usamos 14 días)
+        const fechaVencimiento = new Date();
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + 14);
+
+        usuario.cuposCompensatorios.push({ 
+          fechaExpiracion: fechaVencimiento 
+        });
+
         mensaje = 'Has salido de la lista de espera. Crédito devuelto.';
       }
     }
 
     if (!accionRealizada) {
-      return res.status(404).json({ mensaje: 'No tienes reserva ni estás en lista de espera para esta clase.' });
+      return res.status(404).json({ mensaje: 'No tienes reserva ni estás en lista de espera.' });
     }
 
     // Guardamos cambios
     await Promise.all([clase.save(), usuario.save()]);
 
+    // 🔄 TRUCO PARA EL FRONTEND:
+    // Filtramos los vencidos visualmente para devolver el número real actual
+    const cuposReales = usuario.cuposCompensatorios.filter(c => new Date(c.fechaExpiracion) > new Date()).length;
+
     return res.status(200).json({
       success: true,
       mensaje: mensaje,
-      cancelacionesRestantes: usuario.cancelaciones,
-      penalizado: penalizado // Flag útil por si el frontend quiere mostrar una alerta específica
+      cancelacionesRestantes: cuposReales, // Enviamos el número que espera Flutter
+      penalizado: penalizado
     });
 
   } catch (error) {
@@ -311,70 +324,84 @@ exports.reservarClase = async (req, res) => {
   const idUsuario = req.user._id;
 
   try {
-    // 1. Obtener datos y validar existencia
+    // 1. Obtener datos
     const usuario = await Usuario.findById(idUsuario);
     const clase = await Clase.findById(idClase);
 
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
-    // 2. Validar Permisos (Tipo de clase)
+    // 🆕 2. VALIDAR ANTELACIÓN MÁXIMA (2 SEMANAS)
+    // El usuario pidió que no se pueda reservar a más de 2 semanas vista
+    const ahora = new Date();
+    const fechaLimite = new Date();
+    fechaLimite.setDate(ahora.getDate() + 14); // Hoy + 14 días
+
+    if (new Date(clase.fecha) > fechaLimite) {
+        return res.status(400).json({ 
+            mensaje: 'Solo puedes reservar clases con un máximo de 2 semanas de antelación.' 
+        });
+    }
+
+    // 3. Validar Permisos (Tipo de clase)
     const tiposDeClases = usuario.tiposDeClases.map(t => t.toLowerCase().trim());
     if (!tiposDeClases.includes(clase.nombre.toLowerCase().trim())) {
       return res.status(403).json({ mensaje: 'No tienes permiso para reservar este tipo de clase.' });
     }
 
-    // 3. Validar Créditos (CRÍTICO: Se valida antes de nada)
-    if (usuario.cancelaciones < 1) {
-      return res.status(403).json({ mensaje: 'No tienes bonos/créditos disponibles.' });
+    // 🆕 4. GESTIÓN DE CRÉDITOS Y CADUCIDAD
+    // a) Limpiamos los cupos que ya han caducado de la base de datos
+    const cuposValidos = usuario.cuposCompensatorios.filter(c => new Date(c.fechaExpiracion) > ahora);
+    
+    // Si la longitud cambió, es que borramos viejos. Actualizamos el array del usuario.
+    if (cuposValidos.length !== usuario.cuposCompensatorios.length) {
+        usuario.cuposCompensatorios = cuposValidos;
+        // No guardamos todavía, lo haremos al final con Promise.all
     }
 
-    // 4. Validar si ya está dentro (Reserva o Espera)
+    // b) Verificar si tiene cupos válidos
+    // NOTA: Aquí asumo que SIEMPRE necesitas cupo. Si tienes lógica Premium que no gasta cupo,
+    // añade aquí: if (!usuario.esPremium && cuposValidos.length < 1) ...
+    if (cuposValidos.length < 1) {
+      return res.status(403).json({ mensaje: 'No tienes bonos/créditos disponibles o han caducado.' });
+    }
+
+    // 5. Validar si ya está dentro
     const reservaExistente = await Reserva.findOne({ usuario: idUsuario, clase: idClase });
-    // Convertimos ObjectId a string para comparar array
     const enListaEspera = clase.listaEspera.some(id => id.toString() === idUsuario.toString());
 
-    if (reservaExistente) {
-      return res.status(400).json({ mensaje: 'Ya tienes plaza confirmada en esta clase.' });
-    }
-    if (enListaEspera) {
-      return res.status(400).json({ mensaje: 'Ya estás en la lista de espera.' });
-    }
+    if (reservaExistente) return res.status(400).json({ mensaje: 'Ya tienes plaza confirmada.' });
+    if (enListaEspera) return res.status(400).json({ mensaje: 'Ya estás en la lista de espera.' });
 
-    // 5. LÓGICA PRINCIPAL
+    // 6. LÓGICA PRINCIPAL (Reservar o Espera)
     let respuesta = {};
 
     if (clase.cuposDisponibles > 0) {
-      // --- ESCENARIO A: HAY SITIO (Reserva Directa) ---
+      // --- ESCENARIO A: RESERVA DIRECTA ---
       await Reserva.create({ usuario: idUsuario, clase: idClase });
       clase.cuposDisponibles -= 1;
-      
-      respuesta = {
-        estado: 'reservado',
-        mensaje: '¡Reserva confirmada! A entrenar.'
-      };
+      respuesta = { estado: 'reservado', mensaje: '¡Reserva confirmada! A entrenar.' };
     } else {
-      // --- ESCENARIO B: NO HAY SITIO (Lista de Espera) ---
+      // --- ESCENARIO B: LISTA DE ESPERA ---
       clase.listaEspera.push(idUsuario);
-      
-      respuesta = {
-        estado: 'en_espera',
-        mensaje: 'Clase llena. Te has unido a la lista de espera.'
-      };
+      respuesta = { estado: 'en_espera', mensaje: 'Clase llena. Unido a lista de espera.' };
     }
 
-    // 6. COBRO DEL CRÉDITO (Se cobra en AMBOS casos para evitar fraudes)
-    usuario.cancelaciones -= 1;
+    // 7. COBRO DEL CRÉDITO
+    // Eliminamos el cupo más antiguo (el primero del array)
+    // .shift() extrae el primer elemento y modifica el array original
+    usuario.cuposCompensatorios.shift(); 
 
-    // 7. Guardar todo atómicamente (Promise.all para velocidad)
+    // 8. Guardar todo
     await Promise.all([clase.save(), usuario.save()]);
 
-    // 8. Responder al Frontend con el saldo actualizado
+    // 9. Responder al Frontend
+    // Devolvemos la longitud del array restante como "cancelacionesRestantes"
     return res.status(200).json({
       success: true,
       mensaje: respuesta.mensaje,
       estado: respuesta.estado,
-      cancelacionesRestantes: usuario.cancelaciones // Importante devolver esto actualizado
+      cancelacionesRestantes: usuario.cuposCompensatorios.length // El frontend recibe un número actualizado
     });
 
   } catch (error) {
