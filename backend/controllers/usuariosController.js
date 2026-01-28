@@ -9,14 +9,30 @@ exports.rankingMensual = async (req, res) => {
     const now = new Date();
     const mesActual = now.getMonth();
     const anioActual = now.getFullYear();
+    
+    // Fechas de inicio y fin del mes
+    const fechaInicio = new Date(anioActual, mesActual, 1);
+    const fechaFin = new Date(anioActual, mesActual + 1, 1);
+
+    // 1. OBTENER LOS IDs DE LAS CLASES DE ESTE MES
+    // Primero buscamos todas las clases que caen en este rango de fechas
+    const clasesDelMes = await require('../models/Clase').find({
+        fecha: { $gte: fechaInicio, $lt: fechaFin }
+    }).select('_id'); // Solo necesitamos el ID
+
+    // Convertimos el resultado a un array simple de IDs
+    const idsClasesMes = clasesDelMes.map(c => c._id);
+
+    // 2. BUSCAR RESERVAS QUE COINCIDAN CON ESOS IDs
+    const reservasMes = await Reserva.find({
+      asistio: true,
+      clase: { $in: idsClasesMes } // <-- Aquí está la magia: buscamos si el ID de la clase está en la lista
+    });
+
+    // --- EL RESTO SIGUE IGUAL ---
 
     // Solo usuarios cliente
     const usuarios = await Usuario.find({ rol: 'cliente' });
-
-    // Buscar reservas con asistencia en este mes
-    const reservasMes = await Reserva.find({
-      asistio: true
-    }).populate('clase').where('clase.fecha').gte(new Date(anioActual, mesActual, 1)).lt(new Date(anioActual, mesActual + 1, 1));
 
     // Contar asistencias por usuario
     let asistenciasPorUsuario = {};
@@ -30,8 +46,8 @@ exports.rankingMensual = async (req, res) => {
       {
         $match: {
           fecha: {
-            $gte: new Date(anioActual, mesActual, 1),
-            $lt: new Date(anioActual, mesActual + 1, 1),
+            $gte: fechaInicio,
+            $lt: fechaFin,
           }
         }
       },
@@ -65,7 +81,7 @@ exports.rankingMensual = async (req, res) => {
       return b.pasosEsteMes - a.pasosEsteMes;
     });
 
-    // 👇 AQUÍ ESTÁ EL CAMBIO: Tomamos solo los 10 primeros
+    // Tomamos solo los 10 primeros
     const top10 = ranking.slice(0, 10);
 
     res.json(top10);
