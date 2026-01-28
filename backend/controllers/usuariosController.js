@@ -236,50 +236,46 @@ exports.obtenerGrupos = async (req, res) => {
 // --- ACTUALIZAR DATOS (ADMIN) ---
 exports.actualizarDatosAdmin = async (req, res) => {
   const { idUsuario } = req.params;
-  const { nombreGrupo, haPagado, nombre, correo, rol, esPremium, incluyePlanDieta, incluyePlanEntrenamiento, nuevaContrasena } = req.body;
+  // 1. AÑADIR 'tiposDeClases' AQUÍ 👇
+  const { nombre, correo, rol, haPagado, nombreGrupo, esPremium, tiposDeClases } = req.body;
 
   try {
-    let fieldsToUpdate = {};
-
-    if (nombre !== undefined) fieldsToUpdate.nombre = nombre;
-    if (correo !== undefined) fieldsToUpdate.correo = correo;
-    if (rol !== undefined) fieldsToUpdate.rol = rol;
-    if (nombreGrupo !== undefined) fieldsToUpdate.nombreGrupo = nombreGrupo;
-    if (haPagado !== undefined) fieldsToUpdate.haPagado = haPagado;
-    if (esPremium !== undefined) fieldsToUpdate.esPremium = esPremium;
-    if (incluyePlanDieta !== undefined) fieldsToUpdate.incluyePlanDieta = incluyePlanDieta;
-    if (incluyePlanEntrenamiento !== undefined) fieldsToUpdate.incluyePlanEntrenamiento = incluyePlanEntrenamiento;
-
-    if (nuevaContrasena) {
-      const salt = await bcrypt.genSalt(10);
-      fieldsToUpdate.contrasena = await bcrypt.hash(nuevaContrasena, salt);
-    }
-
-    if (Object.keys(fieldsToUpdate).length === 0) {
-      return res.status(400).json({ msg: 'No se enviaron datos para actualizar' });
-    }
-
-    const usuario = await Usuario.findByIdAndUpdate(
-      idUsuario,
-      { $set: fieldsToUpdate },
-      { new: true, runValidators: true }
-    ).select('-contrasena');
-
+    // Buscar usuario primero para verificar que existe
+    const usuario = await Usuario.findById(idUsuario);
     if (!usuario) {
-      return res.status(404).json({ msg: 'Usuario no encontrado' });
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    res.json(usuario);
+    // 2. Si se envía una nueva contraseña, la encriptamos (esto ya lo tendrás seguramente)
+    if (req.body.contrasena && req.body.contrasena.trim() !== '') {
+        const salt = await bcrypt.genSalt(10);
+        usuario.contrasena = await bcrypt.hash(req.body.contrasena, salt);
+    }
+
+    // 3. Actualizamos los campos básicos
+    usuario.nombre = nombre || usuario.nombre;
+    usuario.correo = correo || usuario.correo;
+    usuario.rol = rol || usuario.rol;
+    usuario.nombreGrupo = nombreGrupo; // Este puede ser null, así que no usamos ||
+    
+    // Convertimos haPagado y esPremium a Boolean si vienen
+    if (haPagado !== undefined) usuario.haPagado = haPagado;
+    if (esPremium !== undefined) usuario.esPremium = esPremium;
+
+    // 4. AÑADIR LA LÓGICA PARA tiposDeClases AQUÍ 👇
+    // Verificamos si viene el array en la petición antes de asignarlo
+    if (tiposDeClases) {
+      usuario.tiposDeClases = tiposDeClases;
+    }
+
+    // Guardamos
+    const usuarioActualizado = await usuario.save();
+
+    res.json(usuarioActualizado);
 
   } catch (error) {
-    console.error('Error al actualizar datos de admin:', error);
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ msg: error.message });
-    }
-    if (error.code === 11000) {
-      return res.status(400).json({ msg: 'El correo electrónico ya está en uso por otro usuario.' });
-    }
-    res.status(500).send('Error en el servidor al actualizar');
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al actualizar usuario' });
   }
 };
 
