@@ -52,11 +52,12 @@ exports.rankingMensual = async (req, res) => {
     let ranking = usuarios.map(usuario => ({
       _id: usuario._id,
       nombre: usuario.nombre,
-      avatar: usuario.avatar, // Se envía el objeto avatar guardado (o vacío)
+      avatar: usuario.avatar, 
       asistenciasEsteMes: asistenciasPorUsuario[usuario._id.toString()] || 0,
       pasosEsteMes: pasosPorUsuario[usuario._id.toString()] || 0,
     }));
 
+    // Ordenamos (primero asistencias, luego pasos)
     ranking.sort((a, b) => {
       if (b.asistenciasEsteMes !== a.asistenciasEsteMes) {
         return b.asistenciasEsteMes - a.asistenciasEsteMes;
@@ -64,7 +65,10 @@ exports.rankingMensual = async (req, res) => {
       return b.pasosEsteMes - a.pasosEsteMes;
     });
 
-    res.json(ranking);
+    // 👇 AQUÍ ESTÁ EL CAMBIO: Tomamos solo los 10 primeros
+    const top10 = ranking.slice(0, 10);
+
+    res.json(top10);
 
   } catch (error) {
     console.error("ERROR EN rankingMensual:", error);
