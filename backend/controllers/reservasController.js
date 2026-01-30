@@ -1,6 +1,7 @@
 const Clase = require('../models/Clase');
 const Usuario = require('../models/Usuario');
 const Reserva = require('../models/Reserva');
+const HistorialReserva = require('../models/HistorialReserva');
 // 👇 1. IMPORTAMOS EL NOTIFICADOR
 const { enviarNotificacion } = require('../utils/notificador');
 
@@ -249,6 +250,7 @@ exports.cancelarClase = async (req, res) => {
     let accionRealizada = false;
     let mensaje = '';
     let penalizado = false;
+    let tipoHistorial = ''; // Variable para guardar qué pasó en el historial
 
     // --- INTENTO A: BORRAR RESERVA CONFIRMADA ---
     const reservaBorrada = await Reserva.findOneAndDelete({ usuario: idUsuario, clase: idClase });
@@ -259,19 +261,21 @@ exports.cancelarClase = async (req, res) => {
 
       // LÓGICA DE PENALIZACIÓN (3 HORAS)
       if (horasRestantes >= 3) {
-        // ✅ DEVOLUCIÓN: En lugar de sumar numero, creamos cupo con caducidad
+        // ✅ DEVOLUCIÓN: Creamos cupo con caducidad (14 días)
         const fechaVencimiento = new Date();
-        fechaVencimiento.setDate(fechaVencimiento.getDate() + 14); // 14 días de vida
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + 14); 
 
         usuario.cuposCompensatorios.push({ 
           fechaExpiracion: fechaVencimiento 
         });
         
         mensaje = 'Reserva cancelada. Crédito devuelto (Válido por 2 semanas).';
+        tipoHistorial = 'CANCELACION_DEVOLUCION';
       } else {
         // ❌ PENALIZACIÓN
         penalizado = true;
         mensaje = 'Cancelación con menos de 3h. Crédito NO devuelto.';
+        tipoHistorial = 'CANCELACION_PENALIZACION';
       }
     } 
     else {
@@ -283,7 +287,6 @@ exports.cancelarClase = async (req, res) => {
         accionRealizada = true;
         
         // Al salir de lista de espera, devolvemos el crédito también con caducidad
-        // (O puedes decidir que estos no caduquen, pero por consistencia usamos 14 días)
         const fechaVencimiento = new Date();
         fechaVencimiento.setDate(fechaVencimiento.getDate() + 14);
 
@@ -292,6 +295,7 @@ exports.cancelarClase = async (req, res) => {
         });
 
         mensaje = 'Has salido de la lista de espera. Crédito devuelto.';
+        tipoHistorial = 'CANCELACION_DEVOLUCION'; // O podrías crear uno llamado 'SALIDA_LISTA_ESPERA'
       }
     }
 
@@ -299,7 +303,19 @@ exports.cancelarClase = async (req, res) => {
       return res.status(404).json({ mensaje: 'No tienes reserva ni estás en lista de espera.' });
     }
 
-    // Guardamos cambios
+    // --- 📝 GUARDAR EN HISTORIAL ---
+    // Solo guardamos si realmente se hizo algo
+    if (accionRealizada) {
+      await HistorialReserva.create({
+        usuario: idUsuario,
+        nombreUsuario: usuario.nombre,
+        clase: idClase,
+        infoClase: `${clase.nombre} - ${clase.dia} ${clase.horaInicio} (${clase.fecha.toISOString().split('T')[0]})`,
+        tipoAccion: tipoHistorial || 'CANCELACION' // Fallback por si acaso
+      });
+    }
+
+    // Guardamos cambios en Usuario y Clase
     await Promise.all([clase.save(), usuario.save()]);
 
     // 🔄 TRUCO PARA EL FRONTEND:
@@ -331,8 +347,7 @@ exports.reservarClase = async (req, res) => {
     if (!usuario) return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     if (!clase) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 
-    // 🆕 2. VALIDAR ANTELACIÓN MÁXIMA (2 SEMANAS)
-    // El usuario pidió que no se pueda reservar a más de 2 semanas vista
+    // 2. VALIDAR ANTELACIÓN MÁXIMA (2 SEMANAS)
     const ahora = new Date();
     const fechaLimite = new Date();
     fechaLimite.setDate(ahora.getDate() + 14); // Hoy + 14 días
@@ -349,19 +364,16 @@ exports.reservarClase = async (req, res) => {
       return res.status(403).json({ mensaje: 'No tienes permiso para reservar este tipo de clase.' });
     }
 
-    // 🆕 4. GESTIÓN DE CRÉDITOS Y CADUCIDAD
+    // 4. GESTIÓN DE CRÉDITOS Y CADUCIDAD
     // a) Limpiamos los cupos que ya han caducado de la base de datos
     const cuposValidos = usuario.cuposCompensatorios.filter(c => new Date(c.fechaExpiracion) > ahora);
     
     // Si la longitud cambió, es que borramos viejos. Actualizamos el array del usuario.
     if (cuposValidos.length !== usuario.cuposCompensatorios.length) {
         usuario.cuposCompensatorios = cuposValidos;
-        // No guardamos todavía, lo haremos al final con Promise.all
     }
 
     // b) Verificar si tiene cupos válidos
-    // NOTA: Aquí asumo que SIEMPRE necesitas cupo. Si tienes lógica Premium que no gasta cupo,
-    // añade aquí: if (!usuario.esPremium && cuposValidos.length < 1) ...
     if (cuposValidos.length < 1) {
       return res.status(403).json({ mensaje: 'No tienes bonos/créditos disponibles o han caducado.' });
     }
@@ -375,33 +387,45 @@ exports.reservarClase = async (req, res) => {
 
     // 6. LÓGICA PRINCIPAL (Reservar o Espera)
     let respuesta = {};
+    let tipoAccionHistorial = '';
 
     if (clase.cuposDisponibles > 0) {
       // --- ESCENARIO A: RESERVA DIRECTA ---
       await Reserva.create({ usuario: idUsuario, clase: idClase });
       clase.cuposDisponibles -= 1;
+      
       respuesta = { estado: 'reservado', mensaje: '¡Reserva confirmada! A entrenar.' };
+      tipoAccionHistorial = 'RESERVA_CON_CUPO'; // Porque gastó cupo y entró
     } else {
       // --- ESCENARIO B: LISTA DE ESPERA ---
       clase.listaEspera.push(idUsuario);
+      
       respuesta = { estado: 'en_espera', mensaje: 'Clase llena. Unido a lista de espera.' };
+      tipoAccionHistorial = 'LISTA_ESPERA';
     }
 
     // 7. COBRO DEL CRÉDITO
-    // Eliminamos el cupo más antiguo (el primero del array)
-    // .shift() extrae el primer elemento y modifica el array original
+    // Eliminamos el cupo más antiguo
     usuario.cuposCompensatorios.shift(); 
+
+    // --- 📝 GUARDAR EN HISTORIAL ---
+    await HistorialReserva.create({
+      usuario: idUsuario,
+      nombreUsuario: usuario.nombre,
+      clase: idClase,
+      infoClase: `${clase.nombre} - ${clase.dia} ${clase.horaInicio} (${clase.fecha.toISOString().split('T')[0]})`,
+      tipoAccion: tipoAccionHistorial
+    });
 
     // 8. Guardar todo
     await Promise.all([clase.save(), usuario.save()]);
 
     // 9. Responder al Frontend
-    // Devolvemos la longitud del array restante como "cancelacionesRestantes"
     return res.status(200).json({
       success: true,
       mensaje: respuesta.mensaje,
       estado: respuesta.estado,
-      cancelacionesRestantes: usuario.cuposCompensatorios.length // El frontend recibe un número actualizado
+      cancelacionesRestantes: usuario.cuposCompensatorios.length 
     });
 
   } catch (error) {
@@ -422,21 +446,56 @@ exports.registrarAsistencia = async (req, res) => {
 
   try {
     const reserva = await Reserva.findOne({ usuario: usuarioId, clase: idClase });
+
+    // 🛑 CASO: USUARIO NO TIENE RESERVA
     if (!reserva) {
-      return res.status(403).json({ mensaje: 'No tienes reserva para esta clase' });
+      
+      // 1. Buscamos info de la clase solo para el log (aunque no tenga reserva)
+      const claseInfo = await Clase.findById(idClase);
+      const nombreClase = claseInfo ? `${claseInfo.nombre} ${claseInfo.horaInicio}` : 'Clase Desconocida';
+
+      // 2. Registrar el intento fallido en BD
+      await HistorialReserva.create({
+        usuario: usuarioId,
+        nombreUsuario: req.user.nombre, // req.user viene del middleware proteger
+        clase: idClase,
+        infoClase: nombreClase,
+        tipoAccion: 'INTENTO_FALLIDO_QR'
+      });
+
+      // 3. Enviar Notificación de Alerta al Usuario (o al admin si prefieres)
+      await enviarNotificacion(
+        usuarioId, 
+        "⛔ Acceso Denegado", 
+        `Has intentado acceder a ${nombreClase} sin tener reserva confirmada.`
+      );
+
+      return res.status(403).json({ mensaje: '⛔ No tienes reserva para esta clase. Se ha registrado el incidente.' });
     }
+
     if (reserva.asistio) {
       return res.status(400).json({ mensaje: 'Ya se registró tu asistencia' });
     }
 
+    // ✅ CASO ÉXITO
     reserva.asistio = true;
     await reserva.save();
+    
+    // Opcional: Registrar también la asistencia exitosa en el historial
+    await HistorialReserva.create({
+        usuario: usuarioId,
+        nombreUsuario: req.user.nombre,
+        clase: idClase,
+        infoClase: 'Asistencia confirmada por QR',
+        tipoAccion: 'ASISTENCIA'
+    });
 
     res.status(200).json({ mensaje: '✅ Asistencia registrada con éxito' });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ mensaje: 'Error al registrar asistencia' });
   }
-
 };
 
 exports.obtenerAsistenciasPorUsuario = async (req, res) => {

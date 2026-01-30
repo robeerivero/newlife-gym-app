@@ -292,6 +292,7 @@ exports.obtenerUsuariosConAsistencia = async (req, res) => {
   console.log('🔍 [BACKEND] Llamada a obtenerUsuariosConAsistencia con ID:', idClase);
 
   try {
+    // Buscamos reservas y poblamos los datos del usuario
     const reservas = await Reserva.find({ clase: idClase }).populate('usuario');
 
     console.log('✅ [BACKEND] Reservas encontradas:', reservas.length);
@@ -300,11 +301,13 @@ exports.obtenerUsuariosConAsistencia = async (req, res) => {
       console.log(`  - Usuario[${i}]:`, r.usuario?.nombre || 'null', '| Asistió:', r.asistio);
     });
 
+    // Mapeamos el resultado incluyendo 'haPagado'
     const resultado = reservas.map(r => ({
       _id: r.usuario._id,
       nombre: r.usuario.nombre,
       correo: r.usuario.correo,
-      asistio: r.asistio
+      asistio: r.asistio,
+      haPagado: r.usuario.haPagado // 👈 CAMBIO AQUÍ: Enviamos el estado de pago
     }));
 
     res.json(resultado);
