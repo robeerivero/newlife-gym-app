@@ -515,3 +515,19 @@ exports.obtenerAsistenciasPorUsuario = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al obtener asistencias', error });
   }
 };
+
+exports.obtenerHistorialGlobal = async (req, res) => {
+  try {
+    // Devuelve los últimos 100 movimientos ordenados por fecha
+    const historial = await HistorialReserva.find()
+      .sort({ fechaAccion: -1 })
+      .limit(100)
+      .populate('usuario', 'nombre correo')
+      .populate('clase', 'nombre fecha horaInicio');
+
+    res.json(historial);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al obtener historial' });
+  }
+};

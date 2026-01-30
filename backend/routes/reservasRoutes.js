@@ -12,13 +12,15 @@ const {
   desasignarUsuarioDeClase,
   obtenerClasesPorUsuario,
   obtenerUsuariosPorClase,
-  asignarUsuarioAClasesPorDiaYHora
+  asignarUsuarioAClasesPorDiaYHora,
+  obtenerHistorialGlobal
 } = require('../controllers/reservasController');
 
 const router = express.Router();
 
 /* ========= RUTAS PARA USUARIO AUTENTICADO ========= */
-
+// Asegúrate de importar obtenerHistorialGlobal en los imports al inicio
+router.get('/historial', proteger, esAdministrador, obtenerHistorialGlobal);
 // Reservar una clase (usuario normal)
 router.post('/reservar', proteger, reservarClase);
 
